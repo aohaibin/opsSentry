@@ -1,10 +1,6 @@
 import { useNavigate, useLocation } from "react-router-dom";
 import { Menu, theme as antdTheme } from "antd";
-import {
-  Home,
-  Settings,
-  Info,
-} from "lucide-react";
+import { Home, Info } from "lucide-react";
 import { useAppStore } from "@/store";
 
 const menuItems = [
@@ -12,11 +8,6 @@ const menuItems = [
     key: "/",
     icon: <Home size={18} />,
     label: "首页",
-  },
-  {
-    key: "/settings",
-    icon: <Settings size={18} />,
-    label: "设置",
   },
   {
     key: "/about",

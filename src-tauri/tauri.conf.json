@@ -17,11 +17,18 @@
         "height": 800,
         "minWidth": 900,
         "minHeight": 600,
-        "center": true
+        "center": true,
+        "decorations": false
       }
     ],
     "security": {
       "csp": null
+    }
+  },
+  "plugins": {
+    "updater": {
+      "endpoints": ["https://releases.example.com/{{target}}/{{arch}}/{{current_version}}"],
+      "pubkey": "YOUR_UPDATER_PUBKEY_HERE"
     }
   },
   "bundle": {

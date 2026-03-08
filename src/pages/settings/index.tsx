@@ -1,13 +1,19 @@
 import { useEffect, useState } from "react";
-import { Card, Typography, Table, message, Tag } from "antd";
+import { Card, Typography, Table, message, Tag, Button, Space } from "antd";
+import { SyncOutlined } from "@ant-design/icons";
+import type { Update } from "@tauri-apps/plugin-updater";
 import type { AppConfig } from "@/types";
-import { configApi } from "@/lib/api";
+import { configApi, updaterApi } from "@/lib/api";
+import { UpdateModal } from "@/components/ui/UpdateModal";
 
 const { Title, Text } = Typography;
 
 export default function SettingsPage() {
   const [configs, setConfigs] = useState<AppConfig[]>([]);
   const [loading, setLoading] = useState(false);
+  const [checking, setChecking] = useState(false);
+  const [update, setUpdate] = useState<Update | null>(null);
+  const [updateModalOpen, setUpdateModalOpen] = useState(false);
 
   async function loadConfigs() {
     setLoading(true);
@@ -18,6 +24,23 @@ export default function SettingsPage() {
       message.error(String(e));
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleCheckUpdate() {
+    setChecking(true);
+    try {
+      const result = await updaterApi.checkUpdate();
+      if (result) {
+        setUpdate(result);
+        setUpdateModalOpen(true);
+      } else {
+        message.success("当前已是最新版本");
+      }
+    } catch (e) {
+      message.warning(`检查更新失败: ${String(e)}`);
+    } finally {
+      setChecking(false);
     }
   }
 
@@ -44,7 +67,20 @@ export default function SettingsPage() {
       <Title level={3}>设置</Title>
       <Text type="secondary">应用配置管理（数据来自 Rust SQLite）</Text>
 
-      <Card title="配置列表" className="mt-6">
+      <Card title="软件更新" className="mt-6">
+        <Space>
+          <Button
+            icon={<SyncOutlined spin={checking} />}
+            onClick={handleCheckUpdate}
+            loading={checking}
+          >
+            检查更新
+          </Button>
+          <Text type="secondary">当前版本: 0.1.0</Text>
+        </Space>
+      </Card>
+
+      <Card title="配置列表" className="mt-4">
         <Table
           columns={columns}
           dataSource={configs}
@@ -54,6 +90,12 @@ export default function SettingsPage() {
           size="small"
         />
       </Card>
+
+      <UpdateModal
+        open={updateModalOpen}
+        onClose={() => setUpdateModalOpen(false)}
+        update={update}
+      />
     </div>
   );
 }

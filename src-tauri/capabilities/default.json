@@ -5,10 +5,13 @@
   "windows": ["main"],
   "permissions": [
     "core:default",
+    "core:window:default",
     "opener:default",
     "store:default",
     "log:default",
     "core:menu:default",
-    "core:tray:default"
+    "core:tray:default",
+    "updater:default",
+    "process:default"
   ]
 }

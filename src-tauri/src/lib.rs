@@ -20,6 +20,8 @@ pub fn run() {
                 .level(log::LevelFilter::Info)
                 .build(),
         )
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_process::init())
         // ─── 应用初始化 ─────────────────────────────
         .setup(|app| {
             // 初始化数据库（存放在应用数据目录）
