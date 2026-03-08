@@ -4,9 +4,10 @@ mod error;
 mod models;
 mod services;
 mod state;
+mod tray;
 
 use state::AppState;
-use tauri::Manager;
+use tauri::{Manager, WindowEvent};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -34,6 +35,10 @@ pub fn run() {
 
             // 注册全局状态
             app.manage(AppState::new(db));
+
+            // 初始化系统托盘
+            tray::setup_tray(app)?;
+            log::info!("系统托盘初始化完成");
 
             Ok(())
         })
