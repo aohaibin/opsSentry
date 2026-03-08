@@ -32,7 +32,7 @@ Tauri Desktop App 的技术决策记录技能，使用 ADR（Architecture Decisi
 
 ## 技术约束
 - 后端: Rust + Tauri 2.x
-- 前端: React 19 + TypeScript
+- 前端: React 19 + TypeScript 5.8
 - 平台: Windows / macOS / Linux
 
 ## 方案对比
@@ -53,22 +53,138 @@ Tauri Desktop App 的技术决策记录技能，使用 ADR（Architecture Decisi
 
 ---
 
-## 常见决策场景
+## 本项目已采纳的技术决策
 
-### Tauri 项目典型技术选型
+### 架构层面
 
-| 决策领域 | 常见选项 | 推荐 |
-|---------|---------|------|
-| UI 组件库 | Ant Design / MUI / Shadcn/ui / Headless UI | 按需选择 |
-| 状态管理 | useState / Zustand / Jotai / Redux | Zustand（轻量） |
-| 路由 | React Router / TanStack Router | React Router |
-| 本地数据库 | SQLite (tauri-plugin-sql) / IndexedDB | SQLite |
-| HTTP 客户端 | reqwest (Rust) / fetch (前端) | reqwest (通过 Command) |
-| 日志 | log + env_logger / tracing | tracing |
-| 错误处理 | thiserror / anyhow | thiserror (Command 错误) |
-| 样式方案 | CSS Modules / Tailwind / styled-components | Tailwind |
-| 测试 | cargo test + Vitest / Jest | cargo test + Vitest |
-| CI/CD | GitHub Actions / GitLab CI | GitHub Actions |
+| 决策领域 | 选择 | 理由 |
+|---------|------|------|
+| **后端架构** | 三层架构（models → database → services → commands） | 清晰的职责分离，便于测试和维护 |
+| **数据库方案** | rusqlite (直接使用，不用 tauri-plugin-sql) | 更灵活的 SQL 控制，无需通过插件桥接 |
+| **错误处理** | thiserror 定义 AppError enum | 类型安全的错误处理，避免 panic |
+| **状态管理（前端）** | Zustand | 轻量、API 简洁、TypeScript 友好 |
+| **路由** | React Router v7 | 成熟稳定，文档完善 |
+
+### UI 层面
+
+| 决策领域 | 选择 | 理由 |
+|---------|------|------|
+| **UI 组件库** | Ant Design 5 | 企业级组件库，功能完善，开箱即用 |
+| **样式方案** | TailwindCSS 4 | 原子化 CSS，开发效率高 |
+| **路径别名** | `@/` 指向 `src/` | 简化导入路径 |
+
+### 数据持久化
+
+| 决策领域 | 选择 | 理由 |
+|---------|------|------|
+| **键值存储** | tauri-plugin-store | 前端直接使用，适合应用配置 |
+| **结构化数据** | rusqlite | 后端使用，适合业务数据 |
+
+### 插件与工具
+
+| 决策领域 | 选择 | 理由 |
+|---------|------|------|
+| **日志系统** | tauri-plugin-log | 官方插件，支持日志文件 |
+| **打开 URL** | tauri-plugin-opener | 安全地打开外部链接 |
+
+---
+
+## 技术选型对比表
+
+### UI 组件库
+
+| 方案 | 优点 | 缺点 | 本项目选择 |
+|------|------|------|-----------|
+| **Ant Design** | 企业级、功能完善、中文文档 | 体积较大、样式定制复杂 | ✅ 已采纳 |
+| shadcn/ui | 轻量、可定制、现代设计 | 需要手动配置、组件较少 | ⭕ 未采纳 |
+| MUI | 成熟、Material Design | 体积大、学习曲线陡 | ⭕ 未采纳 |
+| Headless UI | 无样式、完全可定制 | 需要自己写样式 | ⭕ 未采纳 |
+
+**决策**: 选择 Ant Design，因为需要快速搭建功能完善的企业级应用。
+
+---
+
+### 状态管理
+
+| 方案 | 优点 | 缺点 | 本项目选择 |
+|------|------|------|-----------|
+| **Zustand** | 轻量、API 简洁、无 boilerplate | 功能相对简单 | ✅ 已采纳 |
+| Redux Toolkit | 功能强大、生态丰富 | 代码量大、学习成本高 | ⭕ 未采纳 |
+| Jotai | 原子化状态、灵活 | 适合复杂场景，本项目不需要 | ⭕ 未采纳 |
+| React Context | 内置、无需依赖 | 性能问题、不适合全局状态 | ⭕ 未采纳 |
+
+**决策**: 选择 Zustand，因为项目状态管理需求简单，Zustand 足够轻量且易用。
+
+---
+
+### 路由方案
+
+| 方案 | 优点 | 缺点 | 本项目选择 |
+|------|------|------|-----------|
+| **React Router v7** | 成熟稳定、文档完善、社区大 | 相对传统 | ✅ 已采纳 |
+| TanStack Router | 类型安全、现代化 | 较新、生态较小 | ⭕ 未采纳 |
+
+**决策**: 选择 React Router v7，因为成熟稳定，文档完善。
+
+---
+
+### 数据库方案
+
+| 方案 | 优点 | 缺点 | 本项目选择 |
+|------|------|------|-----------|
+| **rusqlite** | 灵活、直接控制 SQL、无需插件 | 需要手动管理连接 | ✅ 已采纳 |
+| tauri-plugin-sql | 官方插件、自动管理连接池 | 功能受限、需要通过 IPC 调用 | ⭕ 未采纳 |
+| IndexedDB (前端) | 浏览器原生、无需后端 | 不适合桌面应用、API 复杂 | ⭕ 未采纳 |
+
+**决策**: 选择 rusqlite，因为需要在 Rust 后端直接操作数据库，灵活性更高。
+
+---
+
+### 错误处理
+
+| 方案 | 优点 | 缺点 | 本项目选择 |
+|------|------|------|-----------|
+| **thiserror** | 定义清晰的错误类型、派生宏 | 需要手动定义每个错误 | ✅ 已采纳 |
+| anyhow | 灵活、快速开发 | 类型擦除、不适合库代码 | ⭕ 未采纳 |
+| Result<T, String> | 简单直接 | 缺乏类型安全 | ⭕ 未采纳 |
+
+**决策**: 选择 thiserror，因为需要类型安全的错误处理，方便调试和维护。
+
+---
+
+### 样式方案
+
+| 方案 | 优点 | 缺点 | 本项目选择 |
+|------|------|------|-----------|
+| **TailwindCSS 4** | 原子化、快速开发、配置简单 | 类名冗长 | ✅ 已采纳 |
+| CSS Modules | 作用域隔离、传统 CSS | 需要管理多个 CSS 文件 | ⭕ 未采纳 |
+| styled-components | CSS-in-JS、动态样式 | 运行时开销 | ⭕ 未采纳 |
+
+**决策**: 选择 TailwindCSS 4，因为开发效率高，与 Ant Design 搭配使用效果好。
+
+---
+
+### 日志系统
+
+| 方案 | 优点 | 缺点 | 本项目选择 |
+|------|------|------|-----------|
+| **tauri-plugin-log** | 官方插件、支持日志文件 | 功能相对简单 | ✅ 已采纳 |
+| tracing | 功能强大、异步支持 | 配置复杂、体积大 | ⭕ 未采纳 |
+| env_logger | 轻量、简单 | 功能有限 | ⭕ 未采纳 |
+
+**决策**: 选择 tauri-plugin-log，因为满足基本需求且集成简单。
+
+---
+
+### 测试框架
+
+| 方案 | 优点 | 缺点 | 本项目选择 |
+|------|------|------|-----------|
+| **cargo test** (Rust) | 内置、无需配置 | 功能相对简单 | ✅ 已采纳 |
+| **Vitest** (前端) | 快速、Vite 原生支持 | 需要配置 | ✅ 已采纳 |
+| Jest | 成熟、生态丰富 | 配置复杂、速度慢 | ⭕ 未采纳 |
+
+**决策**: 选择 cargo test + Vitest，因为分别是 Rust 和 Vite 的最佳选择。
 
 ---
 
@@ -80,3 +196,6 @@ Tauri Desktop App 的技术决策记录技能，使用 ADR（Architecture Decisi
 | 选择不支持跨平台的方案 | 评估 Windows/macOS/Linux 兼容性 |
 | 选 Rust crate 不考虑编译时间 | 权衡功能 vs 编译时间 |
 | 决策后不追踪效果 | 定期回顾决策结果并更新状态 |
+| 混用多种状态管理方案 | 统一使用一种（本项目用 Zustand） |
+| 混用多种样式方案 | 统一使用一种（本项目用 TailwindCSS） |
+| 混用多种数据库方案 | 统一使用一种（本项目用 rusqlite + tauri-plugin-store） |

@@ -17,20 +17,34 @@ description: |
 ## 双层状态架构
 
 ```
-┌─────────────────────────────────────┐
-│  前端状态 (React)                     │
-│  ├── 组件内: useState                 │
-│  ├── 跨组件: Context / Zustand        │
-│  └── 缓存: useMemo / React Query      │
-├─────────────────────────────────────┤
-│  IPC 桥接 (invoke / listen)           │
-├─────────────────────────────────────┤
-│  后端状态 (Rust)                      │
-│  ├── 运行时: tauri::State<Mutex<T>>   │
-│  ├── 持久化: tauri-plugin-store       │
-│  └── 数据库: tauri-plugin-sql         │
-└─────────────────────────────────────┘
+┌──────────────────────────────────────────┐
+│  前端状态 (React)                          │
+│  ├── 组件内: useState                      │
+│  ├── 全局状态: Zustand (src/store/index.ts)│
+│  ├── API 封装: src/lib/api/index.ts        │
+│  └── Hooks: src/hooks/useCommand.ts        │
+├──────────────────────────────────────────┤
+│  IPC 桥接 (invoke / listen)                │
+├──────────────────────────────────────────┤
+│  后端状态 (Rust - 三层架构)                 │
+│  ├── 运行时: tauri::State<AppState>        │
+│  │   (定义于 src-tauri/src/state.rs)       │
+│  ├── 持久化: tauri-plugin-store            │
+│  └── 数据库: rusqlite (SQLite)             │
+│      (src-tauri/src/database/)             │
+└──────────────────────────────────────────┘
 ```
+
+### 关键文件位置
+
+| 状态类型 | 文件 |
+|---------|------|
+| Rust AppState 定义 | `src-tauri/src/state.rs` |
+| Database 结构体 | `src-tauri/src/database/mod.rs` |
+| Schema 迁移 | `src-tauri/src/database/schema.rs` |
+| 前端 Zustand Store | `src/store/index.ts` |
+| API 类型安全封装 | `src/lib/api/index.ts` |
+| invoke Hook 封装 | `src/hooks/useCommand.ts` |
 
 ---
 
@@ -178,14 +192,14 @@ await store.save();  // 持久化到磁盘
 
 ## 选型建议
 
-| 场景 | 推荐方案 |
-|------|---------|
-| 组件内简单状态 | `useState` |
-| 2-3 个组件共享 | Props 传递 或 Context |
-| 全局 UI 状态(主题/侧边栏) | Zustand |
-| 需要持久化的设置 | tauri-plugin-store |
-| 业务数据(用户/文件列表) | Rust State + Command |
-| 大量结构化数据 | tauri-plugin-sql (SQLite) |
+| 场景 | 推荐方案 | 文件位置 |
+|------|---------|---------|
+| 组件内简单状态 | `useState` | 组件内 |
+| 全局 UI 状态(主题/侧边栏) | Zustand | `src/store/index.ts` |
+| 需要持久化的设置 | tauri-plugin-store | 前端调用 + Rust 注册 |
+| 业务数据(配置等) | Rust State + Command (三层架构) | `src-tauri/src/services/` |
+| 大量结构化数据 | rusqlite (SQLite) | `src-tauri/src/database/` |
+| API 调用封装 | 类型安全 invoke 封装 | `src/lib/api/index.ts` |
 
 ---
 

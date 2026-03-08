@@ -14,41 +14,85 @@ description: |
 
 # Tauri 插件开发与集成
 
+## 当前项目已安装插件
+
+### Cargo 依赖（src-tauri/Cargo.toml）
+
+```toml
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-opener = "2"
+tauri-plugin-store = "2"
+tauri-plugin-log = "2"
+```
+
+### 已注册插件（src-tauri/src/lib.rs）
+
+```rust
+pub fn run() {
+    tauri::Builder::default()
+        .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_store::Builder::new().build())
+        .plugin(tauri_plugin_log::Builder::new().build())
+        .invoke_handler(tauri::generate_handler![...])
+        .run(tauri::generate_context!())
+        .expect("error while running tauri application");
+}
+```
+
+### 已配置权限（src-tauri/capabilities/default.json）
+
+```json
+{
+  "permissions": [
+    "core:default",
+    "opener:default",
+    "store:default",
+    "log:default"
+  ]
+}
+```
+
+---
+
 ## 官方插件清单
 
 ### 核心功能插件
 
-| 插件 | Cargo 依赖 | npm 包 | 用途 |
-|------|-----------|--------|------|
-| **opener** | `tauri-plugin-opener` | `@tauri-apps/plugin-opener` | 打开 URL/文件 |
-| **fs** | `tauri-plugin-fs` | `@tauri-apps/plugin-fs` | 文件系统操作 |
-| **dialog** | `tauri-plugin-dialog` | `@tauri-apps/plugin-dialog` | 文件选择对话框 |
-| **shell** | `tauri-plugin-shell` | `@tauri-apps/plugin-shell` | 执行系统命令 |
-| **clipboard** | `tauri-plugin-clipboard-manager` | `@tauri-apps/plugin-clipboard-manager` | 剪贴板 |
-| **process** | `tauri-plugin-process` | `@tauri-apps/plugin-process` | 进程管理 |
+| 插件 | Cargo 依赖 | npm 包 | 用途 | 当前状态 |
+|------|-----------|--------|------|---------|
+| **opener** | `tauri-plugin-opener` | `@tauri-apps/plugin-opener` | 打开 URL/文件 | ✅ 已安装 |
+| **store** | `tauri-plugin-store` | `@tauri-apps/plugin-store` | 键值存储 | ✅ 已安装 |
+| **log** | `tauri-plugin-log` | `@tauri-apps/plugin-log` | 日志系统 | ✅ 已安装 |
+| **fs** | `tauri-plugin-fs` | `@tauri-apps/plugin-fs` | 文件系统操作 | ⭕ 未安装 |
+| **dialog** | `tauri-plugin-dialog` | `@tauri-apps/plugin-dialog` | 文件选择对话框 | ⭕ 未安装 |
+| **shell** | `tauri-plugin-shell` | `@tauri-apps/plugin-shell` | 执行系统命令 | ⭕ 未安装 |
+| **clipboard** | `tauri-plugin-clipboard-manager` | `@tauri-apps/plugin-clipboard-manager` | 剪贴板 | ⭕ 未安装 |
+| **process** | `tauri-plugin-process` | `@tauri-apps/plugin-process` | 进程管理 | ⭕ 未安装 |
 
 ### 数据存储插件
 
-| 插件 | 用途 | 数据库支持 |
-|------|------|-----------|
-| **sql** | SQL 数据库 | SQLite / MySQL / PostgreSQL |
-| **store** | 键值存储 | JSON 文件持久化 |
+| 插件 | 用途 | 数据库支持 | 当前状态 |
+|------|------|-----------|---------|
+| **store** | 键值存储 | JSON 文件持久化 | ✅ 已安装 |
+| **sql** | SQL 数据库 | SQLite / MySQL / PostgreSQL | ⭕ 未安装（使用 rusqlite） |
+
+> **注意**: 本项目使用 **rusqlite** 直接操作 SQLite，而非 tauri-plugin-sql。
 
 ### 系统交互插件
 
-| 插件 | 用途 |
-|------|------|
-| **notification** | 系统通知 |
-| **global-shortcut** | 全局快捷键 |
-| **os** | 操作系统信息 |
-| **updater** | 应用自动更新 |
-| **log** | 日志系统 |
-| **http** | HTTP 请求 |
-| **websocket** | WebSocket 连接 |
+| 插件 | 用途 | 当前状态 |
+|------|------|---------|
+| **notification** | 系统通知 | ⭕ 未安装 |
+| **global-shortcut** | 全局快捷键 | ⭕ 未安装 |
+| **os** | 操作系统信息 | ⭕ 未安装 |
+| **updater** | 应用自动更新 | ⭕ 未安装 |
+| **http** | HTTP 请求 | ⭕ 未安装 |
+| **websocket** | WebSocket 连接 | ⭕ 未安装 |
 
 ---
 
-## 插件集成 3 步法
+## 插件集成 3 步法（适配三层架构）
 
 ### 步骤 1: 安装依赖
 
@@ -68,7 +112,10 @@ pnpm add @tauri-apps/plugin-fs
 // src-tauri/src/lib.rs
 pub fn run() {
     tauri::Builder::default()
-        .plugin(tauri_plugin_fs::init())    // 添加这行
+        .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_store::Builder::new().build())
+        .plugin(tauri_plugin_log::Builder::new().build())
+        .plugin(tauri_plugin_fs::init())    // 新增
         .invoke_handler(tauri::generate_handler![...])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
@@ -82,10 +129,63 @@ pub fn run() {
 {
   "permissions": [
     "core:default",
-    "fs:default",
-    "fs:allow-read-text-file"
+    "opener:default",
+    "store:default",
+    "log:default",
+    "fs:default",              // 新增
+    "fs:allow-read-text-file"  // 新增
   ]
 }
+```
+
+### 步骤 4: 在三层架构中使用
+
+**在 Database 层使用插件功能**:
+
+```rust
+// src-tauri/src/database/file.rs
+use crate::error::AppError;
+use std::fs;
+
+pub fn read_file(path: &str) -> Result<String, AppError> {
+    Ok(fs::read_to_string(path)?)
+}
+```
+
+**在 Service 层封装业务逻辑**:
+
+```rust
+// src-tauri/src/services/file.rs
+use crate::error::AppError;
+use crate::database;
+
+pub fn load_config(filename: &str) -> Result<String, AppError> {
+    let path = format!("./config/{}", filename);
+    database::file::read_file(&path)
+}
+```
+
+**在 Command 层暴露给前端**:
+
+```rust
+// src-tauri/src/commands/file.rs
+#[tauri::command]
+pub fn load_config(filename: String) -> Result<String, String> {
+    crate::services::file::load_config(&filename)
+        .map_err(|e| e.to_string())
+}
+```
+
+**前端调用**:
+
+```typescript
+// src/lib/api/index.ts
+import { invoke } from "@tauri-apps/api/core";
+
+export const api = {
+  loadConfig: (filename: string) =>
+    invoke<string>("load_config", { filename }),
+};
 ```
 
 ---
@@ -115,8 +215,16 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
 ### 注册自定义插件
 
 ```rust
-tauri::Builder::default()
-    .plugin(my_plugin::init())
+// src-tauri/src/lib.rs
+mod my_plugin;
+
+pub fn run() {
+    tauri::Builder::default()
+        .plugin(my_plugin::init())
+        .invoke_handler(tauri::generate_handler![...])
+        .run(tauri::generate_context!())
+        .expect("error while running tauri application");
+}
 ```
 
 ### 前端调用
@@ -128,14 +236,73 @@ const result = await invoke("plugin:my-plugin|my_plugin_command");
 
 ---
 
+## 项目数据存储策略
+
+本项目采用双数据存储方案：
+
+| 存储方式 | 用途 | 数据类型 | 实现方式 |
+|---------|------|---------|---------|
+| **tauri-plugin-store** | 应用配置 | 键值对 | JSON 文件 |
+| **rusqlite** | 业务数据 | 结构化数据 | SQLite 数据库 |
+
+### tauri-plugin-store 使用示例
+
+```typescript
+// 前端直接使用
+import { Store } from "@tauri-apps/plugin-store";
+
+const store = new Store("settings.json");
+await store.set("theme", "dark");
+const theme = await store.get<string>("theme");
+```
+
+### rusqlite 使用示例
+
+```rust
+// 在三层架构中使用
+// database/user.rs
+use rusqlite::{Connection, Result};
+use crate::models::User;
+
+pub fn get_user(conn: &Connection, id: i64) -> Result<User, rusqlite::Error> {
+    conn.query_row(
+        "SELECT id, name FROM users WHERE id = ?1",
+        [id],
+        |row| Ok(User {
+            id: row.get(0)?,
+            name: row.get(1)?,
+        })
+    )
+}
+
+// services/user.rs
+use crate::database;
+use crate::error::AppError;
+
+pub fn fetch_user(id: i64) -> Result<User, AppError> {
+    let conn = get_connection()?;
+    Ok(database::user::get_user(&conn, id)?)
+}
+
+// commands/user.rs
+#[tauri::command]
+pub fn get_user(id: i64) -> Result<User, String> {
+    crate::services::user::fetch_user(id)
+        .map_err(|e| e.to_string())
+}
+```
+
+---
+
 ## 排查插件问题
 
 | 症状 | 可能原因 | 解决方法 |
 |------|---------|---------|
-| "Command not found" | 插件未注册 | 检查 Builder.plugin() |
-| "Permission denied" | Capabilities 未声明 | 添加权限到 capabilities JSON |
-| 编译错误 | 版本不兼容 | Cargo + npm 版本对齐 |
-| 运行时无效 | 缺少 JS 绑定 | 安装对应的 npm 包 |
+| "Command not found" | 插件未注册 | 检查 lib.rs 中的 .plugin() |
+| "Permission denied" | Capabilities 未声明 | 添加权限到 capabilities/default.json |
+| 编译错误 | 版本不兼容 | Cargo.toml + package.json 版本对齐（都用 2.x） |
+| 运行时无效 | 缺少 JS 绑定 | 检查是否安装对应的 npm 包 |
+| 数据库错误 | rusqlite 配置问题 | 检查 features = ["bundled"] |
 
 ---
 
@@ -147,3 +314,5 @@ const result = await invoke("plugin:my-plugin|my_plugin_command");
 | 注册插件但不声明权限 | 每个插件都要配 Capabilities |
 | 不看插件文档直接用 | 先查看插件 README 了解 API |
 | Tauri v1 API 用于 v2 | v1 和 v2 API 不同，检查版本 |
+| 混用 tauri-plugin-sql 和 rusqlite | 选择一种数据库方案，本项目用 rusqlite |
+| 在 Command 层直接使用插件 | 通过三层架构（Database → Service → Command）组织代码 |

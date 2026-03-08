@@ -40,51 +40,72 @@ description: |
 
 ---
 
-## 推荐项目结构（扩展后）
+## 当前项目结构（三层架构）
 
 ```
 src/                              # React 前端
-├── components/                   # 通用组件
-│   ├── Layout.tsx
-│   ├── ErrorBoundary.tsx
-│   └── Loading.tsx
-├── pages/                        # 页面组件
-│   ├── Home.tsx
-│   └── Settings.tsx
-├── hooks/                        # 自定义 Hooks
-│   ├── useCommand.ts            # Tauri Command 调用封装
-│   └── useEventListener.ts     # Tauri 事件监听封装
-├── types/                        # TypeScript 类型
-│   └── index.ts
-├── utils/                        # 工具函数
-│   └── index.ts
-├── App.tsx                       # 主组件
-├── main.tsx                      # 入口
-└── App.css                       # 全局样式
+├── components/
+│   ├── layout/
+│   │   ├── AppLayout.tsx        # 主布局（Ant Design Layout）
+│   │   └── Sidebar.tsx          # 侧边栏导航
+│   └── ui/
+│       └── ErrorBoundary.tsx    # 错误边界
+├── hooks/
+│   └── useCommand.ts           # invoke 封装
+├── lib/
+│   └── api/
+│       └── index.ts            # API 类型安全封装
+├── pages/
+│   ├── home/index.tsx           # 首页
+│   ├── settings/index.tsx       # 设置页
+│   └── about/index.tsx          # 关于页
+├── store/
+│   └── index.ts                # Zustand 全局状态
+├── styles/
+│   └── global.css              # TailwindCSS
+├── types/
+│   └── index.ts                # TS 类型
+├── App.tsx                      # 根组件（ConfigProvider + Router）
+├── Router.tsx                   # React Router 配置
+└── main.tsx                     # 入口
 
-src-tauri/src/                    # Rust 后端
-├── commands/                     # Command 模块（按业务拆分）
-│   ├── mod.rs                   # 模块导出
-│   ├── user.rs                  # 用户相关 Command
-│   ├── file.rs                  # 文件操作 Command
-│   └── config.rs                # 配置管理 Command
-├── models/                       # 数据模型
+src-tauri/src/                    # Rust 后端（三层架构）
+├── commands/                    # Layer 1: IPC 入口
 │   ├── mod.rs
-│   └── user.rs
-├── state.rs                      # 应用状态定义
-├── error.rs                      # 错误类型定义
-├── lib.rs                        # 入口：Builder + 注册
-└── main.rs                       # 进程入口
+│   ├── system.rs               # 系统命令（greet/get_system_info）
+│   └── config.rs               # 配置 CRUD 命令
+├── services/                    # Layer 2: 业务逻辑
+│   ├── mod.rs
+│   └── config.rs               # 配置服务
+├── database/                    # Layer 3: 数据访问
+│   ├── mod.rs                  # Database 结构体
+│   └── schema.rs               # Schema 迁移
+├── models/
+│   └── mod.rs                  # 数据模型
+├── error.rs                     # thiserror 错误类型
+├── state.rs                     # AppState 定义
+├── lib.rs                       # Builder 统一注册
+└── main.rs                      # 进程入口
 ```
+
+### 三层架构职责
+
+| 层级 | 目录 | 职责 | 依赖方向 |
+|------|------|------|---------|
+| Layer 1: Commands | `commands/` | IPC 入口，参数校验，调用 Service | 向下调用 Service |
+| Layer 2: Services | `services/` | 业务逻辑，事务编排 | 向下调用 Database |
+| Layer 3: Database | `database/` | 数据访问，SQL 执行，Schema 迁移 | 直接操作 rusqlite |
 
 ---
 
-## 模块化 Command 注册
+## 三层架构 Command 注册
 
-### lib.rs 模块化示例
+### lib.rs 统一注册示例
 
 ```rust
 mod commands;
+mod services;
+mod database;
 mod models;
 mod state;
 mod error;
@@ -94,21 +115,31 @@ use state::AppState;
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
-        .manage(AppState::default())
+        .plugin(tauri_plugin_store::Builder::default().build())
+        .plugin(tauri_plugin_log::Builder::new().build())
+        .manage(AppState::new())  // 包含 Database 实例
         .invoke_handler(tauri::generate_handler![
-            // 用户模块
-            commands::user::get_users,
-            commands::user::create_user,
-            // 文件模块
-            commands::file::read_file,
-            commands::file::write_file,
+            // 系统模块
+            commands::system::greet,
+            commands::system::get_system_info,
             // 配置模块
             commands::config::get_config,
-            commands::config::save_config,
+            commands::config::set_config,
+            commands::config::list_configs,
+            commands::config::delete_config,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
+```
+
+### 调用链路
+
+```
+前端 invoke("get_config", { key })
+  → commands/config.rs::get_config()     // Layer 1: 参数校验
+    → services/config.rs::get()          // Layer 2: 业务逻辑
+      → database/mod.rs::query()         // Layer 3: SQL 执行
 ```
 
 ---
@@ -116,15 +147,15 @@ pub fn run() {
 ## 状态管理架构
 
 ```
-全局状态 (Rust tauri::State<T>)
-├── 持久化数据（数据库/文件）
-├── 应用配置
-└── 运行时状态（进程级）
+全局状态 (Rust tauri::State<AppState>)
+├── Database (rusqlite) → 持久化结构化数据
+├── tauri-plugin-store → 键值持久化（设置/偏好）
+└── 运行时状态（进程级 Mutex<T>）
 
 UI 状态 (React)
 ├── 组件内 useState
-├── 跨组件 Context
-└── 复杂状态 useReducer/Zustand
+├── 全局状态 Zustand (src/store/index.ts)
+└── API 封装 src/lib/api/index.ts
 ```
 
 ---
@@ -134,6 +165,7 @@ UI 状态 (React)
 | 错误做法 | 正确做法 |
 |---------|---------|
 | 前端直接操作文件/网络 | 通过 Rust Command 代理 |
-| 所有代码堆在 lib.rs | 按模块拆分到独立文件 |
+| 所有代码堆在 lib.rs | 按三层架构拆分（commands/services/database） |
+| Command 中直接写 SQL | Command 调用 Service，Service 调用 Database |
 | 不考虑跨平台差异 | 路径/API 使用跨平台方案 |
-| 过度设计初始架构 | 从简单开始，按需重构 |
+| 前端直接 invoke 不封装 | 通过 `src/lib/api/index.ts` 统一封装 |

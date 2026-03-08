@@ -16,20 +16,61 @@ description: |
 
 ## 概述
 
-Tauri 桌面应用的前端运行在系统 WebView 中,使用 React 19 + TypeScript 开发。与 Web 应用的主要区别是:窗口大小可控、无需考虑 SEO、可调用系统 API。
+Tauri 桌面应用的前端运行在系统 WebView 中,使用 React 19 + TypeScript 5.8 + Ant Design + TailwindCSS 4 开发。与 Web 应用的主要区别是:窗口大小可控、无需考虑 SEO、可调用系统 API。
+
+### 前端项目结构
+
+```
+src/
+├── components/
+│   ├── layout/
+│   │   ├── AppLayout.tsx        # 主布局（Ant Design Layout）
+│   │   └── Sidebar.tsx          # 侧边栏导航
+│   └── ui/
+│       └── ErrorBoundary.tsx    # 错误边界
+├── hooks/
+│   └── useCommand.ts           # invoke 封装
+├── lib/
+│   └── api/
+│       └── index.ts            # API 类型安全封装
+├── pages/
+│   ├── home/index.tsx           # 首页
+│   ├── settings/index.tsx       # 设置页
+│   └── about/index.tsx          # 关于页
+├── store/
+│   └── index.ts                # Zustand 全局状态
+├── styles/
+│   └── global.css              # TailwindCSS
+├── types/
+│   └── index.ts                # TS 类型
+├── App.tsx                      # 根组件（ConfigProvider + Router）
+├── Router.tsx                   # React Router 配置
+└── main.tsx                     # 入口
+```
+
+### 当前技术栈
+
+| 技术 | 用途 |
+|------|------|
+| **Ant Design** | UI 组件库（Layout/Form/Table 等） |
+| **TailwindCSS 4** | 原子化 CSS 样式 |
+| **React Router** | 客户端路由 |
+| **Zustand** | 全局状态管理 |
 
 ---
 
-## UI 组件库选择
+## UI 组件库（已选用 Ant Design）
 
-| 库 | 特点 | 适用场景 | 安装 |
-|-----|------|---------|------|
-| **Ant Design** | 企业级组件丰富 | 管理后台类桌面应用 | `pnpm add antd` |
-| **MUI (Material UI)** | Material Design 风格 | 通用桌面应用 | `pnpm add @mui/material` |
-| **Shadcn/ui** | 可复制组件、高度可定制 | 需要深度定制 UI | 按组件安装 |
-| **Headless UI** | 无样式、纯逻辑 | 配合 Tailwind 使用 | `pnpm add @headlessui/react` |
-| **Radix UI** | 无障碍优先 | 高质量组件基础 | `pnpm add @radix-ui/react-*` |
-| 无(纯 CSS) | 最轻量 | 简单应用 | 无需安装 |
+项目已集成 **Ant Design** 作为主要 UI 组件库,配合 **TailwindCSS 4** 做原子化样式补充。
+
+| 关键组件 | 用途 | 参考文件 |
+|---------|------|---------|
+| `Layout / Sider / Content` | 主布局 | `src/components/layout/AppLayout.tsx` |
+| `Menu` | 侧边栏导航 | `src/components/layout/Sidebar.tsx` |
+| `ConfigProvider` | 全局主题配置 | `src/App.tsx` |
+| `Form / Input / Select` | 表单 | 各页面组件 |
+| `Table` | 数据表格 | 各页面组件 |
+| `Modal / message` | 弹窗/消息 | 各页面组件 |
 
 ---
 
