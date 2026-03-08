@@ -2,11 +2,39 @@ import { Outlet, useNavigate } from "react-router-dom";
 import { Layout, Button, theme as antdTheme } from "antd";
 import { MenuFoldOutlined, MenuUnfoldOutlined, SettingOutlined } from "@ant-design/icons";
 import { Sun, Moon } from "lucide-react";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useAppStore } from "@/store";
 import { Sidebar } from "./Sidebar";
 import { WindowControls } from "./WindowControls";
 
 const { Header, Sider, Content } = Layout;
+
+const appWindow = getCurrentWindow();
+
+/** Header 中间的可拖拽空白区域 */
+function DragRegion() {
+  function handleMouseDown(e: React.MouseEvent) {
+    if (e.buttons === 1) {
+      if (e.detail === 2) {
+        appWindow.toggleMaximize();
+      } else {
+        appWindow.startDragging();
+      }
+    }
+  }
+
+  return (
+    <div
+      onMouseDown={handleMouseDown}
+      style={{
+        flex: 1,
+        height: "100%",
+        cursor: "default",
+        userSelect: "none",
+      }}
+    />
+  );
+}
 
 export function AppLayout() {
   const { sidebarCollapsed, toggleSidebar, theme, toggleTheme } =
@@ -30,18 +58,16 @@ export function AppLayout() {
       <Layout>
         <Header
           style={{
-            padding: "0 0 0 16px",
+            padding: 0,
             height: 48,
             lineHeight: "48px",
             display: "flex",
             alignItems: "center",
-            justifyContent: "space-between",
             background: token.colorBgContainer,
             borderBottom: `1px solid ${token.colorBorderSecondary}`,
           }}
-          data-tauri-drag-region
         >
-          <div className="flex items-center gap-1">
+          <div style={{ display: "flex", alignItems: "center", gap: 4, paddingLeft: 16 }}>
             <Button
               type="text"
               icon={
@@ -50,7 +76,8 @@ export function AppLayout() {
               onClick={toggleSidebar}
             />
           </div>
-          <div className="flex items-center">
+          <DragRegion />
+          <div style={{ display: "flex", alignItems: "center" }}>
             <Button
               type="text"
               icon={theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}

@@ -10,6 +10,7 @@ pub fn setup_tray(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     let menu = Menu::with_items(app, &[&show, &quit])?;
 
     TrayIconBuilder::new()
+        .icon(app.default_window_icon().unwrap().clone())
         .tooltip("Tauri Framework")
         .menu(&menu)
         .show_menu_on_left_click(false)
