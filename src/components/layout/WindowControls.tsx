@@ -52,19 +52,29 @@ export function WindowControls() {
     display: "inline-flex",
     alignItems: "center",
     justifyContent: "center",
-    width: 46,
-    height: 34,
+    width: 36,
+    height: 30,
     border: "none",
+    borderRadius: 6,
     background: "transparent",
-    color: token.colorText,
+    color: token.colorTextSecondary,
     cursor: "pointer",
-    transition: "background-color 0.15s, color 0.15s",
+    transition: "all 0.15s ease",
     outline: "none",
     padding: 0,
   };
 
   return (
-    <div style={{ display: "flex", alignItems: "center", height: 48 }}>
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 2,
+        height: 48,
+        paddingRight: 8,
+        paddingLeft: 4,
+      }}
+    >
       <button
         style={{ ...baseStyle, ...getButtonStyle("min") }}
         onMouseEnter={() => setHovered("min")}
@@ -72,7 +82,7 @@ export function WindowControls() {
         onClick={handleMinimize}
         title="最小化"
       >
-        <Minus size={16} strokeWidth={1.5} />
+        <Minus size={15} strokeWidth={1.5} />
       </button>
       <button
         style={{ ...baseStyle, ...getButtonStyle("max") }}
@@ -82,19 +92,22 @@ export function WindowControls() {
         title={isMaximized ? "还原" : "最大化"}
       >
         {isMaximized ? (
-          <Copy size={13} strokeWidth={1.5} />
+          <Copy size={12} strokeWidth={1.5} />
         ) : (
-          <Square size={13} strokeWidth={1.5} />
+          <Square size={12} strokeWidth={1.5} />
         )}
       </button>
       <button
-        style={{ ...baseStyle, ...getButtonStyle("close") }}
+        style={{
+          ...baseStyle,
+          ...getButtonStyle("close"),
+        }}
         onMouseEnter={() => setHovered("close")}
         onMouseLeave={() => setHovered(null)}
         onClick={handleClose}
         title="关闭"
       >
-        <X size={16} strokeWidth={1.5} />
+        <X size={15} strokeWidth={1.5} />
       </button>
     </div>
   );
