@@ -5,6 +5,7 @@ import {
   Settings,
   Info,
 } from "lucide-react";
+import { useAppStore } from "@/store";
 
 const menuItems = [
   {
@@ -27,11 +28,12 @@ const menuItems = [
 export function Sidebar() {
   const navigate = useNavigate();
   const location = useLocation();
+  const collapsed = useAppStore((s) => s.sidebarCollapsed);
 
   return (
     <div className="flex flex-col h-full">
       <div className="h-12 flex items-center justify-center font-bold text-base border-b border-gray-200 dark:border-gray-700">
-        Tauri Framework
+        {collapsed ? "TF" : "Tauri Framework"}
       </div>
       <Menu
         mode="inline"
