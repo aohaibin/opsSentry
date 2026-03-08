@@ -1,5 +1,5 @@
 import { useNavigate, useLocation } from "react-router-dom";
-import { Menu } from "antd";
+import { Menu, theme as antdTheme } from "antd";
 import {
   Home,
   Settings,
@@ -29,10 +29,17 @@ export function Sidebar() {
   const navigate = useNavigate();
   const location = useLocation();
   const collapsed = useAppStore((s) => s.sidebarCollapsed);
+  const { token } = antdTheme.useToken();
 
   return (
     <div className="flex flex-col h-full">
-      <div className="h-12 flex items-center justify-center font-bold text-base border-b border-gray-200 dark:border-gray-700">
+      <div
+        className="h-12 flex items-center justify-center font-bold text-base"
+        style={{
+          borderBottom: `1px solid ${token.colorBorderSecondary}`,
+          color: token.colorText,
+        }}
+      >
         {collapsed ? "TF" : "Tauri Framework"}
       </div>
       <Menu

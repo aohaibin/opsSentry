@@ -53,6 +53,14 @@ pub fn run() {
             commands::config::set_config,
             commands::config::delete_config,
         ])
+        // ─── 窗口事件处理 ─────────────────────────
+        .on_window_event(|window, event| {
+            if let WindowEvent::CloseRequested { api, .. } = event {
+                // 点击关闭按钮时隐藏到托盘，而不是退出
+                let _ = window.hide();
+                api.prevent_close();
+            }
+        })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
