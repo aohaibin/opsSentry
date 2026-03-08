@@ -31,7 +31,7 @@ export function Sidebar() {
           color: token.colorText,
         }}
       >
-        {collapsed ? "TF" : "Tauri Framework"}
+        {collapsed ? "AT" : "Agile Tauri"}
       </div>
       <Menu
         mode="inline"

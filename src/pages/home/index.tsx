@@ -25,7 +25,7 @@ export default function HomePage() {
     <div className="max-w-2xl mx-auto">
       <Title level={3}>首页</Title>
       <Text type="secondary">
-        欢迎使用 Tauri Framework — 基于 Tauri 2.x + React 19 的桌面应用框架
+        欢迎使用 Agile Tauri — 基于 Tauri 2.x + React 19 的桌面应用框架
       </Text>
 
       <Card title="Greet 示例" className="mt-6">

@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Tauri Framework",
+  "productName": "Agile Tauri",
   "version": "0.1.0",
   "identifier": "com.agilefr.tauri",
   "build": {
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "Tauri Framework",
+        "title": "Agile Tauri",
         "width": 1200,
         "height": 800,
         "minWidth": 900,

@@ -11,7 +11,7 @@ pub fn setup_tray(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>> {
 
     TrayIconBuilder::new()
         .icon(app.default_window_icon().unwrap().clone())
-        .tooltip("Tauri Framework")
+        .tooltip("Agile Tauri")
         .menu(&menu)
         .show_menu_on_left_click(false)
         .on_menu_event(|app, event| match event.id.as_ref() {
