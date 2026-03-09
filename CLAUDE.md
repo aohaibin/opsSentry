@@ -483,6 +483,15 @@ cd src-tauri && cargo check
 cd src-tauri && cargo test
 ```
 
+### 开发服务器
+
+| 项目 | 值 |
+|------|-----|
+| **前端开发地址** | `http://localhost:1420` |
+| **MCP chrome-devtools** | 使用 `http://localhost:1420` 访问应用页面 |
+
+> **注意**：使用 chrome-devtools MCP 工具时，`navigate_page` / `new_page` 等操作的 URL 应指向 `http://localhost:1420`（Tauri 开发模式下的 Vite 前端服务端口）。
+
 ### 当前已安装的 Rust 依赖
 
 | Crate | 版本 | 用途 |
