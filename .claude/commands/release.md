@@ -1,8 +1,8 @@
 # /release - 发布新版本
 
-作为版本发布助手，执行 Tauri 桌面应用的发布流程：更新版本号 → 更新 README → 推送 → 打 Tag 触发 CI 全自动构建。
+作为版本发布助手，执行 Tauri 桌面应用的发布流程：更新版本号 → 更新 README → 推送 → 打 Tag 触发 CI → 等待 CI → 下载产物 → 本地推送到 release 仓库。
 
-> **本地不需要执行 `pnpm tauri build`**。CI 会自动构建所有平台安装包并推送产物到 release 仓库。
+> **本地不需要执行 `pnpm tauri build`**。CI 负责构建和签名。用户只需从 GitHub Release 下载产物。
 
 ## 执行流程
 
@@ -61,14 +61,43 @@ Read src-tauri/tauri.conf.json  # 读取当前 version 和 productName
 Skill(release-publish)
 ```
 
-### 第五步：按技能中的步骤自动执行全部流程
+### 第五步：按技能中的步骤执行发布前半段
 
 1. 更新三处版本号（tauri.conf.json / Cargo.toml / package.json）
 2. 更新两个 release 仓库的 README.md（下载链接 + 版本历史 + 项目结构树）
 3. 提交 + pull rebase + 推送 release 仓库 README 变更（Gitee 先推，GitHub 后推）
 4. 提交源码仓库 + 推送到 GitHub
 5. 打 Tag + 推送（触发 CI 构建三平台安装包）
-6. 输出完成报告
+
+### 第六步：输出等待提示和文件清单
+
+CI 触发后，输出以下信息给用户：
+
+```
+CI 已触发，请等待构建完成（约 15-25 分钟）。
+
+构建进度：<源码仓库 GitHub URL>/actions
+下载地址：<源码仓库 GitHub URL>/releases
+
+需要下载的文件（共 11 个）：
+  Windows: *.exe + *.exe.sig
+  macOS ARM: *aarch64.dmg + *aarch64.app.tar.gz + *aarch64.app.tar.gz.sig
+  macOS Intel: *x64.dmg + *x64.app.tar.gz + *x64.app.tar.gz.sig
+  Linux: *.AppImage + *.AppImage.sig + *.deb
+
+下载完成后请告诉我文件所在目录。
+```
+
+使用 AskUserQuestion 询问：**文件下载到了哪个目录？**
+
+### 第七步：执行发布后半段（本地处理）
+
+用户提供下载目录后：
+
+1. 复制所有产物到两个 release 仓库的 `releases/vX.Y.Z/` 目录
+2. 读取 `.sig` 文件生成 `update.json`（Gitee 版 + GitHub 版）
+3. 提交 + pull rebase + 推送 release 仓库（Gitee 先推，GitHub 后推）
+4. 输出完成报告
 
 ---
 
@@ -79,7 +108,7 @@ Skill(release-publish)
 2. **后续自动读取**：后续发布直接读取配置，不再重复询问
 
 ### 版本号
-3. **全自动执行**：除询问版本号和更新说明外，不再中途询问确认
+3. **全自动执行**：除询问版本号、更新说明和下载目录外，不再中途询问确认
 4. **三处同步**：tauri.conf.json / Cargo.toml / package.json 版本号必须一致
 
 ### README 更新
@@ -93,8 +122,8 @@ Skill(release-publish)
 10. **Git remote 名**：从 release-config.json 读取
 11. **打 Tag 触发 CI**：`git tag vX.Y.Z && git push <remote> vX.Y.Z`
 
-### 不需要做的事
+### CI 与产物处理
 12. **不需要本地构建**：`pnpm tauri build` 由 CI 执行
-13. **不需要手动更新 update.json**：CI 自动生成全平台 update.json
-14. **不需要手动复制产物**：CI 自动下载产物并推送到 release 仓库
-15. **不需要手动推送签名**：CI 构建时自动签名
+13. **签名由 CI 完成**：`.sig` 文件已包含在 CI 产物中，用户只需下载
+14. **Claude 生成 update.json**：读取 `.sig` 文件内容写入 update.json
+15. **Claude 推送 release 仓库**：复制产物 + update.json 后本地推送到 Gitee/GitHub

@@ -15,16 +15,18 @@ description: |
 
 ## 概述
 
-Tauri 桌面应用采用 **CI 全自动发布** 模式：
+Tauri 桌面应用采用 **CI 构建 + 本地推送** 模式：
 
 ```
 本地：更新版本号 → 提交 → 打 Tag → 推送
   ↓ 触发
-CI：构建三平台安装包 → 上传 GitHub Release → 推送产物和 update.json 到 Gitee/GitHub release 仓库
+CI：构建三平台安装包 → 上传到 GitHub Release（草稿）
+  ↓ CI 完成后
+本地：从 GitHub Release 下载产物 → 复制到 release 仓库 → 生成 update.json → 推送到 Gitee/GitHub
 ```
 
-> **本地不需要执行 `pnpm tauri build`**。CI 会自动构建所有平台（Windows/macOS/Linux），
-> 并自动推送产物、签名、update.json 到 release 仓库。本地只负责版本号更新和打 Tag。
+> **本地不需要执行 `pnpm tauri build`**。CI 负责构建和签名。
+> 构建完成后，用户手动从 GitHub Release 下载产物，Claude 负责本地处理和推送。
 
 ### 双仓库发布策略
 
@@ -33,10 +35,15 @@ CI：构建三平台安装包 → 上传 GitHub Release → 推送产物和 upda
 | 用途 | 平台 | 原因 |
 |------|------|------|
 | **源码托管** | GitHub（私有） | 代码管理 + CI 构建 |
-| **CI 构建** | GitHub Actions | 跨平台构建 |
+| **CI 构建** | GitHub Actions | 跨平台构建 + 签名 |
 | **自动更新端点** | Gitee（公开） | 中国大陆可访问 |
 | **安装包下载** | Gitee（公开） | 中国大陆可下载 |
 | **备份存档** | GitHub（公开） | 海外用户 + 备份 |
+
+### 为什么不让 CI 推送到 release 仓库？
+
+GitHub Actions 在美国服务器运行，推送 ~100MB 二进制产物到 Gitee（中国）经常超时（50 分钟+）。
+因此改为用户本地下载产物后，由 Claude 在本地完成推送，速度更快且更可控。
 
 ---
 
@@ -56,7 +63,7 @@ https://gitee.com/<用户名>/<项目名>-release
 https://github.com/<用户名>/<项目名>-release
 ```
 
-每个仓库需要一个 `README.md` 和 `update.json`（CI 会自动更新 update.json）。
+每个仓库需要一个 `README.md` 和 `update.json`（本地推送时自动生成 update.json）。
 
 ### 2. 生成签名密钥
 
@@ -79,9 +86,9 @@ pnpm tauri signer generate -w src-tauri/keys/tauri-updater.key
 |-------------|-----|------|
 | `TAURI_SIGNING_PRIVATE_KEY` | `src-tauri/keys/tauri-updater.key` 文件的完整内容 | 更新签名私钥 |
 | `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` | 空字符串（留空即可） | 私钥密码（无密码） |
-| `RELEASE_REPO_TOKEN` | GitHub Fine-grained PAT（需 Contents R/W 权限） | 用于推送到 GitHub release 仓库 |
-| `GITEE_USERNAME` | Gitee 用户名 | 用于推送到 Gitee release 仓库 |
-| `GITEE_TOKEN` | Gitee 私人令牌（需仓库读写权限） | 用于推送到 Gitee release 仓库 |
+
+> **注意**：不再需要 `RELEASE_REPO_TOKEN`、`GITEE_USERNAME`、`GITEE_TOKEN`，
+> 因为 CI 不再推送到 release 仓库，推送由本地完成。
 
 ### 4. 配置 tauri.conf.json
 
@@ -163,9 +170,6 @@ Edit package.json                # "version": "新版本号"
 
 ### 步骤 3：更新两个 release 仓库的 README.md
 
-> CI 会自动推送产物和 update.json，但 **README.md 需要本地更新**。
-> 在打 Tag 触发 CI 之前先推送 README 变更，CI 推送产物时会自动 rebase。
-
 > **CI 产物文件名规则**：CI 构建的产物前缀为 `<productName>_`，
 > 由 `tauri.conf.json` 的 `productName` 决定（空格会被替换为连字符或下划线）。
 > README 中的下载链接和项目结构树必须使用 CI 实际产物文件名。
@@ -202,7 +206,7 @@ Edit "$GITHUB_DIR/README.md"
 **项目结构树模板**：
 
 ```
-    └── vx.y.z/         # vx.y.z 版本（CI 自动推送）
+    └── vx.y.z/         # vx.y.z 版本
         ├── <AppName>_x.y.z_x64-setup.exe           # Windows 安装包
         ├── <AppName>_x.y.z_aarch64.dmg             # macOS Apple Silicon
         ├── <AppName>_x.y.z_x64.dmg                 # macOS Intel
@@ -213,7 +217,7 @@ Edit "$GITHUB_DIR/README.md"
 
 ### 步骤 4：提交并推送 release 仓库 README 变更
 
-> **推送前必须先拉取**：CI 上一版本可能已推送产物到远程，本地可能落后。
+> **推送前必须先拉取**：上一版本可能已推送产物到远程，本地可能落后。
 
 ```bash
 # === Gitee release 仓库 ===
@@ -256,7 +260,129 @@ git tag "v$VERSION"
 git push <github_remote> "v$VERSION"
 ```
 
-### 步骤 6：完成报告
+### 步骤 6：等待 CI 构建完成
+
+```markdown
+## CI 已触发
+
+Tag v$VERSION 已推送，GitHub Actions 正在构建三平台安装包。
+
+请前往查看构建进度：
+<源码仓库 GitHub URL>/actions
+
+构建完成后（通常 15-25 分钟），请从 GitHub Release 页面下载所有产物：
+<源码仓库 GitHub URL>/releases
+
+### 需要下载的文件清单（共 11 个）
+
+**Windows (2 个):**
+- `<AppName>_x.y.z_x64-setup.exe` — Windows 安装包
+- `<AppName>_x.y.z_x64-setup.exe.sig` — Windows updater 签名
+
+**macOS Apple Silicon (3 个):**
+- `<AppName>_x.y.z_aarch64.dmg` — macOS ARM 安装包
+- `<AppName>_aarch64.app.tar.gz` — macOS ARM updater 产物
+- `<AppName>_aarch64.app.tar.gz.sig` — macOS ARM updater 签名
+
+**macOS Intel (3 个):**
+- `<AppName>_x.y.z_x64.dmg` — macOS Intel 安装包
+- `<AppName>_x64.app.tar.gz` — macOS Intel updater 产物
+- `<AppName>_x64.app.tar.gz.sig` — macOS Intel updater 签名
+
+**Linux (3 个):**
+- `<AppName>_x.y.z_amd64.AppImage` — Linux AppImage
+- `<AppName>_x.y.z_amd64.AppImage.sig` — Linux updater 签名
+- `<AppName>_x.y.z_amd64.deb` — Linux Debian 安装包
+
+下载完成后，请告诉我文件所在目录路径。
+```
+
+使用 AskUserQuestion 询问：**文件下载到了哪个目录？**
+
+### 步骤 7：处理下载的产物（Claude 自动执行）
+
+用户提供下载目录后，Claude 自动执行以下操作：
+
+```bash
+VERSION="x.y.z"
+DOWNLOAD_DIR="<用户提供的下载目录>"
+GITEE_DIR="<本地 Gitee Release 仓库路径>"
+GITHUB_DIR="<本地 GitHub Release 仓库路径>"
+
+# 1. 复制所有产物到两个 release 仓库
+for DIR in "$GITEE_DIR" "$GITHUB_DIR"; do
+  mkdir -p "$DIR/releases/v$VERSION"
+  cp "$DOWNLOAD_DIR"/*.exe "$DIR/releases/v$VERSION/" 2>/dev/null
+  cp "$DOWNLOAD_DIR"/*.exe.sig "$DIR/releases/v$VERSION/" 2>/dev/null
+  cp "$DOWNLOAD_DIR"/*.dmg "$DIR/releases/v$VERSION/" 2>/dev/null
+  cp "$DOWNLOAD_DIR"/*.app.tar.gz "$DIR/releases/v$VERSION/" 2>/dev/null
+  cp "$DOWNLOAD_DIR"/*.app.tar.gz.sig "$DIR/releases/v$VERSION/" 2>/dev/null
+  cp "$DOWNLOAD_DIR"/*.AppImage "$DIR/releases/v$VERSION/" 2>/dev/null
+  cp "$DOWNLOAD_DIR"/*.AppImage.sig "$DIR/releases/v$VERSION/" 2>/dev/null
+  cp "$DOWNLOAD_DIR"/*.deb "$DIR/releases/v$VERSION/" 2>/dev/null
+done
+
+# 2. 读取签名文件，生成 update.json
+# 签名文件（.sig）已包含在 CI 产物中，直接读取即可
+# 用户不需要做任何签名操作
+```
+
+**update.json 模板**：
+
+```json
+{
+  "version": "x.y.z",
+  "notes": "Release vx.y.z",
+  "pub_date": "2026-03-10T12:00:00Z",
+  "platforms": {
+    "windows-x86_64": {
+      "url": "<BASE>/<AppName>_x.y.z_x64-setup.exe",
+      "signature": "<.exe.sig 文件内容>"
+    },
+    "darwin-aarch64": {
+      "url": "<BASE>/<AppName>_aarch64.app.tar.gz",
+      "signature": "<aarch64.app.tar.gz.sig 文件内容>"
+    },
+    "darwin-x86_64": {
+      "url": "<BASE>/<AppName>_x64.app.tar.gz",
+      "signature": "<x64.app.tar.gz.sig 文件内容>"
+    },
+    "linux-x86_64": {
+      "url": "<BASE>/<AppName>_x.y.z_amd64.AppImage",
+      "signature": "<.AppImage.sig 文件内容>"
+    }
+  }
+}
+```
+
+> **注意**：Gitee 版和 GitHub 版 update.json 只有 URL 中的 `<BASE>` 不同。
+> - Gitee: `https://gitee.com/<用户名>/<项目名>-release/raw/master/releases/vx.y.z`
+> - GitHub: `https://github.com/<用户名>/<项目名>-release/raw/master/releases/vx.y.z`
+> URL 中文件名含中文或空格时必须 URL 编码。
+
+### 步骤 8：推送 release 仓库（产物 + update.json）
+
+```bash
+# === Gitee release 仓库 ===
+cd "$GITEE_DIR"
+git add -A
+git commit -m "release: v$VERSION
+
+Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>"
+git pull --rebase origin master
+git push origin master
+
+# === GitHub release 仓库 ===
+cd "$GITHUB_DIR"
+git add -A
+git commit -m "release: v$VERSION
+
+Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>"
+git pull --rebase origin master
+git push origin master
+```
+
+### 步骤 9：完成报告
 
 ```markdown
 ## 发布完成
@@ -265,24 +391,20 @@ git push <github_remote> "v$VERSION"
 |------|-----|
 | 版本 | vx.y.z |
 | 源码仓库 | 已推送到 <GitHub URL> |
-| CI 构建 | Tag vx.y.z 已推送，GitHub Actions 正在构建 |
-| Release 仓库 README | 已更新（Gitee + GitHub） |
-
-CI 将自动完成以下工作：
-1. 构建 Windows (.exe) + macOS (.dmg) + Linux (.deb/.AppImage) 三平台安装包
-2. 上传到 GitHub Release（草稿）
-3. 推送所有产物和 update.json 到 Gitee + GitHub release 仓库
-4. 应用内自动更新端点（Gitee）将在 CI 完成后生效
+| CI 构建 | 已完成，产物已上传到 GitHub Release |
+| Release 仓库（Gitee） | 产物 + update.json 已推送 |
+| Release 仓库（GitHub） | 产物 + update.json 已推送 |
+| 应用内自动更新 | Gitee 端点已生效 |
 ```
 
 ---
 
-## CI 全自动化流程
+## CI 构建流程
 
 ### 概述
 
-通过 GitHub Actions 在云端自动构建三平台安装包，无需本地构建。
-CI 构建完成后会自动将所有平台产物同步推送到 Gitee 和 GitHub 的 release 仓库，并更新各自的 `update.json`。
+通过 GitHub Actions 在云端自动构建三平台安装包并签名，无需本地构建。
+CI **只负责构建和上传到 GitHub Release**，不负责推送到 release 仓库。
 
 ### 工作流文件
 
@@ -297,7 +419,7 @@ git tag v0.2.0
 git push <github_remote> v0.2.0
 ```
 
-### CI 完成后的产物（以 v1.0.0 为例）
+### CI 产物清单（以 v1.0.0 为例）
 
 ```
 <AppName>_1.0.0_x64-setup.exe          # Windows 安装包（NSIS）
@@ -327,59 +449,12 @@ git push <github_remote> v0.2.0
 > - `app` 生成 `.app` 应用包，Tauri 会自动打包为 `.app.tar.gz` 并签名
 > - 正确写法：`--bundles app,dmg`（先 app 再 dmg）
 
-### CI 自动化流程
+### 签名说明
 
-```
-本地打 Tag 推送
-    ↓
-4 个平台并行构建（release job）
-    ↓ 所有完成后
-update-release-repo job
-    ↓ 等待 Release 资产上传（最多 10 分钟）
-    ↓ 下载所有 updater 产物 + 安装包
-    ↓ 复制到 release 仓库 releases/vX.Y.Z/ 目录
-    ↓ 生成 update.json（Gitee 版 + GitHub 版，含全平台签名）
-    ↓ 推送到 Gitee（主端点，优先）
-    ↓ 推送到 GitHub（备份，continue-on-error）
-```
-
-### 关键 CI 配置要点（踩坑总结）
-
-#### 1. update-release-repo 权限必须是 `contents: write`
-
-```yaml
-update-release-repo:
-  needs: release
-  permissions:
-    contents: write  # 必须 write，read 无法查看草稿 Release
-```
-
-**原因**：`tauri-action` 使用 `releaseDraft: true` 创建草稿 Release。GitHub API 对草稿 Release 要求 push 权限。
-
-#### 2. 推送顺序：Gitee 优先，GitHub 备份
-
-```yaml
-- name: Push to Gitee release repo (primary)
-  run: |
-    cd release-repo-gitee
-    # ... git add/commit/push
-
-- name: Push to GitHub release repo (backup)
-  continue-on-error: true  # GitHub 失败不阻塞 Gitee
-  run: |
-    cd release-repo-github
-    # ... git add/commit/push
-```
-
-#### 3. 查询草稿 Release 的正确 API
-
-```bash
-# 错误：/releases/tags/ 无法查到草稿 Release
-gh api "repos/OWNER/REPO/releases/tags/v0.1.8"
-
-# 正确：用 /releases 列表 API 按 tag_name 过滤
-gh api "repos/OWNER/REPO/releases" --jq "[.[] | select(.tag_name == \"v0.1.8\")] | .[0].assets | length"
-```
+- CI 构建时自动使用 `TAURI_SIGNING_PRIVATE_KEY` 进行签名
+- **签名文件（`.sig`）已包含在 CI 产物中**，用户只需下载即可
+- 用户不需要在本地做任何签名操作
+- Claude 读取 `.sig` 文件内容来生成 `update.json`
 
 ---
 
@@ -418,18 +493,15 @@ pnpm tauri signer generate -w src-tauri/keys/tauri-updater.key
 
 | 问题 | 原因 | 解决方案 |
 |------|------|---------|
-| Release 仓库 push rejected | CI 上一版本已推送产物到远程，本地落后 | **先 `git pull --rebase origin master` 再 push** |
-| GitHub release 仓库推送 403 | `RELEASE_REPO_TOKEN` 过期 | 重新生成 Fine-grained PAT |
-| Gitee 推送失败 | Token 过期或权限不足 | 重新生成 Gitee 私人令牌 |
+| Release 仓库 push rejected | 上一版本已推送产物到远程，本地落后 | **先 `git pull --rebase origin master` 再 push** |
 
 ### CI 构建问题（踩坑总结）
 
 | 问题 | 根因 | 解决方案 |
 |------|------|---------|
-| update-release-repo 找不到 Release | `contents: read` 无法查看草稿 Release | **必须设 `contents: write`** |
 | macOS updater 产物缺失 | `--bundles dmg` 不生成 updater 产物 | **必须用 `--bundles app,dmg`** |
-| Gitee 推送被 GitHub 失败阻塞 | GitHub push 在前且失败 | **Gitee 优先推送**，GitHub 加 `continue-on-error` |
 | Linux 编译 unused import 警告 | `#[cfg(target_os = "windows")]` 下的 import 在 Linux 不使用 | 将 import 也放在 `#[cfg()]` 块内 |
+| CI 推送 Gitee 超时 | GitHub Actions（美国）推送到 Gitee（中国）太慢 | **已改为本地推送**，不再由 CI 推送 |
 
 ---
 
