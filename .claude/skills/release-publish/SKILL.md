@@ -20,13 +20,27 @@ Tauri 桌面应用采用 **CI 构建 + 本地推送** 模式：
 ```
 本地：更新版本号 → 提交 → 打 Tag → 推送
   ↓ 触发
-CI：构建三平台安装包 → 上传到 GitHub Release（草稿）
+CI：构建安装包（按配置的平台） → 上传到 GitHub Release（草稿）
   ↓ CI 完成后
 本地：从 GitHub Release 下载产物 → 复制到 release 仓库 → 生成 update.json → 推送到 Gitee/GitHub
 ```
 
 > **本地不需要执行 `pnpm tauri build`**。CI 负责构建和签名。
 > 构建完成后，用户手动从 GitHub Release 下载产物，Claude 负责本地处理和推送。
+
+### 平台配置
+
+发布流程支持按需选择构建平台，通过 `.claude/release-config.json` 的 `platforms` 字段配置：
+
+| platforms 值 | CI 构建矩阵 | 产物数量 |
+|-------------|------------|---------|
+| `["windows", "macos"]` | Windows + macOS ARM + macOS Intel | 8 个 |
+| `["windows", "macos", "linux"]` | 全平台 | 11 个 |
+| `["windows"]` | 仅 Windows | 2 个 |
+| `["macos"]` | 仅 macOS ARM + Intel | 6 个 |
+
+> **首次发布时通过 `/release` 命令询问用户选择平台，记录后不再重复询问。**
+> 去掉 Linux 可节省 CI 时间、减少产物体积（Linux AppImage 约 80MB）。
 
 ### 双仓库发布策略
 
@@ -42,7 +56,7 @@ CI：构建三平台安装包 → 上传到 GitHub Release（草稿）
 
 ### 为什么不让 CI 推送到 release 仓库？
 
-GitHub Actions 在美国服务器运行，推送 ~100MB 二进制产物到 Gitee（中国）经常超时（50 分钟+）。
+GitHub Actions 在美国服务器运行，推送二进制产物到 Gitee（中国）经常超时（50 分钟+）。
 因此改为用户本地下载产物后，由 Claude 在本地完成推送，速度更快且更可控。
 
 ---
@@ -121,6 +135,40 @@ git clone https://gitee.com/<用户名>/<项目名>-release.git   # Gitee
 git clone https://github.com/<用户名>/<项目名>-release.git  # GitHub（另一个目录名）
 ```
 
+### 7. 根据平台配置修改 CI workflow
+
+根据 `.claude/release-config.json` 中的 `platforms` 配置，修改 `.github/workflows/release.yml` 的构建矩阵：
+
+**Windows + macOS（推荐，不含 Linux）：**
+```yaml
+matrix:
+  include:
+    - platform: windows-latest
+      args: '--bundles nsis'
+    - platform: macos-latest
+      args: '--bundles app,dmg'
+      target: aarch64-apple-darwin
+    - platform: macos-latest
+      args: '--bundles app,dmg'
+      target: x86_64-apple-darwin
+```
+
+**全平台（含 Linux）：**
+```yaml
+matrix:
+  include:
+    - platform: windows-latest
+      args: '--bundles nsis'
+    - platform: macos-latest
+      args: '--bundles app,dmg'
+      target: aarch64-apple-darwin
+    - platform: macos-latest
+      args: '--bundles app,dmg'
+      target: x86_64-apple-darwin
+    - platform: ubuntu-22.04
+      args: '--bundles deb,appimage'
+```
+
 ---
 
 ## 关键配置（用户须在首次发布时提供）
@@ -130,6 +178,7 @@ git clone https://github.com/<用户名>/<项目名>-release.git  # GitHub（另
 | 配置项 | 说明 | 示例 |
 |--------|------|------|
 | **应用名称** | CI 产物前缀（productName） | `MyApp` |
+| **支持平台** | 构建哪些平台 | `["windows", "macos"]` |
 | **源码仓库 GitHub remote 名** | 推送源码用 | `github` 或 `origin` |
 | **源码仓库 GitHub URL** | CI 所在仓库 | `https://github.com/user/my-app` |
 | **Release 仓库（Gitee）URL** | 主更新端点 | `https://gitee.com/user/my-app-release` |
@@ -173,6 +222,7 @@ Edit package.json                # "version": "新版本号"
 > **CI 产物文件名规则**：CI 构建的产物前缀为 `<productName>_`，
 > 由 `tauri.conf.json` 的 `productName` 决定（空格会被替换为连字符或下划线）。
 > README 中的下载链接和项目结构树必须使用 CI 实际产物文件名。
+> **只包含 `platforms` 配置中的平台**。
 
 ```bash
 VERSION="x.y.z"
@@ -180,39 +230,27 @@ GITEE_DIR="<本地 Gitee Release 仓库路径>"
 GITHUB_DIR="<本地 GitHub Release 仓库路径>"
 
 # 需要更新 3 处：
-# 1. 最新版本下载表格（版本号 + 多平台链接）
+# 1. 最新版本下载表格（版本号 + 多平台链接，按 platforms 过滤）
 # 2. 版本历史（添加新版本条目）
-# 3. 项目结构树（添加新版本目录）
+# 3. 项目结构树（添加新版本目录，按 platforms 过滤）
 
 # 两个仓库的 README.md 内容一致，同步更新
 Edit "$GITEE_DIR/README.md"
 Edit "$GITHUB_DIR/README.md"
 ```
 
-**下载表格模板**（使用 CI 产物文件名）：
+**下载表格模板**（根据 platforms 配置选择包含哪些行）：
 
 ```markdown
 ### 最新版本: vx.y.z
 
 | 平台 | 下载链接 |
 |------|---------|
-| Windows x64 | [<AppName>_x.y.z_x64-setup.exe](releases/vx.y.z/<AppName>_x.y.z_x64-setup.exe) |
-| macOS Apple Silicon | [<AppName>_x.y.z_aarch64.dmg](releases/vx.y.z/<AppName>_x.y.z_aarch64.dmg) |
-| macOS Intel | [<AppName>_x.y.z_x64.dmg](releases/vx.y.z/<AppName>_x.y.z_x64.dmg) |
-| Linux x64 (AppImage) | [<AppName>_x.y.z_amd64.AppImage](releases/vx.y.z/<AppName>_x.y.z_amd64.AppImage) |
-| Linux x64 (deb) | [<AppName>_x.y.z_amd64.deb](releases/vx.y.z/<AppName>_x.y.z_amd64.deb) |
-```
-
-**项目结构树模板**：
-
-```
-    └── vx.y.z/         # vx.y.z 版本
-        ├── <AppName>_x.y.z_x64-setup.exe           # Windows 安装包
-        ├── <AppName>_x.y.z_aarch64.dmg             # macOS Apple Silicon
-        ├── <AppName>_x.y.z_x64.dmg                 # macOS Intel
-        ├── <AppName>_x.y.z_amd64.AppImage          # Linux AppImage
-        ├── <AppName>_x.y.z_amd64.deb               # Linux deb
-        └── ...                                      # updater 签名文件
+| Windows x64 | [<AppName>_x.y.z_x64-setup.exe](releases/vx.y.z/<AppName>_x.y.z_x64-setup.exe) |          ← platforms 含 windows
+| macOS Apple Silicon | [<AppName>_x.y.z_aarch64.dmg](releases/vx.y.z/<AppName>_x.y.z_aarch64.dmg) |  ← platforms 含 macos
+| macOS Intel | [<AppName>_x.y.z_x64.dmg](releases/vx.y.z/<AppName>_x.y.z_x64.dmg) |                  ← platforms 含 macos
+| Linux x64 (AppImage) | [<AppName>_x.y.z_amd64.AppImage](releases/vx.y.z/<AppName>_x.y.z_amd64.AppImage) | ← platforms 含 linux
+| Linux x64 (deb) | [<AppName>_x.y.z_amd64.deb](releases/vx.y.z/<AppName>_x.y.z_amd64.deb) |          ← platforms 含 linux
 ```
 
 ### 步骤 4：提交并推送 release 仓库 README 变更
@@ -262,40 +300,16 @@ git push <github_remote> "v$VERSION"
 
 ### 步骤 6：等待 CI 构建完成
 
-```markdown
-## CI 已触发
+根据 `platforms` 配置输出对应平台的文件清单。
 
-Tag v$VERSION 已推送，GitHub Actions 正在构建三平台安装包。
+**各平台对应的 CI 产物**：
 
-请前往查看构建进度：
-<源码仓库 GitHub URL>/actions
-
-构建完成后（通常 15-25 分钟），请从 GitHub Release 页面下载所有产物：
-<源码仓库 GitHub URL>/releases
-
-### 需要下载的文件清单（共 11 个）
-
-**Windows (2 个):**
-- `<AppName>_x.y.z_x64-setup.exe` — Windows 安装包
-- `<AppName>_x.y.z_x64-setup.exe.sig` — Windows updater 签名
-
-**macOS Apple Silicon (3 个):**
-- `<AppName>_x.y.z_aarch64.dmg` — macOS ARM 安装包
-- `<AppName>_aarch64.app.tar.gz` — macOS ARM updater 产物
-- `<AppName>_aarch64.app.tar.gz.sig` — macOS ARM updater 签名
-
-**macOS Intel (3 个):**
-- `<AppName>_x.y.z_x64.dmg` — macOS Intel 安装包
-- `<AppName>_x64.app.tar.gz` — macOS Intel updater 产物
-- `<AppName>_x64.app.tar.gz.sig` — macOS Intel updater 签名
-
-**Linux (3 个):**
-- `<AppName>_x.y.z_amd64.AppImage` — Linux AppImage
-- `<AppName>_x.y.z_amd64.AppImage.sig` — Linux updater 签名
-- `<AppName>_x.y.z_amd64.deb` — Linux Debian 安装包
-
-下载完成后，请告诉我文件所在目录路径。
-```
+| 平台 | 产物数量 | 文件列表 |
+|------|---------|---------|
+| Windows | 2 个 | `.exe` + `.exe.sig` |
+| macOS ARM | 3 个 | `_aarch64.dmg` + `_aarch64.app.tar.gz` + `_aarch64.app.tar.gz.sig` |
+| macOS Intel | 3 个 | `_x64.dmg` + `_x64.app.tar.gz` + `_x64.app.tar.gz.sig` |
+| Linux | 3 个 | `.AppImage` + `.AppImage.sig` + `.deb` |
 
 使用 AskUserQuestion 询问：**文件下载到了哪个目录？**
 
@@ -312,22 +326,21 @@ GITHUB_DIR="<本地 GitHub Release 仓库路径>"
 # 1. 复制所有产物到两个 release 仓库
 for DIR in "$GITEE_DIR" "$GITHUB_DIR"; do
   mkdir -p "$DIR/releases/v$VERSION"
-  cp "$DOWNLOAD_DIR"/*.exe "$DIR/releases/v$VERSION/" 2>/dev/null
-  cp "$DOWNLOAD_DIR"/*.exe.sig "$DIR/releases/v$VERSION/" 2>/dev/null
-  cp "$DOWNLOAD_DIR"/*.dmg "$DIR/releases/v$VERSION/" 2>/dev/null
-  cp "$DOWNLOAD_DIR"/*.app.tar.gz "$DIR/releases/v$VERSION/" 2>/dev/null
-  cp "$DOWNLOAD_DIR"/*.app.tar.gz.sig "$DIR/releases/v$VERSION/" 2>/dev/null
-  cp "$DOWNLOAD_DIR"/*.AppImage "$DIR/releases/v$VERSION/" 2>/dev/null
-  cp "$DOWNLOAD_DIR"/*.AppImage.sig "$DIR/releases/v$VERSION/" 2>/dev/null
-  cp "$DOWNLOAD_DIR"/*.deb "$DIR/releases/v$VERSION/" 2>/dev/null
+  # 按 platforms 配置复制对应文件
+  cp "$DOWNLOAD_DIR"/*.exe "$DIR/releases/v$VERSION/" 2>/dev/null         # windows
+  cp "$DOWNLOAD_DIR"/*.exe.sig "$DIR/releases/v$VERSION/" 2>/dev/null     # windows
+  cp "$DOWNLOAD_DIR"/*.dmg "$DIR/releases/v$VERSION/" 2>/dev/null         # macos
+  cp "$DOWNLOAD_DIR"/*.app.tar.gz "$DIR/releases/v$VERSION/" 2>/dev/null  # macos
+  cp "$DOWNLOAD_DIR"/*.app.tar.gz.sig "$DIR/releases/v$VERSION/" 2>/dev/null # macos
+  cp "$DOWNLOAD_DIR"/*.AppImage "$DIR/releases/v$VERSION/" 2>/dev/null    # linux
+  cp "$DOWNLOAD_DIR"/*.AppImage.sig "$DIR/releases/v$VERSION/" 2>/dev/null # linux
+  cp "$DOWNLOAD_DIR"/*.deb "$DIR/releases/v$VERSION/" 2>/dev/null         # linux
 done
 
-# 2. 读取签名文件，生成 update.json
-# 签名文件（.sig）已包含在 CI 产物中，直接读取即可
-# 用户不需要做任何签名操作
+# 2. 读取签名文件，生成 update.json（仅包含已配置平台）
 ```
 
-**update.json 模板**：
+**update.json 模板**（根据 platforms 配置选择包含哪些平台）：
 
 ```json
 {
@@ -335,22 +348,10 @@ done
   "notes": "Release vx.y.z",
   "pub_date": "2026-03-10T12:00:00Z",
   "platforms": {
-    "windows-x86_64": {
-      "url": "<BASE>/<AppName>_x.y.z_x64-setup.exe",
-      "signature": "<.exe.sig 文件内容>"
-    },
-    "darwin-aarch64": {
-      "url": "<BASE>/<AppName>_aarch64.app.tar.gz",
-      "signature": "<aarch64.app.tar.gz.sig 文件内容>"
-    },
-    "darwin-x86_64": {
-      "url": "<BASE>/<AppName>_x64.app.tar.gz",
-      "signature": "<x64.app.tar.gz.sig 文件内容>"
-    },
-    "linux-x86_64": {
-      "url": "<BASE>/<AppName>_x.y.z_amd64.AppImage",
-      "signature": "<.AppImage.sig 文件内容>"
-    }
+    "windows-x86_64": { ... },      // ← platforms 含 windows
+    "darwin-aarch64": { ... },       // ← platforms 含 macos
+    "darwin-x86_64": { ... },        // ← platforms 含 macos
+    "linux-x86_64": { ... }          // ← platforms 含 linux
   }
 }
 ```
@@ -358,7 +359,6 @@ done
 > **注意**：Gitee 版和 GitHub 版 update.json 只有 URL 中的 `<BASE>` 不同。
 > - Gitee: `https://gitee.com/<用户名>/<项目名>-release/raw/master/releases/vx.y.z`
 > - GitHub: `https://github.com/<用户名>/<项目名>-release/raw/master/releases/vx.y.z`
-> URL 中文件名含中文或空格时必须 URL 编码。
 
 ### 步骤 8：推送 release 仓库（产物 + update.json）
 
@@ -390,6 +390,7 @@ git push origin master
 | 项目 | 值 |
 |------|-----|
 | 版本 | vx.y.z |
+| 支持平台 | <从 platforms 配置读取> |
 | 源码仓库 | 已推送到 <GitHub URL> |
 | CI 构建 | 已完成，产物已上传到 GitHub Release |
 | Release 仓库（Gitee） | 产物 + update.json 已推送 |
@@ -403,8 +404,9 @@ git push origin master
 
 ### 概述
 
-通过 GitHub Actions 在云端自动构建三平台安装包并签名，无需本地构建。
+通过 GitHub Actions 在云端自动构建安装包并签名，无需本地构建。
 CI **只负责构建和上传到 GitHub Release**，不负责推送到 release 仓库。
+构建矩阵由 `platforms` 配置决定。
 
 ### 工作流文件
 
@@ -419,30 +421,14 @@ git tag v0.2.0
 git push <github_remote> v0.2.0
 ```
 
-### CI 产物清单（以 v1.0.0 为例）
+### 构建矩阵（按 platforms 配置）
 
-```
-<AppName>_1.0.0_x64-setup.exe          # Windows 安装包（NSIS）
-<AppName>_1.0.0_x64-setup.exe.sig      # Windows updater 签名
-<AppName>_1.0.0_aarch64.dmg            # macOS Apple Silicon 安装包
-<AppName>_aarch64.app.tar.gz           # macOS Apple Silicon updater 产物
-<AppName>_aarch64.app.tar.gz.sig       # macOS Apple Silicon updater 签名
-<AppName>_1.0.0_x64.dmg                # macOS Intel 安装包
-<AppName>_x64.app.tar.gz               # macOS Intel updater 产物
-<AppName>_x64.app.tar.gz.sig           # macOS Intel updater 签名
-<AppName>_1.0.0_amd64.AppImage         # Linux AppImage
-<AppName>_1.0.0_amd64.AppImage.sig     # Linux updater 签名
-<AppName>_1.0.0_amd64.deb              # Linux Debian 安装包
-```
-
-### 构建矩阵
-
-| 平台 | Runner | Bundle 参数 | Updater 产物 | 安装包产物 |
-|------|--------|-------------|-------------|-----------|
-| Windows | `windows-latest` | `--bundles nsis` | `.exe` + `.exe.sig` | `.exe` (NSIS) |
-| macOS (Apple Silicon) | `macos-latest` | `--bundles app,dmg` | `.app.tar.gz` + `.app.tar.gz.sig` | `.dmg` (aarch64) |
-| macOS (Intel) | `macos-latest` | `--bundles app,dmg` | `.app.tar.gz` + `.app.tar.gz.sig` | `.dmg` (x86_64) |
-| Linux | `ubuntu-22.04` | `--bundles deb,appimage` | `.AppImage` + `.AppImage.sig` | `.deb` + `.AppImage` |
+| 平台 | Runner | Bundle 参数 | Updater 产物 | 安装包产物 | platforms 值 |
+|------|--------|-------------|-------------|-----------|-------------|
+| Windows | `windows-latest` | `--bundles nsis` | `.exe` + `.exe.sig` | `.exe` (NSIS) | `windows` |
+| macOS (ARM) | `macos-latest` | `--bundles app,dmg` | `.app.tar.gz` + `.sig` | `.dmg` (aarch64) | `macos` |
+| macOS (Intel) | `macos-latest` | `--bundles app,dmg` | `.app.tar.gz` + `.sig` | `.dmg` (x86_64) | `macos` |
+| Linux | `ubuntu-22.04` | `--bundles deb,appimage` | `.AppImage` + `.sig` | `.deb` + `.AppImage` | `linux` |
 
 > **macOS 必须包含 `app` bundle**
 > - `dmg` 只生成安装用的 DMG 镜像，**不生成 updater 产物**

@@ -12,6 +12,8 @@
 #
 # 使用前须修改（搜索 TODO 标记）：
 #   1. releaseName: 修改为你的应用名称
+#   2. 构建矩阵: 根据 .claude/release-config.json 的 platforms 配置
+#      裁剪不需要的平台（删除对应 matrix include 条目）
 #
 # CI 只负责构建和上传到 GitHub Release（草稿）。
 # 产物下载和推送到 release 仓库由本地 /release 命令完成。
@@ -33,17 +35,19 @@ jobs:
       contents: write
     strategy:
       fail-fast: false
+      # TODO: 根据 platforms 配置裁剪不需要的平台
+      # 只需 Windows + macOS 时，删除 ubuntu-22.04 条目
       matrix:
         include:
-          - platform: windows-latest
+          - platform: windows-latest           # platforms: windows
             args: '--bundles nsis'
-          - platform: macos-latest
+          - platform: macos-latest             # platforms: macos
             args: '--bundles app,dmg'
             target: aarch64-apple-darwin
-          - platform: macos-latest
+          - platform: macos-latest             # platforms: macos
             args: '--bundles app,dmg'
             target: x86_64-apple-darwin
-          - platform: ubuntu-22.04
+          - platform: ubuntu-22.04             # platforms: linux（不需要可删除此条目及对应的 Install dependencies step）
             args: '--bundles deb,appimage'
 
     runs-on: ${{ matrix.platform }}
