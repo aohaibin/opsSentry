@@ -70,19 +70,45 @@ Tauri Desktop App 的 Git 工作流与版本管理技能，规范分支命名、
 
 ---
 
-## 发布流程
+## 发布流程（CI 全自动模式）
+
+> 项目已配置 GitHub Actions CI，**本地不需要执行 `pnpm tauri build`**。
+> 使用 `/release` 命令可自动完成全部发布流程。
 
 ```
-1. 更新版本号
+1. 更新版本号（三处同步）
    - package.json: version
    - src-tauri/Cargo.toml: version
    - src-tauri/tauri.conf.json: version
-2. 更新 CHANGELOG
-3. 创建 release 分支
-4. 构建各平台安装包: pnpm tauri build
-5. 测试安装包
-6. 合并到 master，打 tag
-7. 发布 GitHub Release（附带安装包）
+2. 更新 release 仓库 README.md（下载链接 + 版本历史）
+3. 提交并推送 release 仓库 README 变更
+4. 提交源码仓库 + 推送到 GitHub
+5. 打 Git Tag（v*.*.* 格式）并推送
+   → 自动触发 GitHub Actions CI
+   → CI 构建 Windows/macOS/Linux 三平台安装包
+   → CI 自动推送产物 + update.json 到 release 仓库
+```
+
+### 快速发布
+
+```bash
+# 使用 /release 命令一键发布
+/release
+```
+
+### 手动发布（备用）
+
+```bash
+# 1. 更新版本号后提交
+git add src-tauri/tauri.conf.json src-tauri/Cargo.toml package.json
+git commit -m "release: vX.Y.Z"
+
+# 2. 推送到 GitHub
+git push <github_remote> <主分支>
+
+# 3. 打 Tag 触发 CI
+git tag vX.Y.Z
+git push <github_remote> vX.Y.Z
 ```
 
 ---

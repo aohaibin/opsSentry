@@ -22,3 +22,9 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Tauri signing keys (NEVER commit private keys)
+src-tauri/keys/
+
+# Release config (contains local paths)
+.claude/release-config.json

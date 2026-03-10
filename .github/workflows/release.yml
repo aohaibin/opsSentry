@@ -1,0 +1,286 @@
+# =============================================================================
+# Tauri 跨平台自动构建 & 发布工作流
+# =============================================================================
+#
+# 触发方式：推送 v*.*.* 格式的 Git Tag
+#   git tag v1.0.0
+#   git push <remote> v1.0.0
+#
+# 前提条件（GitHub Secrets）：
+#   - TAURI_SIGNING_PRIVATE_KEY       签名私钥内容
+#   - TAURI_SIGNING_PRIVATE_KEY_PASSWORD  私钥密码（通常为空）
+#   - RELEASE_REPO_TOKEN              GitHub PAT（推送 GitHub release 仓库）
+#   - GITEE_USERNAME                  Gitee 用户名
+#   - GITEE_TOKEN                     Gitee 私人令牌
+#
+# 使用前须修改（搜索 TODO 标记）：
+#   1. releaseName: 修改为你的应用名称
+#   2. Clone release repos: 修改为你的 release 仓库 URL
+#   3. GITEE_BASE / GITHUB_BASE: 修改为你的 release 仓库 raw URL
+#   4. commit message: 修改为你的应用名称
+# =============================================================================
+
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  # ===========================================================================
+  # Job 1: 跨平台构建
+  # ===========================================================================
+  release:
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: windows-latest
+            args: '--bundles nsis'
+          - platform: macos-latest
+            args: '--bundles app,dmg'
+            target: aarch64-apple-darwin
+          - platform: macos-latest
+            args: '--bundles app,dmg'
+            target: x86_64-apple-darwin
+          - platform: ubuntu-22.04
+            args: '--bundles deb,appimage'
+
+    runs-on: ${{ matrix.platform }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install dependencies (Ubuntu)
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: './src-tauri -> target'
+
+      - name: Install frontend dependencies
+        run: pnpm install
+
+      - name: Build Tauri app
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ''
+        with:
+          tagName: ${{ github.ref_name }}
+          # TODO: 修改为你的应用名称
+          releaseName: '${{ github.ref_name }}'
+          releaseBody: 'See the assets to download and install this version.'
+          releaseDraft: true
+          prerelease: false
+          args: ${{ matrix.args }} ${{ matrix.target && format('--target {0}', matrix.target) || '' }}
+
+  # ===========================================================================
+  # Job 2: 自动更新 release 仓库（供应用内自动更新）
+  # ===========================================================================
+  update-release-repo:
+    needs: release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Get version from tag
+        id: version
+        run: echo "version=${GITHUB_REF_NAME#v}" >> $GITHUB_OUTPUT
+
+      - name: Download all updater artifacts from release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION=${{ steps.version.outputs.version }}
+
+          # 等待 Release 资产上传完成（最多等待 10 分钟）
+          # 注意：releaseDraft=true 创建的草稿 Release 无法通过 /releases/tags/ API 查到
+          # 必须用 /releases 列表 API 按 tag_name 过滤
+          TAG="${{ github.ref_name }}"
+          for i in $(seq 1 60); do
+            ASSET_COUNT=$(gh api "repos/${{ github.repository }}/releases" --jq "[.[] | select(.tag_name == \"${TAG}\")] | .[0].assets | length // 0" 2>/dev/null || echo "0")
+            if ! echo "$ASSET_COUNT" | grep -qE '^[0-9]+$'; then
+              ASSET_COUNT=0
+            fi
+            if [ "$ASSET_COUNT" -ge 4 ]; then
+              echo "Found $ASSET_COUNT assets"
+              break
+            fi
+            echo "Waiting for assets... attempt $i (found $ASSET_COUNT)"
+            sleep 10
+          done
+
+          # 下载所有平台的产物
+          gh release download ${{ github.ref_name }} \
+            --repo ${{ github.repository }} \
+            --pattern "*.exe" \
+            --pattern "*.exe.sig" \
+            --pattern "*.app.tar.gz" \
+            --pattern "*.app.tar.gz.sig" \
+            --pattern "*.dmg" \
+            --pattern "*.AppImage" \
+            --pattern "*.AppImage.sig" \
+            --pattern "*.deb" \
+            --dir ./artifacts || true
+
+          echo "=== Downloaded artifacts ==="
+          ls -la ./artifacts/ 2>/dev/null || echo "No artifacts downloaded"
+
+      - name: Clone release repos
+        run: |
+          # TODO: 修改为你的 release 仓库 URL
+          # Clone GitHub release 仓库
+          git clone https://x-access-token:${{ secrets.RELEASE_REPO_TOKEN }}@github.com/${{ github.repository_owner }}/<项目名>-release.git release-repo-github
+          # Clone Gitee release 仓库
+          git clone https://${{ secrets.GITEE_USERNAME }}:${{ secrets.GITEE_TOKEN }}@gitee.com/${{ secrets.GITEE_USERNAME }}/<项目名>-release.git release-repo-gitee
+
+      - name: Copy artifacts and update manifest
+        run: |
+          VERSION=${{ steps.version.outputs.version }}
+          PUB_DATE="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+          # TODO: 修改为你的 release 仓库 raw URL
+          GITEE_BASE="https://gitee.com/${{ secrets.GITEE_USERNAME }}/<项目名>-release/raw/master/releases/v${VERSION}"
+          GITHUB_BASE="https://github.com/${{ github.repository_owner }}/<项目名>-release/raw/master/releases/v${VERSION}"
+
+          # 复制所有产物到两个 release 仓库
+          for REPO in release-repo-github release-repo-gitee; do
+            DEST="${REPO}/releases/v${VERSION}"
+            mkdir -p "$DEST"
+            cp ./artifacts/* "$DEST/" 2>/dev/null || true
+          done
+
+          echo "=== Artifacts in release dir ==="
+          ls -la "release-repo-gitee/releases/v${VERSION}/" 2>/dev/null
+
+          # 辅助函数：读取签名文件内容
+          read_sig() {
+            local sig_file="$1"
+            if [ -f "$sig_file" ]; then
+              cat "$sig_file"
+            fi
+          }
+
+          # 辅助函数：URL 编码文件名
+          url_encode_filename() {
+            python3 -c "import urllib.parse, sys; print(urllib.parse.quote(sys.argv[1]))" "$1"
+          }
+
+          # 构建各平台 JSON 片段
+          PLATFORMS_JSON=""
+
+          # --- Windows x86_64 ---
+          WIN_SIG_FILE=$(ls ./artifacts/*x64-setup.exe.sig 2>/dev/null | head -1)
+          WIN_EXE_FILE=$(ls ./artifacts/*x64-setup.exe 2>/dev/null | grep -v '.sig' | head -1)
+          if [ -f "$WIN_EXE_FILE" ]; then
+            WIN_FILENAME=$(basename "$WIN_EXE_FILE")
+            WIN_SIG=$(read_sig "$WIN_SIG_FILE")
+            WIN_URL_NAME=$(url_encode_filename "$WIN_FILENAME")
+            PLATFORMS_JSON="${PLATFORMS_JSON}\"windows-x86_64\":{\"url\":\"\${BASE}/${WIN_URL_NAME}\",\"signature\":\"${WIN_SIG}\"},"
+            echo "Found Windows: $WIN_FILENAME"
+          fi
+
+          # --- macOS aarch64 (Apple Silicon) ---
+          MAC_ARM_SIG_FILE=$(ls ./artifacts/*aarch64.app.tar.gz.sig 2>/dev/null | head -1)
+          MAC_ARM_FILE=$(ls ./artifacts/*aarch64.app.tar.gz 2>/dev/null | grep -v '.sig' | head -1)
+          if [ -f "$MAC_ARM_FILE" ]; then
+            MAC_ARM_FILENAME=$(basename "$MAC_ARM_FILE")
+            MAC_ARM_SIG=$(read_sig "$MAC_ARM_SIG_FILE")
+            MAC_ARM_URL_NAME=$(url_encode_filename "$MAC_ARM_FILENAME")
+            PLATFORMS_JSON="${PLATFORMS_JSON}\"darwin-aarch64\":{\"url\":\"\${BASE}/${MAC_ARM_URL_NAME}\",\"signature\":\"${MAC_ARM_SIG}\"},"
+            echo "Found macOS aarch64: $MAC_ARM_FILENAME"
+          fi
+
+          # --- macOS x86_64 (Intel) ---
+          MAC_X64_SIG_FILE=$(ls ./artifacts/*x64.app.tar.gz.sig 2>/dev/null || ls ./artifacts/*x86_64.app.tar.gz.sig 2>/dev/null | head -1)
+          MAC_X64_FILE=$(ls ./artifacts/*x64.app.tar.gz 2>/dev/null || ls ./artifacts/*x86_64.app.tar.gz 2>/dev/null | grep -v '.sig' | head -1)
+          if [ -f "$MAC_X64_FILE" ]; then
+            MAC_X64_FILENAME=$(basename "$MAC_X64_FILE")
+            MAC_X64_SIG=$(read_sig "$MAC_X64_SIG_FILE")
+            MAC_X64_URL_NAME=$(url_encode_filename "$MAC_X64_FILENAME")
+            PLATFORMS_JSON="${PLATFORMS_JSON}\"darwin-x86_64\":{\"url\":\"\${BASE}/${MAC_X64_URL_NAME}\",\"signature\":\"${MAC_X64_SIG}\"},"
+            echo "Found macOS x86_64: $MAC_X64_FILENAME"
+          fi
+
+          # --- Linux x86_64 ---
+          LINUX_SIG_FILE=$(ls ./artifacts/*.AppImage.sig 2>/dev/null | head -1)
+          LINUX_FILE=$(ls ./artifacts/*.AppImage 2>/dev/null | grep -v '.sig' | head -1)
+          if [ -f "$LINUX_FILE" ]; then
+            LINUX_FILENAME=$(basename "$LINUX_FILE")
+            LINUX_SIG=$(read_sig "$LINUX_SIG_FILE")
+            LINUX_URL_NAME=$(url_encode_filename "$LINUX_FILENAME")
+            PLATFORMS_JSON="${PLATFORMS_JSON}\"linux-x86_64\":{\"url\":\"\${BASE}/${LINUX_URL_NAME}\",\"signature\":\"${LINUX_SIG}\"},"
+            echo "Found Linux: $LINUX_FILENAME"
+          fi
+
+          # 去除末尾逗号
+          PLATFORMS_JSON="${PLATFORMS_JSON%,}"
+
+          if [ -z "$PLATFORMS_JSON" ]; then
+            echo "No updater artifacts found, skipping update.json"
+            exit 0
+          fi
+
+          # 生成 Gitee 版 update.json（应用内自动更新使用）
+          GITEE_JSON=$(echo "{\"version\":\"${VERSION}\",\"notes\":\"Release v${VERSION}\",\"pub_date\":\"${PUB_DATE}\",\"platforms\":{${PLATFORMS_JSON}}}" | sed "s|\\\${BASE}|${GITEE_BASE}|g")
+          echo "$GITEE_JSON" | python3 -m json.tool > release-repo-gitee/update.json
+
+          # 生成 GitHub 版 update.json（备份）
+          GITHUB_JSON=$(echo "{\"version\":\"${VERSION}\",\"notes\":\"Release v${VERSION}\",\"pub_date\":\"${PUB_DATE}\",\"platforms\":{${PLATFORMS_JSON}}}" | sed "s|\\\${BASE}|${GITHUB_BASE}|g")
+          echo "$GITHUB_JSON" | python3 -m json.tool > release-repo-github/update.json
+
+          echo "=== Gitee update.json ==="
+          cat release-repo-gitee/update.json
+          echo "=== GitHub update.json ==="
+          cat release-repo-github/update.json
+
+      # Gitee 优先推送（主更新端点，中国大陆用户依赖此端点）
+      - name: Push to Gitee release repo (primary)
+        run: |
+          cd release-repo-gitee
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --staged --quiet && echo "No changes to commit" && exit 0
+          # TODO: 修改 commit message 中的应用名称
+          git commit -m "release: v${{ steps.version.outputs.version }}"
+          git push
+
+      # GitHub 备份推送（失败不阻塞 Gitee）
+      - name: Push to GitHub release repo (backup)
+        continue-on-error: true
+        run: |
+          cd release-repo-github
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --staged --quiet && echo "No changes to commit" && exit 0
+          # TODO: 修改 commit message 中的应用名称
+          git commit -m "release: v${{ steps.version.outputs.version }}"
+          git push

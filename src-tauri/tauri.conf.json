@@ -27,19 +27,26 @@
   },
   "plugins": {
     "updater": {
-      "endpoints": ["https://releases.example.com/{{target}}/{{arch}}/{{current_version}}"],
+      "endpoints": ["https://gitee.com/<用户名>/<项目名>-release/raw/master/update.json"],
       "pubkey": "YOUR_UPDATER_PUBKEY_HERE"
     }
   },
   "bundle": {
     "active": true,
-    "targets": "all",
+    "targets": ["nsis"],
+    "createUpdaterArtifacts": "v1Compatible",
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "windows": {
+      "nsis": {
+        "displayLanguageSelector": true,
+        "languages": ["SimpChinese", "English"]
+      }
+    }
   }
 }

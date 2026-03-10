@@ -188,6 +188,14 @@ version = "1.0.0"
 
 ---
 
+## CI 自动构建（推荐）
+
+项目已配置 GitHub Actions CI（`.github/workflows/release.yml`），推送 `v*.*.*` Tag 后自动构建三平台安装包。
+
+使用 `/release` 命令可自动完成全部发布流程，详见 `release-publish` 技能。
+
+---
+
 ## 常见错误
 
 | 错误做法 | 正确做法 |
@@ -197,3 +205,6 @@ version = "1.0.0"
 | 版本号不同步 | 3 处版本号保持一致 |
 | 不测试安装包 | 每次发布前在干净环境安装测试 |
 | 不设置应用标识 | identifier 使用反向域名格式 |
+| Rust 中启动子进程未设 `CREATE_NO_WINDOW` | 打包后变 GUI 进程，所有 `Command::new()` 必须设 `creation_flags(0x08000000)` |
+| `productName` 含中文导致 WiX MSI 打包失败 | 改用 NSIS (`"targets": ["nsis"]`) 或改 productName 为纯 ASCII |
+| `bundle.targets` 设为 `"all"` 在 CI 上出错 | CI 中通过 `--bundles` 参数指定，本地可用 `["nsis"]` |

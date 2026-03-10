@@ -531,6 +531,7 @@ cd src-tauri && cargo test
 | `/start` | 项目快速了解 |
 | `/progress` | 项目进度报告 |
 | `/next` | 下一步建议 |
+| `/release` | 发布新版本（CI 全自动构建 + 推送） |
 
 ---
 
