@@ -22,10 +22,10 @@
 | **应用类型** | Tauri 2.x 桌面应用（双进程架构） |
 | **后端语言** | Rust 2021 edition |
 | **前端框架** | React 19 + TypeScript 5.8 |
-| **UI 组件库** | Ant Design 5 |
-| **样式方案** | TailwindCSS 4 |
-| **状态管理** | Zustand（前端） + Rust State（后端） |
-| **路由方案** | React Router v7 |
+| **UI 组件库** | Ant Design (v5+) + Lucide React 图标库 |
+| **样式方案** | TailwindCSS 4 + CSS Variables 设计令牌 |
+| **状态管理** | Zustand (v5+)（全局状态）+ React Hooks（局部状态） |
+| **路由方案** | React Router 7（HashRouter） |
 | **构建工具** | Vite 7 (前端) + Cargo (后端) |
 | **通信机制** | Tauri IPC（`invoke` 调用 Rust Commands） |
 | **序列化** | serde + serde_json（Rust ↔ JSON ↔ TypeScript） |
@@ -63,13 +63,17 @@
 Commands 层（IPC 入口）→ Services 层（业务逻辑）→ Database 层（数据访问）
 ```
 
+### 分层职责
+
 | 层级 | 职责 | 关键技术 |
 |------|------|---------|
-| **WebView 层** | UI 渲染、用户交互、前端状态 | React 19 + Ant Design + Zustand |
-| **IPC 桥接层** | 前后端通信 | `invoke()` 调用 Commands，`listen()` 监听事件 |
-| **Commands 层** | IPC 入口，参数校验 | `#[tauri::command]`、`tauri::State<T>` |
-| **Services 层** | 业务逻辑，数据转换 | 纯 Rust 函数 |
-| **Database 层** | 数据访问（DAO） | rusqlite + Mutex |
+| **WebView 层** | UI 渲染、用户交互 | React 19 + Ant Design + TailwindCSS |
+| **状态管理层** | 全局状态、设置管理 | Zustand（`src/store/`） |
+| **API 封装层** | 统一 invoke 调用 | `src/lib/api/index.ts` |
+| **IPC 桥接层** | 前后端通信 | `invoke()` / `listen()` |
+| **Command 层** | IPC 接口定义 | `#[tauri::command]`（`src-tauri/src/commands/`） |
+| **Service 层** | 业务逻辑 | `src-tauri/src/services/` |
+| **Database 层** | 数据访问 DAO | `src-tauri/src/database/`（rusqlite） |
 | **Plugin 层** | 功能扩展 | `tauri::Builder.plugin()` 注册 |
 | **Capabilities 层** | 安全权限控制 | JSON 声明式权限 |
 
@@ -89,8 +93,11 @@ tauri/
 │   ├── App.tsx                   # 主组件（ConfigProvider + 主题 + ErrorBoundary）
 │   ├── Router.tsx                # 路由配置（React Router）
 │   ├── vite-env.d.ts             # Vite 类型声明
-│   ├── styles/
-│   │   └── global.css            # 全局样式（TailwindCSS + 自定义滚动条）
+│   ├── theme/                    # 主题配置
+│   │   └── antdTheme.ts          # Ant Design 暗色/亮色主题
+│   ├── styles/                   # 样式系统
+│   │   ├── variables.css         # CSS 设计令牌（颜色/间距/圆角）
+│   │   └── global.css            # TailwindCSS + 全局样式
 │   ├── store/
 │   │   └── index.ts              # Zustand 全局状态（主题/侧边栏）
 │   ├── types/

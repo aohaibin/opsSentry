@@ -20,18 +20,21 @@ description: |
 
 ```
 src-tauri/src/
-├── commands/
-│   ├── mod.rs       → 导出所有 Command 模块
-│   ├── config.rs    → 配置管理 Commands
-│   ├── system.rs    → 系统信息 Commands
-│   └── user.rs      → 用户管理 Commands (示例)
-├── services/
-│   ├── config_service.rs
-│   └── user_service.rs
-├── database/
+├── commands/           → Command 模块（薄 IPC 包装）
+│   ├── mod.rs          → 导出所有 Command 模块
+│   ├── config.rs       → 配置管理 Commands
+│   ├── system.rs       → 系统信息 Commands
+│   └── user.rs         → 用户管理 Commands (示例)
+├── services/           → Service 模块（业务逻辑）
 │   ├── mod.rs
-│   └── schema.rs
-└── lib.rs           → 统一注册 Commands
+│   ├── config.rs       → 配置业务逻辑
+│   └── user.rs         → 用户业务逻辑
+├── database/
+│   ├── mod.rs          → Database 结构体 + CRUD 方法
+│   └── schema.rs       → 版本化 Schema 迁移
+├── models/
+│   └── mod.rs          → 所有数据模型
+└── lib.rs              → 统一注册 Commands
 ```
 
 ### commands/mod.rs 模式
@@ -43,30 +46,30 @@ pub mod system;
 pub mod user;
 ```
 
-### 实现 Command 模块
+### 实现 Command 模块（薄包装模式）
+
+> Command 只做：接收参数 → 调用 Service → 转换错误。不包含业务逻辑。
 
 ```rust
 // src-tauri/src/commands/config.rs
+use crate::services::config::ConfigService;
+use crate::state::AppState;
 use tauri::State;
-use crate::database::Database;
-use crate::models::AppConfig;
 
 /// 获取所有配置
 #[tauri::command]
-pub fn get_all_config(db: State<'_, Database>) -> Result<Vec<AppConfig>, String> {
-    db.get_all_config()
-        .map_err(|e| e.to_string())
+pub fn get_all_config(state: State<'_, AppState>) -> Result<Vec<AppConfig>, String> {
+    ConfigService::get_all(&state.db).map_err(|e| e.to_string())
 }
 
 /// 设置配置
 #[tauri::command]
 pub fn set_config(
-    db: State<'_, Database>,
+    state: State<'_, AppState>,
     key: String,
     value: String,
 ) -> Result<(), String> {
-    db.set_config(&key, &value)
-        .map_err(|e| e.to_string())
+    ConfigService::set(&state.db, &key, &value).map_err(|e| e.to_string())
 }
 ```
 
@@ -111,8 +114,10 @@ mod database;
 mod error;
 mod models;
 mod services;
+mod state;
 
 use database::Database;
+use state::AppState;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -123,7 +128,7 @@ pub fn run() {
             std::fs::create_dir_all(&data_dir)?;
             let db_path = data_dir.join("app.db");
             let db = Database::init(db_path.to_str().unwrap())?;
-            app.manage(db);
+            app.manage(AppState { db });
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -135,7 +140,10 @@ pub fn run() {
             // system Commands
             commands::system::get_system_info,
             commands::system::greet,
-            // 未来可添加更多模块...
+            // user Commands
+            commands::user::list_users,
+            commands::user::create_user,
+            // 随项目增长添加更多模块...
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
@@ -319,6 +327,78 @@ function LongTaskComponent() {
 
 ---
 
+## Command 中执行子进程（Windows 防弹窗）
+
+> **强制规则**: 在 Command 中使用 `std::process::Command` 或 `tokio::process::Command` 启动子进程时，**必须**在 Windows 上设置 `CREATE_NO_WINDOW` 标志，否则打包后每次调用都会弹出 CMD 黑窗口。
+
+### 原理
+
+- **开发模式** (`tauri dev`)：Rust 进程运行在终端中，子进程继承父进程控制台，不弹窗
+- **打包后** (`.exe`)：应用是 GUI 进程（无控制台），Windows 自动为子进程创建新控制台窗口
+
+### std::process::Command（同步）
+
+```rust
+#[tauri::command]
+pub fn detect_tool() -> Result<String, String> {
+    let mut cmd = std::process::Command::new("tool");
+    cmd.arg("--version");
+    // Windows: 防止弹出 CMD 窗口
+    #[cfg(target_os = "windows")]
+    {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x08000000;
+        cmd.creation_flags(CREATE_NO_WINDOW);
+    }
+    let output = cmd.output().map_err(|e| e.to_string())?;
+    Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
+}
+```
+
+### tokio::process::Command（异步）
+
+```rust
+#[tauri::command]
+pub async fn run_npm_command() -> Result<String, String> {
+    let npm_cmd = if cfg!(target_os = "windows") { "npm.cmd" } else { "npm" };
+    let mut cmd = tokio::process::Command::new(npm_cmd);
+    cmd.args(["view", "some-package", "--json"]);
+    // Windows: tokio Command 内置 creation_flags，无需额外 import
+    #[cfg(target_os = "windows")]
+    {
+        const CREATE_NO_WINDOW: u32 = 0x08000000;
+        cmd.creation_flags(CREATE_NO_WINDOW);
+    }
+    let output = cmd.output().await.map_err(|e| e.to_string())?;
+    Ok(String::from_utf8_lossy(&output.stdout).to_string())
+}
+```
+
+### 辅助函数模式（多处调用时推荐）
+
+```rust
+/// 创建不弹出 CMD 窗口的 Command（Windows 专用）
+#[cfg(target_os = "windows")]
+fn silent_command(program: &str) -> std::process::Command {
+    use std::os::windows::process::CommandExt;
+    const CREATE_NO_WINDOW: u32 = 0x08000000;
+    let mut cmd = std::process::Command::new(program);
+    cmd.creation_flags(CREATE_NO_WINDOW);
+    cmd
+}
+
+// 使用: silent_command("wmic").args(["baseboard", "get", "serialnumber"]).output()
+```
+
+### 关键区别
+
+| API | `creation_flags` 来源 | 需要额外 import |
+|-----|---------------------|----------------|
+| `std::process::Command` | `std::os::windows::process::CommandExt` trait | **需要** `use std::os::windows::process::CommandExt;` |
+| `tokio::process::Command` | 内置方法 | **不需要**额外 import |
+
+---
+
 ## 错误处理最佳实践
 
 ### 使用 AppError 枚举
@@ -441,6 +521,7 @@ fn create_user(name: String, age: u32) -> Result<String, String> {
 | 组合注入时参数顺序错误 | 先注入对象，后前端参数 |
 | 前端不清理事件监听 | `useEffect` 中返回 `unlisten` |
 | 异步 Command 阻塞线程 | 使用 `tokio::time::sleep` 而非 `std::thread::sleep` |
+| Command 中裸用 `Command::new()` 启动子进程 | Windows 必须设置 `CREATE_NO_WINDOW` (0x08000000) 标志，否则打包后弹 CMD 窗口 |
 
 ---
 

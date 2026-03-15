@@ -83,15 +83,59 @@ src-tauri/capabilities/
 └── settings.json       # 设置窗口：最小权限
 ```
 
-### default.json
+### default.json（推荐模板）
 
 ```json
 {
   "identifier": "default",
-  "windows": ["main"],
-  "permissions": ["core:default", "opener:default"]
+  "windows": ["main", "editor-*"],
+  "permissions": [
+    "core:default",
+    "core:window:allow-start-dragging",
+    "core:window:allow-minimize",
+    "core:window:allow-maximize",
+    "core:window:allow-toggle-maximize",
+    "core:window:allow-close",
+    "core:window:allow-destroy",
+    "core:webview:allow-create-webview-window",
+    "opener:default",
+    { "identifier": "opener:allow-open-path", "allow": [{ "path": "**" }] },
+    "shell:default",
+    "os:default",
+    "dialog:default",
+    "notification:default",
+    "store:default",
+    "log:default",
+    "core:menu:default",
+    "core:tray:default",
+    "updater:default",
+    "process:default"
+  ]
 }
 ```
+
+> **说明**:
+> - `core:default` 包含 `core:window:default`，但 **不包含** `core:window:allow-start-dragging`，无边框窗口拖拽需显式声明
+> - 建议同时显式声明 `allow-minimize`, `allow-maximize`, `allow-toggle-maximize`, `allow-close`
+> - 根据项目实际安装的插件增减权限（如 `pty:default`、`sql:default` 等）
+
+### 通配符窗口配置
+
+windows 字段支持 `*` 通配符匹配动态创建的多窗口：
+
+```json
+{
+  "windows": ["main", "editor-*", "preview-*"]
+}
+```
+
+| 模式 | 匹配示例 | 说明 |
+|------|---------|------|
+| `"main"` | `main` | 精确匹配 |
+| `"editor-*"` | `editor-1`, `editor-abc` | 匹配动态创建的编辑器窗口 |
+| `"preview-*"` | `preview-doc`, `preview-123` | 匹配动态创建的预览窗口 |
+
+> 适用场景：应用在运行时通过 `WebviewWindow::builder(app, "editor-xxx")` 动态创建窗口。
 
 ### editor.json
 

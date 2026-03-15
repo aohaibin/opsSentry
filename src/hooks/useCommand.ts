@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 
 interface UseCommandResult<T> {
@@ -18,12 +18,14 @@ export function useCommand<T>(
   const [data, setData] = useState<T | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const argsRef = useRef(args);
+  argsRef.current = args;
 
   const execute = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const result = await invoke<T>(command, args);
+      const result = await invoke<T>(command, argsRef.current);
       setData(result);
       return result;
     } catch (e) {
@@ -33,7 +35,7 @@ export function useCommand<T>(
     } finally {
       setLoading(false);
     }
-  }, [command, args]);
+  }, [command]);
 
   return { data, error, loading, execute };
 }

@@ -49,15 +49,30 @@ tauri::Builder::default()
   "plugins": {
     "updater": {
       "endpoints": [
-        "https://releases.myapp.com/{{target}}/{{arch}}/{{current_version}}"
+        "https://releases.myapp.com/update.json"
       ],
       "pubkey": "YOUR_PUBLIC_KEY_HERE"
     }
+  },
+  "bundle": {
+    "createUpdaterArtifacts": true
   }
 }
 ```
 
-### 更新服务器响应格式
+> **注意**: `createUpdaterArtifacts: true` 让构建自动生成 `.sig` 签名文件和更新用的 `.zip` 包。
+
+### 端点 URL 模式
+
+| 模式 | 示例 | 说明 |
+|------|------|------|
+| **静态 JSON 文件** | `https://cdn.example.com/update.json` | 最简单，适合静态托管 |
+| **动态端点** | `https://api.example.com/{{target}}/{{arch}}/{{current_version}}` | 服务端可按条件返回 |
+| **GitHub Pages** | `https://username.github.io/releases/update.json` | 免费托管 |
+
+### 更新服务器响应格式（update.json）
+
+完整示例，包含所有平台：
 
 ```json
 {
@@ -66,20 +81,37 @@ tauri::Builder::default()
   "pub_date": "2026-03-05T12:00:00Z",
   "platforms": {
     "windows-x86_64": {
-      "url": "https://releases.myapp.com/MyApp_1.1.0_x64-setup.nsis.zip",
-      "signature": "SIGNATURE_HERE"
+      "url": "https://github.com/user/repo/releases/download/v1.1.0/MyApp_1.1.0_x64-setup.nsis.zip",
+      "signature": "CONTENT_OF_.sig_FILE"
+    },
+    "darwin-aarch64": {
+      "url": "https://github.com/user/repo/releases/download/v1.1.0/MyApp.app.tar.gz",
+      "signature": "CONTENT_OF_.sig_FILE"
     },
     "darwin-x86_64": {
-      "url": "https://releases.myapp.com/MyApp.app.tar.gz",
-      "signature": "SIGNATURE_HERE"
+      "url": "https://github.com/user/repo/releases/download/v1.1.0/MyApp.app.tar.gz",
+      "signature": "CONTENT_OF_.sig_FILE"
     },
     "linux-x86_64": {
-      "url": "https://releases.myapp.com/MyApp_1.1.0_amd64.AppImage.tar.gz",
-      "signature": "SIGNATURE_HERE"
+      "url": "https://github.com/user/repo/releases/download/v1.1.0/MyApp_1.1.0_amd64.AppImage.tar.gz",
+      "signature": "CONTENT_OF_.sig_FILE"
     }
   }
 }
 ```
+
+> **signature 值**: 构建产物的 `.sig` 文件内容（Base64 字符串），不是文件路径。
+
+### 平台选择指导
+
+| 平台 | 构建产物 | 包大小参考 | 建议 |
+|------|---------|-----------|------|
+| **Windows x86_64** | `.nsis.zip` | ~10-30MB | 推荐，覆盖最大用户群 |
+| **macOS aarch64** (Apple Silicon) | `.app.tar.gz` + `.dmg` | ~10-20MB | 推荐，新 Mac 必需 |
+| **macOS x86_64** (Intel) | `.app.tar.gz` + `.dmg` | ~10-20MB | 推荐，兼容旧 Mac |
+| **Linux x86_64** | `.AppImage.tar.gz` + `.deb` | ~60-80MB | 可选，体积较大 |
+
+> **决策建议**: 小团队可先只支持 Windows + macOS，Linux 用户量少且 AppImage 体积大。在 update.json 的 `platforms` 中只包含你实际构建的平台即可。
 
 ---
 
@@ -140,38 +172,77 @@ TAURI_SIGNING_PRIVATE_KEY=~/.tauri/myapp.key pnpm tauri build
 
 ---
 
-## GitHub Releases 方案
+## GitHub Actions CI 构建模板
 
-使用 GitHub Actions 自动发布更新:
+CI 负责构建、签名并上传到 GitHub Release。根据需要调整构建矩阵。
+
+### 完整模板（Windows + macOS 双架构）
 
 ```yaml
 # .github/workflows/release.yml
 name: Release
 on:
   push:
-    tags: ["v*"]
+    tags: ['v*.*.*']
 
 jobs:
-  build:
+  release:
     strategy:
+      fail-fast: false
       matrix:
-        platform: [macos-latest, ubuntu-latest, windows-latest]
+        include:
+          # Windows
+          - platform: windows-latest
+            args: '--bundles nsis'
+          # macOS Apple Silicon
+          - platform: macos-latest
+            args: '--bundles app,dmg'
+            target: aarch64-apple-darwin
+          # macOS Intel
+          - platform: macos-latest
+            args: '--bundles app,dmg'
+            target: x86_64-apple-darwin
+          # Linux（可选，取消注释启用）
+          # - platform: ubuntu-22.04
+          #   args: '--bundles appimage,deb'
     runs-on: ${{ matrix.platform }}
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v2
+      - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
       - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
       - run: pnpm install
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
-          tagName: v__VERSION__
-          releaseName: "v__VERSION__"
-          releaseBody: "See the assets to download this version and install."
+          tagName: ${{ github.ref_name }}
+          releaseName: 'MyApp ${{ github.ref_name }}'
+          releaseDraft: true
+          args: ${{ matrix.args }}
 ```
+
+### CI 所需 Secrets
+
+| Secret | 说明 |
+|--------|------|
+| `GITHUB_TOKEN` | 自动提供，无需配置 |
+| `TAURI_SIGNING_PRIVATE_KEY` | 更新签名私钥内容 |
+| `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` | 私钥密码（无密码则设为空字符串） |
+
+### 发布流程
+
+1. 更新 `tauri.conf.json` 和 `package.json` 中的版本号
+2. 提交并打 Tag: `git tag v1.1.0 && git push --tags`
+3. CI 自动构建并上传到 GitHub Release（草稿）
+4. 从 Release 下载产物，读取 `.sig` 文件内容填入 `update.json`
+5. 将 `update.json` 推送到更新端点（静态文件托管）
 
 ---
 

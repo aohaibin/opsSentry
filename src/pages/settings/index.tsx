@@ -3,7 +3,7 @@ import { Card, Typography, Table, message, Tag, Button, Space } from "antd";
 import { SyncOutlined } from "@ant-design/icons";
 import type { Update } from "@tauri-apps/plugin-updater";
 import type { AppConfig } from "@/types";
-import { configApi, updaterApi } from "@/lib/api";
+import { configApi, systemApi, updaterApi } from "@/lib/api";
 import { UpdateModal } from "@/components/ui/UpdateModal";
 
 const { Title, Text } = Typography;
@@ -14,6 +14,7 @@ export default function SettingsPage() {
   const [checking, setChecking] = useState(false);
   const [update, setUpdate] = useState<Update | null>(null);
   const [updateModalOpen, setUpdateModalOpen] = useState(false);
+  const [appVersion, setAppVersion] = useState("0.1.0");
 
   async function loadConfigs() {
     setLoading(true);
@@ -46,6 +47,7 @@ export default function SettingsPage() {
 
   useEffect(() => {
     loadConfigs();
+    systemApi.getSystemInfo().then((info) => setAppVersion(info.appVersion)).catch(() => {});
   }, []);
 
   const columns = [
@@ -76,7 +78,7 @@ export default function SettingsPage() {
           >
             检查更新
           </Button>
-          <Text type="secondary">当前版本: 0.1.0</Text>
+          <Text type="secondary">当前版本: {appVersion}</Text>
         </Space>
       </Card>
 

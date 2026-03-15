@@ -1,24 +1,33 @@
+import { useRef } from "react";
 import { Outlet, useNavigate } from "react-router-dom";
 import { Layout, Button, theme as antdTheme } from "antd";
 import { MenuFoldOutlined, MenuUnfoldOutlined, SettingOutlined } from "@ant-design/icons";
 import { Sun, Moon } from "lucide-react";
-import { getCurrentWindow } from "@tauri-apps/api/window";
+import { getCurrentWindow, type Window } from "@tauri-apps/api/window";
 import { useAppStore } from "@/store";
 import { Sidebar } from "./Sidebar";
 import { WindowControls } from "./WindowControls";
 
 const { Header, Sider, Content } = Layout;
 
-const appWindow = getCurrentWindow();
+function getAppWindow(): Window | null {
+  try {
+    return getCurrentWindow();
+  } catch {
+    return null;
+  }
+}
 
 /** Header 中间的可拖拽空白区域 */
 function DragRegion() {
+  const windowRef = useRef<Window | null>(getAppWindow());
+
   function handleMouseDown(e: React.MouseEvent) {
-    if (e.buttons === 1) {
+    if (e.buttons === 1 && windowRef.current) {
       if (e.detail === 2) {
-        appWindow.toggleMaximize();
+        windowRef.current.toggleMaximize();
       } else {
-        appWindow.startDragging();
+        windowRef.current.startDragging();
       }
     }
   }

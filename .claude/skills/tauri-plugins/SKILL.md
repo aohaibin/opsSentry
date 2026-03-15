@@ -24,6 +24,8 @@ tauri = { version = "2", features = [] }
 tauri-plugin-opener = "2"
 tauri-plugin-store = "2"
 tauri-plugin-log = "2"
+tauri-plugin-updater = "2"
+tauri-plugin-process = "2"
 ```
 
 ### 已注册插件（src-tauri/src/lib.rs）
@@ -34,6 +36,8 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_store::Builder::new().build())
         .plugin(tauri_plugin_log::Builder::new().build())
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_process::init())
         .invoke_handler(tauri::generate_handler![...])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
@@ -48,14 +52,16 @@ pub fn run() {
     "core:default",
     "opener:default",
     "store:default",
-    "log:default"
+    "log:default",
+    "updater:default",
+    "process:default"
   ]
 }
 ```
 
 ---
 
-## 官方插件清单
+## 官方插件完整清单
 
 ### 核心功能插件
 
@@ -64,11 +70,15 @@ pub fn run() {
 | **opener** | `tauri-plugin-opener` | `@tauri-apps/plugin-opener` | 打开 URL/文件 | ✅ 已安装 |
 | **store** | `tauri-plugin-store` | `@tauri-apps/plugin-store` | 键值存储 | ✅ 已安装 |
 | **log** | `tauri-plugin-log` | `@tauri-apps/plugin-log` | 日志系统 | ✅ 已安装 |
-| **fs** | `tauri-plugin-fs` | `@tauri-apps/plugin-fs` | 文件系统操作 | ⭕ 未安装 |
-| **dialog** | `tauri-plugin-dialog` | `@tauri-apps/plugin-dialog` | 文件选择对话框 | ⭕ 未安装 |
-| **shell** | `tauri-plugin-shell` | `@tauri-apps/plugin-shell` | 执行系统命令 | ⭕ 未安装 |
-| **clipboard** | `tauri-plugin-clipboard-manager` | `@tauri-apps/plugin-clipboard-manager` | 剪贴板 | ⭕ 未安装 |
-| **process** | `tauri-plugin-process` | `@tauri-apps/plugin-process` | 进程管理 | ⭕ 未安装 |
+| **updater** | `tauri-plugin-updater` | `@tauri-apps/plugin-updater` | 应用自动更新 | ✅ 已安装 |
+| **process** | `tauri-plugin-process` | `@tauri-apps/plugin-process` | 进程管理（退出/重启） | ✅ 已安装 |
+| **shell** | `tauri-plugin-shell` | `@tauri-apps/plugin-shell` | 执行系统命令 | 📦 推荐 |
+| **os** | `tauri-plugin-os` | `@tauri-apps/plugin-os` | 操作系统信息（平台/架构/版本） | 📦 推荐 |
+| **dialog** | `tauri-plugin-dialog` | `@tauri-apps/plugin-dialog` | 文件选择/消息对话框 | 📦 推荐 |
+| **notification** | `tauri-plugin-notification` | `@tauri-apps/plugin-notification` | 系统通知 | 📦 推荐 |
+| **fs** | `tauri-plugin-fs` | `@tauri-apps/plugin-fs` | 文件系统操作 | 📦 按需安装 |
+| **clipboard** | `tauri-plugin-clipboard-manager` | `@tauri-apps/plugin-clipboard-manager` | 剪贴板 | 📦 按需安装 |
+| **pty** | `tauri-plugin-pty` | `@anthropic-ai/tauri-plugin-pty` | 伪终端（终端模拟器） | 📦 按需安装 |
 
 ### 数据存储插件
 
@@ -83,12 +93,24 @@ pub fn run() {
 
 | 插件 | 用途 | 当前状态 |
 |------|------|---------|
-| **notification** | 系统通知 | ⭕ 未安装 |
-| **global-shortcut** | 全局快捷键 | ⭕ 未安装 |
-| **os** | 操作系统信息 | ⭕ 未安装 |
-| **updater** | 应用自动更新 | ⭕ 未安装 |
-| **http** | HTTP 请求 | ⭕ 未安装 |
-| **websocket** | WebSocket 连接 | ⭕ 未安装 |
+| **process** | 进程管理（退出/重启） | ✅ 已安装 |
+| **updater** | 应用自动更新 | ✅ 已安装 |
+| **shell** | 执行系统命令、打开终端 | 📦 推荐 |
+| **os** | 获取平台、架构、版本等系统信息 | 📦 推荐 |
+| **notification** | 系统原生通知 | 📦 推荐 |
+| **dialog** | 文件选择、消息确认对话框 | 📦 推荐 |
+| **global-shortcut** | 全局快捷键 | 📦 按需安装 |
+| **http** | HTTP 请求（前端发起） | 📦 按需安装（可用 reqwest 代替） |
+| **websocket** | WebSocket 连接 | 📦 按需安装 |
+
+### 插件初始化方式速查
+
+| 初始化方式 | 适用插件 | 示例 |
+|-----------|---------|------|
+| `::init()` | 大多数插件 | `tauri_plugin_opener::init()` |
+| `Builder::new().build()` | 需要配置的插件 | `tauri_plugin_store::Builder::new().build()` |
+| `Builder::new().xxx().build()` | 需要链式配置 | `tauri_plugin_log::Builder::new().level(...).build()` |
+| `Builder::new().build()` | updater | `tauri_plugin_updater::Builder::new().build()` |
 
 ---
 
@@ -133,60 +155,97 @@ pub fn run() {
     "store:default",
     "log:default",
     "fs:default",              // 新增
-    "fs:allow-read-text-file"  // 新增
+    "fs:allow-read-text-file"  // 新增（细粒度权限）
   ]
 }
 ```
 
-### 步骤 4: 在三层架构中使用
+---
 
-**在 Database 层使用插件功能**:
+## 在三层架构中使用插件
+
+插件功能应遵循项目的三层架构（Database/Service/Command），避免在 Command 层直接堆砌业务逻辑。
+
+### 方式一：插件功能封装到 Service 层
+
+适用于大多数插件（shell、os、dialog、notification 等），插件提供的能力作为业务逻辑的一部分。
 
 ```rust
-// src-tauri/src/database/file.rs
+// ── Service 层封装插件逻辑 ──
+// src-tauri/src/services/system.rs
 use crate::error::AppError;
-use std::fs;
 
-pub fn read_file(path: &str) -> Result<String, AppError> {
-    Ok(fs::read_to_string(path)?)
+/// 获取系统信息（封装 os 插件或 std 能力）
+pub fn get_system_info() -> Result<SystemInfo, AppError> {
+    Ok(SystemInfo {
+        platform: std::env::consts::OS.to_string(),
+        arch: std::env::consts::ARCH.to_string(),
+    })
 }
-```
 
-**在 Service 层封装业务逻辑**:
-
-```rust
-// src-tauri/src/services/file.rs
-use crate::error::AppError;
-use crate::database;
-
-pub fn load_config(filename: &str) -> Result<String, AppError> {
-    let path = format!("./config/{}", filename);
-    database::file::read_file(&path)
-}
-```
-
-**在 Command 层暴露给前端**:
-
-```rust
-// src-tauri/src/commands/file.rs
+// ── Command 层暴露给前端 ──
+// src-tauri/src/commands/system.rs
 #[tauri::command]
-pub fn load_config(filename: String) -> Result<String, String> {
-    crate::services::file::load_config(&filename)
+pub fn get_system_info() -> Result<SystemInfo, String> {
+    crate::services::system::get_system_info()
         .map_err(|e| e.to_string())
 }
 ```
 
-**前端调用**:
+### 方式二：需要 AppHandle 的插件
+
+某些插件 API 需要 `AppHandle`（如 notification、dialog、updater），通过 Command 参数注入。
+
+```rust
+// ── Command 层（注入 AppHandle）──
+#[tauri::command]
+pub async fn check_update(app: tauri::AppHandle) -> Result<bool, String> {
+    crate::services::update::check_for_update(&app)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+// ── Service 层（接收 AppHandle 引用）──
+// src-tauri/src/services/update.rs
+pub async fn check_for_update(app: &tauri::AppHandle) -> Result<bool, AppError> {
+    let update = app.updater_builder().build()
+        .map_err(|e| AppError::Custom(e.to_string()))?
+        .check()
+        .await
+        .map_err(|e| AppError::Custom(e.to_string()))?;
+    Ok(update.is_some())
+}
+```
+
+### 方式三：前端直接使用插件 JS API
+
+某些插件支持前端直接调用，无需经过 Rust Command（适用于简单场景）。
 
 ```typescript
-// src/lib/api/index.ts
-import { invoke } from "@tauri-apps/api/core";
+// 前端直接使用 store 插件
+import { Store } from "@tauri-apps/plugin-store";
+const store = new Store("settings.json");
+await store.set("theme", "dark");
 
-export const api = {
-  loadConfig: (filename: string) =>
-    invoke<string>("load_config", { filename }),
-};
+// 前端直接使用 opener 插件
+import { open } from "@tauri-apps/plugin-opener";
+await open("https://example.com");
+
+// 前端直接使用 process 插件
+import { exit, relaunch } from "@tauri-apps/plugin-process";
+await relaunch();
 ```
+
+### 决策指南：Rust Command vs 前端 JS API
+
+| 场景 | 推荐方式 | 原因 |
+|------|---------|------|
+| 简单读写配置 | 前端 JS API（store） | 无需业务逻辑 |
+| 打开 URL/文件 | 前端 JS API（opener） | 简单操作 |
+| 涉及数据库的操作 | Rust Command（三层架构） | 需要事务/校验 |
+| 需要系统权限的操作 | Rust Command（三层架构） | 安全控制 |
+| 复杂业务流程 | Rust Command（三层架构） | 业务逻辑属于后端 |
+| 需要组合多个插件 | Rust Command（三层架构） | 统一编排 |
 
 ---
 
@@ -303,6 +362,7 @@ pub fn get_user(id: i64) -> Result<User, String> {
 | 编译错误 | 版本不兼容 | Cargo.toml + package.json 版本对齐（都用 2.x） |
 | 运行时无效 | 缺少 JS 绑定 | 检查是否安装对应的 npm 包 |
 | 数据库错误 | rusqlite 配置问题 | 检查 features = ["bundled"] |
+| 插件 init 方式错误 | 用了 `init()` 但插件需要 `Builder` | 参考"插件初始化方式速查"表 |
 
 ---
 
@@ -316,3 +376,5 @@ pub fn get_user(id: i64) -> Result<User, String> {
 | Tauri v1 API 用于 v2 | v1 和 v2 API 不同，检查版本 |
 | 混用 tauri-plugin-sql 和 rusqlite | 选择一种数据库方案，本项目用 rusqlite |
 | 在 Command 层直接使用插件 | 通过三层架构（Database → Service → Command）组织代码 |
+| 所有操作都走 Rust Command | 简单插件操作可前端直接用 JS API |
+| 不区分 init() 和 Builder 模式 | 查看插件文档确认正确的初始化方式 |

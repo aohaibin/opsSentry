@@ -9,8 +9,12 @@ pub fn setup_tray(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     let quit = MenuItem::with_id(app, "quit", "退出", true, None::<&str>)?;
     let menu = Menu::with_items(app, &[&show, &quit])?;
 
+    let icon = app.default_window_icon()
+        .ok_or("应用图标未配置")?
+        .clone();
+
     TrayIconBuilder::new()
-        .icon(app.default_window_icon().unwrap().clone())
+        .icon(icon)
         .tooltip("Agile Tauri")
         .menu(&menu)
         .show_menu_on_left_click(false)

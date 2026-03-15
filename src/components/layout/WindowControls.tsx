@@ -1,39 +1,49 @@
-import { useEffect, useState, useCallback } from "react";
-import { getCurrentWindow } from "@tauri-apps/api/window";
+import { useEffect, useState, useCallback, useRef } from "react";
+import { getCurrentWindow, type Window } from "@tauri-apps/api/window";
 import { Minus, Square, Copy, X } from "lucide-react";
 import { theme as antdTheme } from "antd";
+
+function getAppWindow(): Window | null {
+  try {
+    return getCurrentWindow();
+  } catch {
+    return null;
+  }
+}
 
 export function WindowControls() {
   const [isMaximized, setIsMaximized] = useState(false);
   const [hovered, setHovered] = useState<string | null>(null);
   const { token } = antdTheme.useToken();
-
-  const appWindow = getCurrentWindow();
+  const windowRef = useRef<Window | null>(getAppWindow());
 
   useEffect(() => {
-    appWindow.isMaximized().then(setIsMaximized);
+    const win = windowRef.current;
+    if (!win) return;
 
-    const unlisten = appWindow.onResized(async () => {
-      const maximized = await appWindow.isMaximized();
+    win.isMaximized().then(setIsMaximized);
+
+    const unlisten = win.onResized(async () => {
+      const maximized = await win.isMaximized();
       setIsMaximized(maximized);
     });
 
     return () => {
       unlisten.then((fn) => fn());
     };
-  }, [appWindow]);
+  }, []);
 
   const handleMinimize = useCallback(() => {
-    appWindow.minimize();
-  }, [appWindow]);
+    windowRef.current?.minimize();
+  }, []);
 
   const handleToggleMaximize = useCallback(() => {
-    appWindow.toggleMaximize();
-  }, [appWindow]);
+    windowRef.current?.toggleMaximize();
+  }, []);
 
   const handleClose = useCallback(() => {
-    appWindow.close();
-  }, [appWindow]);
+    windowRef.current?.close();
+  }, []);
 
   function getButtonStyle(id: string): React.CSSProperties {
     const isHovered = hovered === id;

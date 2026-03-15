@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Modal, Button, Progress, Typography, Space } from "antd";
 import { CheckCircleOutlined, SyncOutlined } from "@ant-design/icons";
 import type { Update } from "@tauri-apps/plugin-updater";
@@ -19,6 +19,7 @@ export function UpdateModal({ open, onClose, update }: UpdateModalProps) {
   const [progress, setProgress] = useState(0);
   const [downloadedSize, setDownloadedSize] = useState(0);
   const [totalSize, setTotalSize] = useState(0);
+  const totalSizeRef = useRef(0);
 
   async function handleInstall() {
     if (!update) return;
@@ -29,12 +30,13 @@ export function UpdateModal({ open, onClose, update }: UpdateModalProps) {
     try {
       await update.downloadAndInstall((event) => {
         if (event.event === "Started" && event.data.contentLength) {
+          totalSizeRef.current = event.data.contentLength;
           setTotalSize(event.data.contentLength);
         } else if (event.event === "Progress") {
           setDownloadedSize((prev) => {
             const newSize = prev + event.data.chunkLength;
-            if (totalSize > 0) {
-              setProgress(Math.round((newSize / totalSize) * 100));
+            if (totalSizeRef.current > 0) {
+              setProgress(Math.round((newSize / totalSizeRef.current) * 100));
             }
             return newSize;
           });
