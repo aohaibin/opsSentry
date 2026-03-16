@@ -59,6 +59,7 @@ const instructions = `## 强制技能激活流程（必须执行）
 
 **L1 通用技能：**
 - brainstorm: 头脑风暴/创意/方案设计/功能设计
+- project-init: 新项目/创建项目/初始化项目/开新项目/项目初始化
 - task-tracker: 任务跟踪/记录进度/继续任务/恢复上下文/多步骤开发
 - git-workflow: Git/提交/commit/分支/合并
 - code-patterns: 规范/禁止/命名/编码规范/Rust规范/TypeScript规范
