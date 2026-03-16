@@ -238,15 +238,36 @@ git archive HEAD | tar -x -C "$NEW_DIR"
 | `CLAUDE.md` | 项目规范文档 |
 | `.github/workflows/` | CI 配置 |
 
-### Step 1.2：在新目录初始化 Git
+### Step 1.2：在新目录初始化 Git 并关联模板仓库
 
 ```bash
 cd "$NEW_DIR"
 git init
 git checkout -b master
+
+# 将模板仓库设置为 upstream remote，方便后续对比框架更新
+# 获取模板仓库的 remote URL（自动检测）
+TEMPLATE_REMOTE=$(cd "$TEMPLATE_DIR" && git remote get-url origin 2>/dev/null)
+if [ -n "$TEMPLATE_REMOTE" ]; then
+  git remote add upstream "$TEMPLATE_REMOTE"
+  echo "已设置 upstream: $TEMPLATE_REMOTE"
+fi
 ```
 
 > **默认使用全新 Git 历史**：新项目不需要框架的开发历史，一个干净的初始提交更合理。
+>
+> **upstream 的作用**：新项目通过 `upstream` remote 关联模板仓库，日后可以方便地对比框架更新：
+> ```bash
+> # 查看模板仓库有哪些新提交
+> git fetch upstream
+> git log master..upstream/master --oneline
+>
+> # 对比具体差异
+> git diff master...upstream/master
+>
+> # 选择性合并框架更新（谨慎操作）
+> git cherry-pick <commit-hash>
+> ```
 
 ### Step 1.3：清理不需要的文件
 
@@ -446,12 +467,18 @@ git commit -m "init: 基于 Tauri 桌面应用框架初始化 {产品名称}"
 ### Step 3.2：关联远程仓库并推送
 
 ```bash
-# 添加远程仓库
+# 添加用户自己的远程仓库（origin）
 git remote add origin {用户提供的仓库地址}
 
 # 推送到远程
 git push -u origin master
 ```
+
+> **Remote 命名约定**：
+> - `origin` — 用户自己的项目仓库（推送代码用）
+> - `upstream` — 模板框架仓库（对比更新用，已在 Step 1.2 自动设置）
+>
+> 可通过 `git remote -v` 确认两个 remote 都已正确配置。
 
 > **如果用户选择"稍后手动创建"**，跳过推送步骤，提示：
 > ```
@@ -459,6 +486,9 @@ git push -u origin master
 > cd {NEW_DIR}
 > git remote add origin {仓库地址}
 > git push -u origin master
+>
+> 模板仓库已关联为 upstream，可随时对比框架更新：
+> git fetch upstream && git log master..upstream/master --oneline
 > ```
 
 ---
@@ -601,12 +631,35 @@ src-tauri/Cargo.lock                   — 已删除，自动重新生成
 
 ## 注意事项
 
-### 1. 模板仓库保持不变
+### 1. 模板仓库保持不变 & upstream 关联
 
 所有修改操作都在新目录中进行，模板仓库仅作为只读源。好处：
 - 可反复创建新项目，无需重新克隆
 - 模板仓库可随时拉取上游更新
 - 多个新项目可共用同一个模板
+
+**新项目的 remote 布局**：
+```
+origin   → 用户自己的项目仓库（日常推送）
+upstream → 模板框架仓库（对比框架更新）
+```
+
+**框架更新对比工作流**：
+```bash
+# 1. 拉取模板仓库最新变更
+git fetch upstream
+
+# 2. 查看框架有哪些新提交
+git log master..upstream/master --oneline
+
+# 3. 查看具体文件差异
+git diff master...upstream/master -- src-tauri/src/
+
+# 4. 选择性合并（推荐 cherry-pick 而非 merge，避免冲突）
+git cherry-pick <commit-hash>
+```
+
+> **注意**：由于新项目做了标识符替换，直接 `git merge upstream/master` 会产生大量冲突。推荐用 `cherry-pick` 或手动对比后逐个应用。
 
 ### 2. 包名替换的陷阱
 
