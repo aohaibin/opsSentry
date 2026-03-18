@@ -41,7 +41,8 @@ description: |
 ├── 2.4 替换作者和描述
 ├── 2.5 配置更新地址和签名
 ├── 2.6 更新框架文档中的引用
-└── 2.7 验证替换结果
+├── 2.7 配置唯一开发端口号
+└── 2.8 验证替换结果
 
 阶段三：Git 提交 & 推送
 ├── 3.1 初始提交
@@ -184,6 +185,7 @@ git pull origin master
   作者：Zhang San
 
   新目录：{模板仓库同级}/mall_admin
+  开发端口：{dev_port}（HMR: {hmr_port}）
   Git 仓库：https://gitee.com/user/mall_admin.git
   Release 仓库：https://gitee.com/user/mall_admin-release.git
 
@@ -429,7 +431,50 @@ pnpm tauri signer generate -w ~/.tauri/{新包名}.key
 
 > **注意**：CLAUDE.md 中大量内容是通用的架构文档，只需要替换具体的标识符值，不要改动架构说明。
 
-### Step 2.7：验证替换结果
+### Step 2.7：配置唯一开发端口号
+
+每个项目使用独立端口号，避免多项目同时开发时端口冲突。
+
+**端口分配规则**：
+
+| 项目 | 开发端口 (dev) | HMR 端口 |
+|------|---------------|----------|
+| 模板仓库 (tauri) | 1420 | 1421 |
+| knowledge_base | 1421 | 1431 |
+| pix_snap | 1422 | 1432 |
+| clip_master | 1423 | 1433 |
+| media_grab | 1424 | 1434 |
+| **新项目** | **下一个可用**（扫描同级目录） | **dev_port + 10** |
+
+**自动分配端口**：扫描模板仓库同级目录中所有已有项目的端口，取最大值 +1 作为新项目端口。
+
+```bash
+# 扫描同级目录中已使用的端口号
+PARENT_DIR="$(dirname "$TEMPLATE_DIR")"
+MAX_PORT=1420
+for proj_dir in "$PARENT_DIR"/*/; do
+  if [ -f "$proj_dir/vite.config.ts" ]; then
+    PORT=$(grep -oP 'port:\s*\K\d+' "$proj_dir/vite.config.ts" | head -1)
+    if [ -n "$PORT" ] && [ "$PORT" -gt "$MAX_PORT" ]; then
+      MAX_PORT=$PORT
+    fi
+  fi
+done
+NEW_DEV_PORT=$((MAX_PORT + 1))
+NEW_HMR_PORT=$((NEW_DEV_PORT + 10))
+echo "分配端口: dev=$NEW_DEV_PORT, hmr=$NEW_HMR_PORT"
+```
+
+**需要修改的 3 个文件**：
+
+| 文件 | 旧值 | 新值 | 说明 |
+|------|------|------|------|
+| `vite.config.ts` | `port: 1420` | `port: {dev_port}` | Vite 开发服务器端口 |
+| `vite.config.ts` | `port: 1421`（hmr 内） | `port: {hmr_port}` | HMR WebSocket 端口 |
+| `src-tauri/tauri.conf.json` | `"devUrl": "http://localhost:1420"` | `"devUrl": "http://localhost:{dev_port}"` | Tauri 开发 URL |
+| `package.json` | `"kill-port 1420 & vite"` | `"kill-port {dev_port} & vite"` | 启动前清理端口 |
+
+### Step 2.8：验证替换结果
 
 ```bash
 cd "$NEW_DIR"
@@ -661,7 +706,7 @@ git push -u origin master
 
   3. 访问应用
      应用窗口会自动打开
-     前端开发地址：http://localhost:1420
+     前端开发地址：http://localhost:{dev_port}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -738,6 +783,15 @@ src-tauri/tauri.conf.json:30    → "endpoints": ["{新更新地址}"]
 src-tauri/tauri.conf.json:31    → "pubkey": "{新公钥}"（或保留占位符）
 ```
 
+### 端口配置替换（1420 → {dev_port}）
+
+```
+vite.config.ts:21               → port: {dev_port}（开发服务器）
+vite.config.ts:28               → port: {hmr_port}（HMR WebSocket）
+src-tauri/tauri.conf.json:8     → "devUrl": "http://localhost:{dev_port}"
+package.json:8                  → "kill-port {dev_port} & vite"
+```
+
 ### 不需要替换的文件
 
 以下文件包含旧值但**不应替换**：
@@ -805,6 +859,7 @@ git cherry-pick <commit-hash>
 3. com.agilefr.tauri → {新标识符}  （应用标识符）
 4. name = "tauri" → name = "{包名}" （精确匹配包名）
 5. AT           → {新缩写}         （最短，最后替换）
+6. 端口 1420    → {dev_port}       （开发端口，3 个文件 4 处）
 ```
 
 ### 5. 签名密钥安全
@@ -861,3 +916,7 @@ git cherry-pick <commit-hash>
 ### Q6: 更新功能可以后续再配置吗？
 
 **A:** 可以。保留 `YOUR_UPDATER_PUBKEY_HERE` 占位符，应用仍可正常运行，只是自动更新功能暂不可用。后续生成密钥并配置即可。
+
+### Q7: 端口号是怎么分配的？
+
+**A:** 每个项目分配唯一的开发端口，避免同时运行多个项目时端口冲突。模板仓库固定使用 1420，新项目自动扫描同级目录取最大端口 +1。HMR 端口 = 开发端口 + 10。
