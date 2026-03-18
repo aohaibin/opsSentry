@@ -45,8 +45,9 @@ description: |
 
 阶段三：Git 提交 & 推送
 ├── 3.1 初始提交
-├── 3.2 关联远程仓库
-└── 3.3 推送代码
+├── 3.2 创建远程仓库（自动通过 Gitee API / 手动）
+├── 3.3 关联远程仓库并推送
+└── 3.4 推送代码
 
 阶段四：应用图标（可选）
 ├── 4.1 提示用户准备图标
@@ -148,8 +149,9 @@ git pull origin master
 
 ```
 请选择 Git 仓库方式：
-1. 提供已有的仓库地址（Gitee/GitHub）
-2. 稍后手动创建
+1. 自动创建 Gitee 仓库（推荐，需要 Gitee Token）
+2. 提供已有的仓库地址（Gitee/GitHub）
+3. 稍后手动创建
 
 更新服务配置（用于应用自动更新）：
 1. 提供 release 仓库地址（如 https://gitee.com/user/myapp-release）
@@ -158,6 +160,14 @@ git pull origin master
 
 > **说明**：本框架使用 Gitee/GitHub 静态文件托管 update.json 作为更新端点。
 > release 仓库是独立的仓库，CI 构建完成后自动推送安装包和 update.json 到该仓库。
+
+**自动创建 Gitee 仓库的前提**：
+
+需要 Gitee Private Token，检查 `~/.gitee_token` 文件是否存在：
+- 如果存在 → 直接读取，无需用户提供
+- 如果不存在 → 提示用户前往 `https://gitee.com/profile/personal_access_tokens/new` 生成（勾选 `projects` 权限），然后保存到 `~/.gitee_token`
+
+**自动检测 Gitee 用户名**：从模板仓库的 `git remote get-url origin` 中提取，或通过 Gitee API `GET /api/v5/user` 获取。
 
 ### Step 0.4：配置确认汇总
 
@@ -464,11 +474,122 @@ git add -A
 git commit -m "init: 基于 Tauri 桌面应用框架初始化 {产品名称}"
 ```
 
-### Step 3.2：关联远程仓库并推送
+### Step 3.2：创建远程仓库（如果选择自动创建）
+
+**如果用户选择"自动创建 Gitee 仓库"**：
+
+#### 3.2.1 读取 Token 并验证
+
+```bash
+# 读取 Token
+TOKEN=$(cat ~/.gitee_token)
+
+# 验证 Token 有效性，同时获取用户名
+node -e "
+const https = require('https');
+https.get('https://gitee.com/api/v5/user?access_token=$TOKEN', res => {
+  let body = '';
+  res.on('data', c => body += c);
+  res.on('end', () => {
+    const r = JSON.parse(body);
+    if (r.login) {
+      console.log('用户名:' + r.login);
+      console.log('昵称:' + r.name);
+    } else {
+      console.log('Token 无效');
+    }
+  });
+});
+"
+```
+
+#### 3.2.2 通过 Gitee API 创建仓库
+
+> **重要**：必须使用 Node.js 发送请求，不要用 curl！
+> Git Bash 的 curl 处理中文编码有问题，会导致仓库描述变成乱码。
+
+```javascript
+// 使用 Node.js 调用 Gitee API 创建仓库
+node -e "
+const https = require('https');
+const data = JSON.stringify({
+  access_token: '{TOKEN}',
+  name: '{包名}',
+  description: '{项目描述}',
+  private: false,
+  auto_init: false
+});
+const options = {
+  hostname: 'gitee.com',
+  path: '/api/v5/user/repos',
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json;charset=utf-8',
+    'Content-Length': Buffer.byteLength(data)
+  }
+};
+const req = https.request(options, res => {
+  let body = '';
+  res.on('data', c => body += c);
+  res.on('end', () => {
+    const r = JSON.parse(body);
+    if (r.html_url) {
+      console.log('仓库创建成功:', r.html_url);
+    } else {
+      console.log('创建失败:', r.message || JSON.stringify(r));
+    }
+  });
+});
+req.write(data);
+req.end();
+"
+```
+
+**API 错误处理**：
+- 仓库已存在 → 提示用户确认是否使用已有仓库
+- Token 权限不足 → 提示用户检查 Token 权限（需要 `projects` 权限）
+- 网络错误 → 提示用户检查网络，或改为手动创建
+
+#### 3.2.3 更新仓库描述（如果中文乱码）
+
+如果通过 curl 创建导致描述乱码，用 Node.js 修复：
+
+```javascript
+// 使用 PATCH 更新仓库描述
+node -e "
+const https = require('https');
+const data = JSON.stringify({
+  access_token: '{TOKEN}',
+  name: '{包名}',
+  description: '{项目描述}'
+});
+const options = {
+  hostname: 'gitee.com',
+  path: '/api/v5/repos/{用户名}/{包名}',
+  method: 'PATCH',
+  headers: {
+    'Content-Type': 'application/json;charset=utf-8',
+    'Content-Length': Buffer.byteLength(data)
+  }
+};
+const req = https.request(options, res => {
+  let body = '';
+  res.on('data', c => body += c);
+  res.on('end', () => {
+    const r = JSON.parse(body);
+    console.log('描述已更新:', r.description);
+  });
+});
+req.write(data);
+req.end();
+"
+```
+
+### Step 3.3：关联远程仓库并推送
 
 ```bash
 # 添加用户自己的远程仓库（origin）
-git remote add origin {用户提供的仓库地址}
+git remote add origin https://gitee.com/{用户名}/{包名}.git
 
 # 推送到远程
 git push -u origin master
@@ -701,6 +822,14 @@ git cherry-pick <commit-hash>
 ### 7. SQLite 数据库无需手动初始化
 
 与 ruoyi-plus-uniapp 不同，本框架的 SQLite 数据库由 `database/schema.rs` 中的迁移逻辑在首次启动时**自动创建**，无需手动导入 SQL 文件。
+
+### 8. Gitee Token 管理
+
+- **存储位置**：`~/.gitee_token`（纯文本，仅包含 token 字符串）
+- **获取方式**：https://gitee.com/profile/personal_access_tokens/new（勾选 `projects` 权限）
+- **安全**：该文件仅保存在用户本地，不会被提交到任何 Git 仓库
+- **复用**：一次配置后所有新项目自动复用，无需再次提供
+- **API 调用注意**：必须使用 Node.js（`https` 模块）发送请求，**不要用 curl**！Git Bash 的 curl 在 Windows 上处理中文编码有 bug，会导致仓库描述变成乱码（`��������`）
 
 ---
 
