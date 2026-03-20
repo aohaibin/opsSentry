@@ -2,7 +2,7 @@ import { useRef } from "react";
 import { Outlet, useNavigate } from "react-router-dom";
 import { Layout, Button, theme as antdTheme } from "antd";
 import { MenuFoldOutlined, MenuUnfoldOutlined, SettingOutlined } from "@ant-design/icons";
-import { Sun, Moon } from "lucide-react";
+import { Sun, Moon, Monitor } from "lucide-react";
 import { getCurrentWindow, type Window } from "@tauri-apps/api/window";
 import { useAppStore } from "@/store";
 import { Sidebar } from "./Sidebar";
@@ -89,8 +89,17 @@ export function AppLayout() {
           <div style={{ display: "flex", alignItems: "center" }}>
             <Button
               type="text"
-              icon={theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
+              icon={
+                theme === "dark" ? <Moon size={16} /> :
+                theme === "light" ? <Sun size={16} /> :
+                <Monitor size={16} />
+              }
               onClick={toggleTheme}
+              title={
+                theme === "dark" ? "暗色主题" :
+                theme === "light" ? "亮色主题" :
+                "跟随系统"
+              }
             />
             <Button
               type="text"
