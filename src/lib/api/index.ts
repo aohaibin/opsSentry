@@ -1,23 +1,16 @@
-import { invoke } from "@tauri-apps/api/core";
-import { check } from "@tauri-apps/plugin-updater";
-import type { AppConfig, SystemInfo } from "@/types";
+// ─── API 统一入口（Re-export Hub） ─────────────────────
+// 按业务模块拆分，每个模块独立文件，此处统一导出
 
-/** 系统相关 API */
-export const systemApi = {
-  greet: (name: string) => invoke<string>("greet", { name }),
-  getSystemInfo: () => invoke<SystemInfo>("get_system_info"),
-};
+// 基础工具（错误解析 + invoke 封装）
+export {
+  parseCommandError,
+  getErrorMessage,
+  getErrorCode,
+  invoke,
+} from "./client";
+export type { CommandError } from "./client";
 
-/** 更新相关 API */
-export const updaterApi = {
-  checkUpdate: () => check(),
-};
-
-/** 配置管理 API */
-export const configApi = {
-  getAll: () => invoke<AppConfig[]>("get_all_config"),
-  get: (key: string) => invoke<string>("get_config", { key }),
-  set: (key: string, value: string) =>
-    invoke<void>("set_config", { key, value }),
-  delete: (key: string) => invoke<void>("delete_config", { key }),
-};
+// 业务 API
+export { systemApi } from "./system";
+export { configApi } from "./config";
+export { updaterApi } from "./updater";

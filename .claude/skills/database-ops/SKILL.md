@@ -80,6 +80,9 @@ impl Database {
         // 启用 WAL 模式提升并发性能
         conn.pragma_update(None, "journal_mode", "WAL")?;
 
+        // 设置繁忙超时，避免并发写入时立即失败
+        conn.busy_timeout(std::time::Duration::from_secs(5))?;
+
         // 执行 Schema 迁移
         schema::migrate(&conn)?;
 
@@ -118,14 +121,9 @@ pub fn migrate(conn: &Connection) -> Result<(), AppError> {
     }
 
     if version < 2 {
-        // ────────── 版本 2: 新增表 ──────────
+        // ────────── 版本 2: 添加软删除字段 ──────────
         conn.execute_batch(
-            "CREATE TABLE IF NOT EXISTS users (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                username TEXT NOT NULL UNIQUE,
-                email TEXT NOT NULL,
-                created_at DATETIME DEFAULT (datetime('now', 'localtime'))
-            );"
+            "ALTER TABLE app_config ADD COLUMN deleted_at TEXT DEFAULT NULL;"
         )?;
         conn.pragma_update(None, "user_version", 2)?;
     }
@@ -147,15 +145,17 @@ pub fn migrate(conn: &Connection) -> Result<(), AppError> {
 
 ## CRUD 操作模式
 
-### 查询（Read）
+### 查询（Read）— 自动排除软删除
 
 ```rust
-/// 获取所有配置
+/// 获取所有配置（排除已软删除的记录）
 pub fn get_all_config(&self) -> Result<Vec<AppConfig>, AppError> {
     let conn = self.conn.lock()
         .map_err(|e| AppError::Custom(e.to_string()))?;
 
-    let mut stmt = conn.prepare("SELECT key, value FROM app_config ORDER BY key")?;
+    let mut stmt = conn.prepare(
+        "SELECT key, value FROM app_config WHERE deleted_at IS NULL ORDER BY key"
+    )?;
 
     let configs = stmt
         .query_map([], |row| {
@@ -173,12 +173,14 @@ pub fn get_all_config(&self) -> Result<Vec<AppConfig>, AppError> {
 ### 单条查询
 
 ```rust
-/// 获取单个配置（返回 Option）
+/// 获取单个配置（返回 Option，排除已软删除）
 pub fn get_config(&self, key: &str) -> Result<Option<String>, AppError> {
     let conn = self.conn.lock()
         .map_err(|e| AppError::Custom(e.to_string()))?;
 
-    let mut stmt = conn.prepare("SELECT value FROM app_config WHERE key = ?1")?;
+    let mut stmt = conn.prepare(
+        "SELECT value FROM app_config WHERE key = ?1 AND deleted_at IS NULL"
+    )?;
 
     let result = stmt
         .query_row([key], |row| row.get::<_, String>(0))
@@ -209,15 +211,39 @@ pub fn set_config(&self, key: &str, value: &str) -> Result<(), AppError> {
 }
 ```
 
-### 删除（Delete）
+### 删除（Soft Delete）
 
 ```rust
-/// 删除配置（返回是否删除成功）
+/// 软删除配置（设置 deleted_at 时间戳，数据仍保留在库中）
 pub fn delete_config(&self, key: &str) -> Result<bool, AppError> {
     let conn = self.conn.lock()
         .map_err(|e| AppError::Custom(e.to_string()))?;
 
+    let affected = conn.execute(
+        "UPDATE app_config SET deleted_at = datetime('now','localtime') WHERE key = ?1 AND deleted_at IS NULL",
+        [key],
+    )?;
+    Ok(affected > 0)
+}
+
+/// 硬删除配置（从数据库中物理删除记录）
+pub fn hard_delete_config(&self, key: &str) -> Result<bool, AppError> {
+    let conn = self.conn.lock()
+        .map_err(|e| AppError::Custom(e.to_string()))?;
+
     let affected = conn.execute("DELETE FROM app_config WHERE key = ?1", [key])?;
+    Ok(affected > 0)
+}
+
+/// 恢复已软删除的配置
+pub fn restore_config(&self, key: &str) -> Result<bool, AppError> {
+    let conn = self.conn.lock()
+        .map_err(|e| AppError::Custom(e.to_string()))?;
+
+    let affected = conn.execute(
+        "UPDATE app_config SET deleted_at = NULL WHERE key = ?1 AND deleted_at IS NOT NULL",
+        [key],
+    )?;
     Ok(affected > 0)
 }
 ```
@@ -254,11 +280,12 @@ impl ConfigService {
 ```rust
 // commands/config.rs
 use tauri::State;
+use crate::error::CommandError;
 
 #[tauri::command]
-pub fn get_all_config(db: State<'_, Database>) -> Result<Vec<AppConfig>, String> {
+pub fn get_all_config(db: State<'_, Database>) -> Result<Vec<AppConfig>, CommandError> {
     db.get_all_config()
-        .map_err(|e| e.to_string())
+        .map_err(|e| e.into())
 }
 ```
 
@@ -294,9 +321,12 @@ CREATE TABLE IF NOT EXISTS {table_name} (
 
     -- 审计字段
     created_at  DATETIME DEFAULT (datetime('now', 'localtime')),
-    updated_at  DATETIME DEFAULT (datetime('now', 'localtime'))
+    updated_at  DATETIME DEFAULT (datetime('now', 'localtime')),
+    deleted_at  TEXT DEFAULT NULL    -- 软删除标记（非 NULL 表示已删除）
 );
 ```
+
+> **软删除规范**：所有查询默认加 `WHERE deleted_at IS NULL`，`delete` 操作设置 `deleted_at = datetime('now','localtime')`，需要物理删除时使用 `hard_delete` 方法。
 
 ### SQLite 类型映射
 
@@ -347,3 +377,7 @@ conn.execute(&sql, [])?;
 | 不做数据库迁移 | 使用 `PRAGMA user_version` 管理版本 |
 | 数据库文件用绝对路径 | 使用 `app_data_dir()` 获取路径 |
 | 忘记 WAL 模式 | `pragma_update(None, "journal_mode", "WAL")` |
+| 不设置 busy_timeout | `conn.busy_timeout(std::time::Duration::from_secs(5))?;` |
+| Command 返回 `Result<T, String>` | Command 返回 `Result<T, CommandError>`（`crate::error::CommandError`） |
+| 用 `DELETE` 物理删除 | 用软删除（`UPDATE SET deleted_at`），仅在必要时用 `hard_delete` |
+| 查询不过滤已删除记录 | 所有查询加 `WHERE deleted_at IS NULL` |

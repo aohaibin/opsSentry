@@ -57,8 +57,8 @@ export function AppLayout() {
         collapsed={sidebarCollapsed}
         collapsedWidth={60}
         width={220}
-        theme={theme === "dark" ? "dark" : "light"}
         style={{
+          background: token.colorBgContainer,
           borderRight: `1px solid ${token.colorBorderSecondary}`,
         }}
       >

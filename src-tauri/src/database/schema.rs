@@ -3,7 +3,7 @@ use rusqlite::Connection;
 use crate::error::AppError;
 
 /// 当前 Schema 版本
-pub const SCHEMA_VERSION: i32 = 1;
+pub const SCHEMA_VERSION: i32 = 2;
 
 /// 获取数据库版本
 pub fn get_version(conn: &Connection) -> Result<i32, AppError> {
@@ -31,6 +31,7 @@ pub fn migrate(conn: &Connection) -> Result<(), AppError> {
     while version < SCHEMA_VERSION {
         match version {
             0 => migrate_v0_to_v1(conn)?,
+            1 => migrate_v1_to_v2(conn)?,
             _ => {
                 return Err(AppError::Custom(format!(
                     "未知的数据库版本: {}",
@@ -66,5 +67,20 @@ fn migrate_v0_to_v1(conn: &Connection) -> Result<(), AppError> {
     )?;
 
     set_version(conn, 1)?;
+    Ok(())
+}
+
+/// v1 -> v2: 添加软删除支持
+fn migrate_v1_to_v2(conn: &Connection) -> Result<(), AppError> {
+    log::info!("数据库迁移: v1 -> v2（软删除支持）");
+
+    conn.execute_batch(
+        "
+        -- app_config 添加 deleted_at 软删除字段
+        ALTER TABLE app_config ADD COLUMN deleted_at TEXT DEFAULT NULL;
+        ",
+    )?;
+
+    set_version(conn, 2)?;
     Ok(())
 }

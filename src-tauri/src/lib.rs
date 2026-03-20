@@ -3,6 +3,7 @@ mod database;
 mod error;
 mod models;
 mod services;
+pub mod shared;
 mod state;
 mod tray;
 

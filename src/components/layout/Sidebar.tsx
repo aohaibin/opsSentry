@@ -29,6 +29,7 @@ export function Sidebar() {
         style={{
           borderBottom: `1px solid ${token.colorBorderSecondary}`,
           color: token.colorText,
+          background: token.colorBgContainer,
         }}
       >
         {collapsed ? "AT" : "Agile Tauri"}

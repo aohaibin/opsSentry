@@ -1,23 +1,9 @@
-import { create } from "zustand";
+// ─── Store 统一入口（Re-export Hub） ─────────────────────
+// 按职责拆分 Store，每个 Store 独立文件，此处统一导出
+//
+// 新增 Store 时：
+// 1. 创建 src/store/xxx.ts
+// 2. 在此处 export
 
-interface AppStore {
-  /** 主题模式 */
-  theme: "light" | "dark";
-  /** 侧边栏是否折叠 */
-  sidebarCollapsed: boolean;
-  /** 切换主题 */
-  toggleTheme: () => void;
-  /** 设置主题 */
-  setTheme: (theme: "light" | "dark") => void;
-  /** 切换侧边栏 */
-  toggleSidebar: () => void;
-}
-
-export const useAppStore = create<AppStore>((set) => ({
-  theme: "light",
-  sidebarCollapsed: false,
-  toggleTheme: () =>
-    set((s) => ({ theme: s.theme === "light" ? "dark" : "light" })),
-  setTheme: (theme) => set({ theme }),
-  toggleSidebar: () => set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),
-}));
+export { useAppStore } from "./app";
+export { useSettingsStore } from "./settings";

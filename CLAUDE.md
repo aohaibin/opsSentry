@@ -30,7 +30,7 @@
 | **通信机制** | Tauri IPC（`invoke` 调用 Rust Commands） |
 | **序列化** | serde + serde_json（Rust ↔ JSON ↔ TypeScript） |
 | **数据库** | SQLite（rusqlite，Rust 直接操作） |
-| **错误处理** | thiserror（Rust）+ ErrorBoundary（React） |
+| **错误处理** | thiserror + CommandError 结构化错误（Rust）+ ErrorBoundary（React） |
 | **安全模型** | Capabilities 细粒度权限声明 |
 | **应用标识** | `com.agilefr.tauri` |
 
@@ -89,7 +89,7 @@ tauri/
 ├── vite.config.ts                # Vite 构建配置（TailwindCSS + 路径别名）
 │
 ├── src/                          # ★ 前端源码（React + TypeScript）
-│   ├── main.tsx                  # 前端入口（ReactDOM.createRoot）
+│   ├── main.tsx                  # 前端入口（ReactDOM.createRoot + 窗口显示兜底）
 │   ├── App.tsx                   # 主组件（ConfigProvider + 主题 + ErrorBoundary）
 │   ├── Router.tsx                # 路由配置（React Router）
 │   ├── vite-env.d.ts             # Vite 类型声明
@@ -98,15 +98,23 @@ tauri/
 │   ├── styles/                   # 样式系统
 │   │   ├── variables.css         # CSS 设计令牌（颜色/间距/圆角）
 │   │   └── global.css            # TailwindCSS + 全局样式
-│   ├── store/
-│   │   └── index.ts              # Zustand 全局状态（主题/侧边栏）
-│   ├── types/
-│   │   └── index.ts              # TypeScript 类型定义（与 Rust 对齐）
+│   ├── store/                    # Zustand 全局状态（按职责拆分）
+│   │   ├── app.ts                # UI 状态（主题/侧边栏）
+│   │   ├── settings.ts           # 设置状态（语言/关闭行为）
+│   │   └── index.ts              # Re-export Hub
+│   ├── types/                    # TypeScript 类型定义（按模块拆分）
+│   │   ├── config.ts             # 配置相关类型
+│   │   ├── system.ts             # 系统信息类型
+│   │   └── index.ts              # Re-export Hub
 │   ├── hooks/
 │   │   └── useCommand.ts         # useCommand Hook + safeInvoke 工具
 │   ├── lib/
-│   │   └── api/
-│   │       └── index.ts          # API 调用封装（systemApi / configApi）
+│   │   └── api/                  # API 调用封装（按模块拆分）
+│   │       ├── client.ts         # 基础层（invoke + 结构化错误解析）
+│   │       ├── system.ts         # 系统 API
+│   │       ├── config.ts         # 配置 API
+│   │       ├── updater.ts        # 更新 API
+│   │       └── index.ts          # Re-export Hub
 │   ├── components/
 │   │   ├── ui/
 │   │   │   └── ErrorBoundary.tsx  # 错误边界组件
@@ -131,7 +139,7 @@ tauri/
 │   └── src/
 │       ├── main.rs               # Rust 进程入口
 │       ├── lib.rs                # ★ 核心入口（Builder + 插件 + Command 注册）
-│       ├── error.rs              # ★ 统一错误类型（AppError + thiserror）
+│       ├── error.rs              # ★ 统一错误类型（AppError + CommandError 结构化错误）
 │       ├── state.rs              # ★ 应用状态（AppState + Database）
 │       ├── models/
 │       │   └── mod.rs            # 数据模型（AppConfig / SystemInfo）
@@ -141,6 +149,9 @@ tauri/
 │       ├── services/
 │       │   ├── mod.rs            # 服务层入口
 │       │   └── config.rs         # 配置业务逻辑
+│       ├── shared/               # 公共工具层
+│       │   ├── mod.rs            # 模块入口
+│       │   └── time_utils.rs     # 时间工具函数
 │       └── commands/
 │           ├── mod.rs            # Command 模块入口
 │           ├── system.rs         # 系统 Commands（greet / get_system_info）
@@ -173,7 +184,7 @@ tauri/
 |---------|---------|
 | **Rust Command** | `src-tauri/src/commands/*.rs`（三层架构：Command → Service → Database） |
 | **Rust 数据模型** | `src-tauri/src/models/mod.rs` |
-| **Rust 错误处理** | `src-tauri/src/error.rs`（AppError 枚举） |
+| **Rust 错误处理** | `src-tauri/src/error.rs`（AppError + CommandError 结构化错误） |
 | **Rust 服务层** | `src-tauri/src/services/*.rs` |
 | **Rust 数据库层** | `src-tauri/src/database/mod.rs` |
 | **前端页面组件** | `src/pages/*/index.tsx`（Ant Design + TailwindCSS） |
@@ -192,7 +203,7 @@ tauri/
 
 | 错误做法 | 正确做法 | 原因 |
 |---------|---------|------|
-| `unwrap()` 处理可能失败的操作 | `Result<T, String>` + `?` 运算符 | `unwrap` 会导致 panic 崩溃 |
+| `unwrap()` 处理可能失败的操作 | `Result<T, CommandError>` + `?` 运算符 | `unwrap` 会导致 panic 崩溃 |
 | Command 中 `panic!()` | 返回 `Err(AppError::...)` | panic 会崩溃整个应用 |
 | 不加 `#[tauri::command]` 就期望前端调用 | 必须标记 `#[tauri::command]` 并在 `generate_handler!` 注册 | 否则前端 invoke 找不到 |
 | 直接在 Command 中做长时间阻塞操作 | 使用 `async` Command 或 `tokio::spawn` | 阻塞会冻结 IPC 响应 |
@@ -258,7 +269,7 @@ impl ConfigService {
 
 // ─── commands/config.rs ───
 #[tauri::command]
-pub fn get_all_config(state: tauri::State<'_, AppState>) -> Result<Vec<AppConfig>, String> {
+pub fn get_all_config(state: tauri::State<'_, AppState>) -> Result<Vec<AppConfig>, CommandError> {
     services::config::ConfigService::get_all(&state.db).map_err(|e| e.into())
 }
 ```
@@ -284,7 +295,7 @@ const data = await configApi.getAll();
 | Rust 函数名 | snake_case | `fn get_all_config()` |
 | invoke 调用名 | 与 Rust 函数名一致 | `invoke("get_all_config")` |
 | 参数名 | Rust: snake_case, TS: camelCase | Tauri 自动转换 |
-| 返回类型 | `Result<T, String>` | `-> Result<Vec<AppConfig>, String>` |
+| 返回类型 | `Result<T, CommandError>` | `-> Result<Vec<AppConfig>, CommandError>` |
 
 ---
 
@@ -364,9 +375,20 @@ import type { AppConfig } from "@/types";
 {
   "permissions": [
     "core:default",
+    "core:window:default",
+    "core:window:allow-minimize",
+    "core:window:allow-maximize",
+    "core:window:allow-toggle-maximize",
+    "core:window:allow-close",
+    "core:window:allow-hide",
+    "core:window:allow-start-dragging",
+    "core:menu:default",
+    "core:tray:default",
     "opener:default",
     "store:default",
-    "log:default"
+    "log:default",
+    "updater:default",
+    "process:default"
   ]
 }
 ```
@@ -390,23 +412,27 @@ import type { AppConfig } from "@/types";
 
 ## Rust 编码规范
 
-### 错误处理（使用 AppError）
+### 错误处理（结构化 CommandError）
 
 ```rust
-use crate::error::AppError;
+use crate::error::CommandError;
 
-// ✅ 使用 AppError 枚举
+// ✅ Command 返回 CommandError（结构化错误，前端可按 code 判断）
 #[tauri::command]
 pub fn read_config(
     state: tauri::State<'_, AppState>,
     key: String,
-) -> Result<String, String> {
+) -> Result<String, CommandError> {
     services::config::ConfigService::get(&state.db, &key)
-        .map_err(|e| e.into())
+        .map_err(|e| e.into())  // AppError -> CommandError 自动转换
 }
 
-// AppError 自动转换为 String
-// 支持 ?  运算符：IoError / DatabaseError / JsonError 等自动转换
+// 前端解析结构化错误：
+// import { getErrorCode, getErrorMessage } from "@/lib/api";
+// try { ... } catch (e) {
+//   if (getErrorCode(e) === "NOT_FOUND") { /* 特定处理 */ }
+//   message.error(getErrorMessage(e));
+// }
 ```
 
 ### 数据库操作（rusqlite）
@@ -450,7 +476,7 @@ pub fn run_migrations(conn: &Connection) -> Result<(), AppError> {
 | `state.lock().unwrap()` | `state.lock().map_err(\|e\| AppError::Custom(e.to_string()))?` |
 | Command 直接写 SQL | Command → Service → Database 三层 |
 | 忘记在 `generate_handler![]` 注册 | 每个新 Command 必须注册 |
-| 返回 `String` 而非 `Result` | 返回 `Result<T, String>` |
+| 返回 `String` 而非 `Result` | 返回 `Result<T, CommandError>` |
 
 ### TypeScript 前端
 
@@ -498,6 +524,30 @@ cd src-tauri && cargo test
 | **MCP chrome-devtools** | 使用 `http://localhost:1420` 访问应用页面 |
 
 > **注意**：使用 chrome-devtools MCP 工具时，`navigate_page` / `new_page` 等操作的 URL 应指向 `http://localhost:1420`（Tauri 开发模式下的 Vite 前端服务端口）。
+
+### 编译优化配置
+
+```toml
+# Cargo.toml 已配置：
+
+# 开发模式 - 依赖包 O2 优化（加速运行不影响本地编译）
+[profile.dev.package."*"]
+opt-level = 2
+
+# 发布模式 - 最小体积 + LTO + 符号剥离
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+strip = true
+panic = "abort"
+```
+
+### 数据库优化配置
+
+- **WAL 模式**：提升并发读性能
+- **busy_timeout(5s)**：防止并发写入死锁
+- **软删除**：`deleted_at` 字段，支持恢复
 
 ### 当前已安装的 Rust 依赖
 
@@ -566,5 +616,5 @@ cd src-tauri && cargo test
 - [ ] **API 统一封装** — invoke 调用封装到 `src/lib/api/`
 - [ ] **类型对齐** — Rust struct 和 TypeScript interface 保持一致
 - [ ] **已确认 Capabilities** — 使用的插件 API 都已在 capabilities 中声明
-- [ ] **错误处理正确** — Rust 用 `AppError`/`Result<T, String>`，前端用 `try-catch`
+- [ ] **错误处理正确** — Rust 用 `AppError`/`CommandError`/`Result<T, CommandError>`，前端用 `try-catch` + `getErrorMessage()`
 - [ ] **不违反禁止项** — 检查上方禁止表格

@@ -19,9 +19,10 @@ description: |
 ```
 前端 (React)                         后端 (Rust)
 ┌──────────────────────┐          ┌──────────────────────┐
-│ message.error()      │          │ AppError 枚举        │
+│ getErrorMessage()    │          │ AppError 枚举        │
+│ getErrorCode()       │          │ CommandError struct   │
 │ ErrorBoundary        │          │ thiserror            │
-│ try-catch            │ ◄─IPC─► │ Result<T, AppError> │
+│ try-catch            │ ◄─IPC─► │ Result<T, CommandError>│
 │ Ant Design Result    │          │ 三层错误传播          │
 └──────────────────────┘          └──────────────────────┘
 ```
@@ -57,13 +58,48 @@ pub enum AppError {
     Custom(String),
 }
 
-/// 让 Tauri Command 能直接使用 AppError 作为错误类型
+/// 让 AppError 转换为 String（向后兼容）
 impl From<AppError> for String {
     fn from(err: AppError) -> String {
         err.to_string()
     }
 }
+
+/// Command 层返回的结构化错误（序列化为 JSON 传给前端）
+#[derive(Debug, Clone, Serialize)]
+pub struct CommandError {
+    pub code: String,
+    pub message: String,
+}
+
+impl From<AppError> for CommandError {
+    fn from(err: AppError) -> Self {
+        let code = match &err {
+            AppError::Io(_) => "IO_ERROR",
+            AppError::Database(_) => "DATABASE_ERROR",
+            AppError::Json(_) => "JSON_ERROR",
+            AppError::NotFound(_) => "NOT_FOUND",
+            AppError::InvalidInput(_) => "INVALID_INPUT",
+            AppError::Custom(_) => "INTERNAL",
+        };
+        CommandError {
+            code: code.to_string(),
+            message: err.to_string(),
+        }
+    }
+}
 ```
+
+#### 错误码映射表
+
+| AppError 变体 | 错误码 | 含义 |
+|--------------|--------|------|
+| `Io(...)` | `IO_ERROR` | 文件/IO 操作错误 |
+| `Database(...)` | `DATABASE_ERROR` | 数据库操作错误 |
+| `Json(...)` | `JSON_ERROR` | JSON 解析/序列化错误 |
+| `NotFound(...)` | `NOT_FOUND` | 资源未找到 |
+| `InvalidInput(...)` | `INVALID_INPUT` | 输入参数无效 |
+| `Custom(...)` | `INTERNAL` | 内部/自定义错误 |
 
 ### 2. 三层错误传播
 
@@ -99,17 +135,18 @@ impl ConfigService {
 }
 ```
 
-#### Command 层（转换为 String 给前端）
+#### Command 层（转换为 CommandError 给前端）
 
 ```rust
 // commands/config.rs
 use tauri::State;
+use crate::error::CommandError;
 
 #[tauri::command]
-pub fn get_config(db: State<'_, Database>, key: String) -> Result<String, String> {
+pub fn get_config(db: State<'_, Database>, key: String) -> Result<String, CommandError> {
     db.get_config(&key)
-        .map_err(|e| e.to_string())?  // AppError -> String
-        .ok_or_else(|| format!("配置 {} 不存在", key))
+        .map_err(CommandError::from)?  // AppError -> CommandError
+        .ok_or_else(|| CommandError::from(AppError::NotFound(format!("配置 {} 不存在", key))))
 }
 ```
 
@@ -148,29 +185,84 @@ fn bad_read(path: String) -> String {
 
 ## React 错误处理
 
-### 1. invoke 错误处理（Ant Design）
+### 1. invoke 错误处理（使用 getErrorMessage）
 
 ```tsx
 import { message } from "antd";
 import { invoke } from "@tauri-apps/api/core";
+import { getErrorMessage, getErrorCode } from "@/lib/api/client";
 
-// ✅ 标准模式：使用 try-catch + message.error
+// ✅ 标准模式：使用 try-catch + getErrorMessage
 async function loadData() {
   try {
     const result = await invoke<DataType>("get_data");
     setData(result);
     message.success("加载成功");
   } catch (error) {
-    message.error(String(error));  // 显示后端返回的错误信息
+    message.error(getErrorMessage(error));  // 解析 CommandError 中的 message
     console.error("加载失败:", error);
+  }
+}
+
+// ✅ 条件错误处理：根据错误码执行不同逻辑
+async function loadUser(id: number) {
+  try {
+    const user = await invoke<User>("get_user", { id });
+    setUser(user);
+  } catch (error) {
+    if (getErrorCode(error) === "NOT_FOUND") {
+      message.warning("用户不存在，即将跳转...");
+      navigate("/users");
+    } else {
+      message.error(getErrorMessage(error));
+    }
   }
 }
 ```
 
-### 2. 封装 API 调用（src/lib/api/index.ts）
+### 2. 前端错误解析工具（src/lib/api/client.ts）
+
+```typescript
+// src/lib/api/client.ts
+
+/** CommandError 结构（与 Rust CommandError 对齐） */
+interface CommandError {
+  code: string;
+  message: string;
+}
+
+/** 解析 invoke 抛出的错误为 CommandError */
+export function parseCommandError(error: unknown): CommandError | null {
+  if (typeof error === "string") {
+    try {
+      const parsed = JSON.parse(error);
+      if (parsed.code && parsed.message) return parsed;
+    } catch {
+      // 非 JSON 字符串，返回 null
+    }
+  }
+  return null;
+}
+
+/** 从错误中提取用户可读的消息 */
+export function getErrorMessage(error: unknown): string {
+  const cmdErr = parseCommandError(error);
+  if (cmdErr) return cmdErr.message;
+  return String(error);
+}
+
+/** 从错误中提取错误码（用于条件判断） */
+export function getErrorCode(error: unknown): string | null {
+  const cmdErr = parseCommandError(error);
+  return cmdErr?.code ?? null;
+}
+```
+
+### 3. 封装 API 调用（src/lib/api/index.ts）
 
 ```typescript
 import { invoke } from "@tauri-apps/api/core";
+import { getErrorMessage } from "@/lib/api/client";
 import type { AppConfig } from "@/types";
 
 /** 配置管理 API */
@@ -186,11 +278,11 @@ export const configApi = {
 try {
   const configs = await configApi.getAll();
 } catch (error) {
-  message.error(`获取配置失败: ${error}`);
+  message.error(getErrorMessage(error));  // 使用 getErrorMessage 而非 String(error)
 }
 ```
 
-### 3. ErrorBoundary 组件（Ant Design Result）
+### 4. ErrorBoundary 组件（Ant Design Result）
 
 ```tsx
 import { Component, ReactNode } from "react";
@@ -237,15 +329,17 @@ export class ErrorBoundary extends Component<Props, State> {
 }
 ```
 
-### 4. 全局错误处理 Hook
+### 5. 全局错误处理 Hook
 
 ```tsx
 import { useState } from "react";
 import { message } from "antd";
 import { invoke } from "@tauri-apps/api/core";
+import { getErrorMessage, getErrorCode } from "@/lib/api/client";
 
 export function useErrorHandler() {
   const [error, setError] = useState<string | null>(null);
+  const [errorCode, setErrorCode] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   async function safeInvoke<T>(
@@ -255,6 +349,7 @@ export function useErrorHandler() {
   ): Promise<T | null> {
     setLoading(true);
     setError(null);
+    setErrorCode(null);
 
     try {
       const result = await invoke<T>(cmd, args);
@@ -263,10 +358,12 @@ export function useErrorHandler() {
       }
       return result;
     } catch (e) {
-      const msg = String(e);
+      const msg = getErrorMessage(e);
+      const code = getErrorCode(e);
       setError(msg);
+      setErrorCode(code);
       message.error(msg);
-      console.error(`Command "${cmd}" 失败:`, msg);
+      console.error(`Command "${cmd}" 失败 [${code}]:`, msg);
       return null;
     } finally {
       setLoading(false);
@@ -275,9 +372,10 @@ export function useErrorHandler() {
 
   return {
     error,
+    errorCode,
     loading,
     safeInvoke,
-    clearError: () => setError(null),
+    clearError: () => { setError(null); setErrorCode(null); },
   };
 }
 
@@ -307,16 +405,21 @@ async function handleSave() {
 │  Database::get_config()                                     │
 │    ↓ 返回 Result<Option<String>, AppError>                 │
 │  Service::get_required()                                    │
-│    ↓ 业务校验，转换 None 为 NotFound 错误                   │
+│    ↓ 业务校验，转换 None 为 AppError::NotFound             │
 │  Command::get_config()                                      │
-│    ↓ map_err(|e| e.to_string()) 转换为 String             │
+│    ↓ CommandError::from(AppError) → { code, message }      │
+│    ↓ 返回 Result<T, CommandError>（序列化为 JSON）          │
 └─────────────────────────────────────────────────────────────┘
-                             ↓ IPC (invoke)
+                             ↓ IPC (invoke) → JSON 错误字符串
 ┌─────────────────────────────────────────────────────────────┐
 │                      React 前端                              │
 ├─────────────────────────────────────────────────────────────┤
 │  try { await configApi.get("theme") }                      │
-│  catch (error) { message.error(String(error)) }            │
+│  catch (error) {                                            │
+│    getErrorMessage(error)  → 用户可读的错误消息             │
+│    getErrorCode(error)     → "NOT_FOUND" 等错误码          │
+│    message.error(getErrorMessage(error))                    │
+│  }                                                          │
 │    ↓ 用户看到 Ant Design 错误提示                           │
 └─────────────────────────────────────────────────────────────┘
 ```
@@ -329,7 +432,10 @@ async function handleSave() {
 |---------|---------|
 | Rust 中 `unwrap()` 处理可能失败的操作 | 使用 `?` 运算符 + `Result<T, AppError>` |
 | 不定义统一错误类型 | 使用 `thiserror` 定义 `AppError` 枚举 |
+| Command 返回 `Result<T, String>` | 返回 `Result<T, CommandError>`（结构化错误） |
 | 前端不 catch invoke 错误 | 所有 `invoke` 调用都用 `try-catch` |
+| 前端用 `String(error)` 显示错误 | 使用 `getErrorMessage(error)` 解析错误消息 |
+| 前端不区分错误类型 | 使用 `getErrorCode(error)` 进行条件处理 |
 | 错误信息不可读 | 提供用户友好的中文错误提示 |
 | Mutex 使用 `unwrap()` | 使用 `map_err` 转换为 `AppError::Custom` |
 | 前端用 `alert()` 显示错误 | 使用 Ant Design `message.error()` |
@@ -351,6 +457,23 @@ pub enum AppError {
     NotFound(String),
 }
 
+#[derive(Debug, Clone, Serialize)]
+pub struct CommandError {
+    pub code: String,
+    pub message: String,
+}
+
+impl From<AppError> for CommandError {
+    fn from(err: AppError) -> Self {
+        let code = match &err {
+            AppError::Database(_) => "DATABASE_ERROR",
+            AppError::NotFound(_) => "NOT_FOUND",
+            // ... 其他变体
+        };
+        CommandError { code: code.to_string(), message: err.to_string() }
+    }
+}
+
 // database/mod.rs
 impl Database {
     pub fn get_user(&self, id: i64) -> Result<Option<User>, AppError> {
@@ -370,10 +493,10 @@ impl UserService {
 
 // commands/user.rs
 #[tauri::command]
-pub fn get_user(db: State<'_, Database>, id: i64) -> Result<User, String> {
+pub fn get_user(db: State<'_, Database>, id: i64) -> Result<User, CommandError> {
     let service = UserService::new();
     service.get_required(&db, id)
-        .map_err(|e| e.to_string())
+        .map_err(CommandError::from)
 }
 ```
 
@@ -382,13 +505,18 @@ pub fn get_user(db: State<'_, Database>, id: i64) -> Result<User, String> {
 ```tsx
 import { message } from "antd";
 import { invoke } from "@tauri-apps/api/core";
+import { getErrorMessage, getErrorCode } from "@/lib/api/client";
 
 async function loadUser(id: number) {
   try {
     const user = await invoke<User>("get_user", { id });
     setUser(user);
   } catch (error) {
-    message.error(`加载用户失败: ${error}`);
+    if (getErrorCode(error) === "NOT_FOUND") {
+      message.warning("用户不存在");
+    } else {
+      message.error(getErrorMessage(error));
+    }
   }
 }
 ```

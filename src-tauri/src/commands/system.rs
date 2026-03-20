@@ -1,10 +1,11 @@
 use tauri::Manager;
 
+use crate::error::CommandError;
 use crate::models::SystemInfo;
 
 /// 获取系统信息
 #[tauri::command]
-pub fn get_system_info(app: tauri::AppHandle) -> Result<SystemInfo, String> {
+pub fn get_system_info(app: tauri::AppHandle) -> Result<SystemInfo, CommandError> {
     let data_dir = app
         .path()
         .app_data_dir()
@@ -21,9 +22,12 @@ pub fn get_system_info(app: tauri::AppHandle) -> Result<SystemInfo, String> {
 
 /// 简单的 greet 命令（保留为示例）
 #[tauri::command]
-pub fn greet(name: &str) -> Result<String, String> {
+pub fn greet(name: &str) -> Result<String, CommandError> {
     if name.is_empty() {
-        return Err("名称不能为空".into());
+        return Err(CommandError {
+            code: "INVALID_INPUT".to_string(),
+            message: "名称不能为空".to_string(),
+        });
     }
     Ok(format!("Hello, {}! 来自 Rust 的问候!", name))
 }
