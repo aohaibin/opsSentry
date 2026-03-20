@@ -71,6 +71,7 @@ const instructions = `## 强制技能激活流程（必须执行）
 **L3 深度定制：**
 - project-navigator: 项目结构/文件在哪/定位/代码位置/目录结构
 - error-handler: 异常处理/Result/错误传播/?运算符/thiserror/日志
+- add-skill: 添加技能、创建技能、新技能、技能开发、写技能、技能文档、skill创建、修改技能、更新技能、同步技能、技能同步
 - api-development: API设计/Command设计/IPC接口/invoke路径
 - architecture-design: 架构/分层/双进程/模块划分/设计/配置
 - json-serialization: JSON/序列化/serde/Serialize/Deserialize/类型转换
