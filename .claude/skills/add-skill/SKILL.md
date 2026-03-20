@@ -544,20 +544,42 @@ export default function UsersPage() {
 3. 添加新一行：`- {技能名}: {触发词}`
 4. 保存文件
 
-### 3.2 验证声明
+### 3.2 在 AGENTS.md 中声明
+
+**位置**：`AGENTS.md` 的技能清单表格
+
+**格式**：
+```markdown
+| \`{技能名}\` | {触发条件（description）} |
+```
+
+**示例**：
+```markdown
+| `add-skill` | 为框架添加新技能、编写技能文档 |
+| `tauri-commands` | Command、tauri::command、invoke、高级Command、async command、进度 |
+```
+
+**修改步骤**：
+1. 打开 `AGENTS.md`
+2. 找到技能清单表格
+3. 在合适位置添加新行
+4. 保存文件
+
+### 3.3 验证声明
 
 ```bash
 # 检查 hook 文件
 grep "add-skill" .claude/hooks/skill-forced-eval.cjs
+
+# 检查 AGENTS.md
+grep "add-skill" AGENTS.md
 ```
 
-> **注意**：本框架没有 AGENTS.md 文件，技能声明只需在 Hook 中完成即可。
-
-### 3.3 Command 的声明（仅适用于斜杠命令）
+### 3.4 Command 的声明（仅适用于斜杠命令）
 
 新增 Claude command 时，除了创建 `.claude/commands/xxx.md`，还需要：
 1. 在 `.codex/skills/xxx/SKILL.md` 创建对应 skill（加 YAML 头部 + 相同正文）
-2. 在 Hook 文件中声明（同 3.1）
+2. 在 Hook 文件和 AGENTS.md 中声明（同 3.1/3.2）
 
 ---
 
@@ -621,6 +643,9 @@ wc -l .codex/skills/[技能名]/SKILL.md
 ```bash
 # 检查 hook 声明（注意扩展名为 .cjs）
 grep -n "[技能名]:" .claude/hooks/skill-forced-eval.cjs
+
+# 检查 AGENTS.md 声明
+grep -n "[技能名]" AGENTS.md
 ```
 
 **内容检查**：
@@ -699,6 +724,11 @@ grep -n "[技能名]:" .claude/hooks/skill-forced-eval.cjs
 - tauri-commands: Command、tauri::command、invoke、高级Command、async command、进度、stream
 ```
 
+**在 AGENTS.md 中添加**：
+```markdown
+| `tauri-commands` | Command、tauri::command、invoke、高级Command、async command、进度、stream |
+```
+
 ### 步骤 4：Codex 同步
 
 复制文件：
@@ -710,7 +740,7 @@ grep -n "[技能名]:" .claude/hooks/skill-forced-eval.cjs
 
 所有检查通过：
 - 文件存在于两个系统
-- Hook 已声明
+- Hook 和 AGENTS.md 均已声明
 - 内容符合规范
 - 可被正确激活
 
@@ -746,16 +776,19 @@ grep -n "[技能名]:" .claude/hooks/skill-forced-eval.cjs
 
 1. **修改 SKILL.md 的 YAML 头部**
 2. **同步修改 Hook 文件**（`.claude/hooks/skill-forced-eval.cjs`）中对应的触发词行
-3. **复制到 Codex**：
+3. **同步修改 AGENTS.md** 中对应的技能描述行
+4. **复制到 Codex**：
    ```bash
    cp .claude/skills/[技能名]/SKILL.md .codex/skills/[技能名]/SKILL.md
    ```
-4. **验证两处一致**：
+5. **验证三处一致**：
    ```bash
    # 验证文件同步
    diff .claude/skills/[技能名]/SKILL.md .codex/skills/[技能名]/SKILL.md
    # 验证 Hook 声明
    grep "[技能名]" .claude/hooks/skill-forced-eval.cjs
+   # 验证 AGENTS.md 声明
+   grep "[技能名]" AGENTS.md
    ```
 
 ### 场景 3：重命名技能
@@ -778,9 +811,10 @@ grep -n "[技能名]:" .claude/hooks/skill-forced-eval.cjs
    ```
 2. **修改 SKILL.md 中 YAML 头部的 `name` 字段**
 3. **修改 Hook 文件**（`.claude/hooks/skill-forced-eval.cjs`）中的技能名
-4. **全局搜索旧名称**，确保无遗漏引用：
+4. **修改 AGENTS.md** 中的技能名
+5. **全局搜索旧名称**，确保无遗漏引用：
    ```bash
-   grep -r "[旧名称]" .claude/ .codex/ CLAUDE.md
+   grep -r "[旧名称]" .claude/ .codex/ AGENTS.md CLAUDE.md
    ```
 
 ### 场景 4：删除技能
@@ -795,7 +829,8 @@ grep -n "[技能名]:" .claude/hooks/skill-forced-eval.cjs
    rm -rf .codex/skills/[技能名]
    ```
 2. **从 Hook 文件中移除**对应的触发词行
-3. **全局搜索确认无遗漏引用**
+3. **从 AGENTS.md 中移除**对应的技能行
+4. **全局搜索确认无遗漏引用**
 
 ### 场景 5：修改 Claude Command
 
@@ -807,7 +842,7 @@ grep -n "[技能名]:" .claude/hooks/skill-forced-eval.cjs
 
 - [ ] `.claude/skills/[技能名]/SKILL.md` 已修改
 - [ ] `.codex/skills/[技能名]/SKILL.md` 已同步（`diff` 无差异）
-- [ ] 如果修改了触发词：Hook 文件（`.cjs`）已同步更新
+- [ ] 如果修改了触发词：Hook 文件和 AGENTS.md 已同步更新
 - [ ] 如果重命名/删除：旧名称已全局搜索确认无遗漏
 
 ---
@@ -976,7 +1011,8 @@ description: |
 
 ### 声明阶段
 - [ ] Hook 文件已更新（`.claude/hooks/skill-forced-eval.cjs`）
-- [ ] 触发词与 YAML 头部一致
+- [ ] AGENTS.md 已更新（技能表格）
+- [ ] 两处声明的触发词一致
 
 ### 同步阶段
 - [ ] 文件已复制到 `.codex/skills/`
@@ -985,14 +1021,14 @@ description: |
 
 ### 验证阶段
 - [ ] 文件检查通过（存在且完整）
-- [ ] 声明检查通过（Hook `.cjs` 文件）
+- [ ] 声明检查通过（Hook `.cjs` 文件和 AGENTS.md）
 - [ ] 内容检查通过（格式、完整性）
 - [ ] 激活测试通过（能被正确识别和调用）
 
 ### 维护阶段（修改现有技能时）
 - [ ] 修改在 `.claude/skills/` 主目录中完成
 - [ ] 已同步到 `.codex/skills/`（`diff` 无差异）
-- [ ] 如修改触发词：Hook 文件（`.cjs`）已更新
+- [ ] 如修改触发词：Hook 文件（`.cjs`）和 AGENTS.md 已更新
 - [ ] 如重命名/删除：旧名称已全局搜索确认无遗漏
 
 ---
@@ -1015,6 +1051,7 @@ diff .claude/skills/[技能名]/SKILL.md .codex/skills/[技能名]/SKILL.md
 
 # 4. 确认声明
 grep "[技能名]" .claude/hooks/skill-forced-eval.cjs
+grep "[技能名]" AGENTS.md
 ```
 
 ### 快速同步命令（修改现有技能后）
