@@ -18,12 +18,15 @@ description: |
 Tauri 桌面应用采用 **CI 构建 + 本地推送** 模式：
 
 ```
-本地：更新版本号 → 提交 → 打 Tag → 推送
-  ↓ 触发
+本地：更新版本号 → 提交 → 打 Tag → 推送（触发 CI）
+  ↓ CI 构建中（不推送任何内容到 release 仓库）
 CI：构建安装包（按配置的平台） → 上传到 GitHub Release（草稿）
-  ↓ CI 完成后
-本地：从 GitHub Release 下载产物 → 复制到 release 仓库 → 生成 update.json → 推送到 Gitee/GitHub
+  ↓ CI 完成后，用户下载产物
+本地：更新 README + 复制产物 + 生成 update.json → 一次性推送到 Gitee/GitHub release 仓库
 ```
+
+> **关键原则**：CI 构建完成、用户提供下载文件之前，**不要推送任何内容到 release 仓库**。
+> README 更新、产物复制、update.json 生成在获得产物后一次性完成并推送。
 
 > **本地不需要执行 `pnpm tauri build`**。CI 负责构建和签名。
 > 构建完成后，用户手动从 GitHub Release 下载产物，Claude 负责本地处理和推送。
@@ -217,67 +220,7 @@ Edit src-tauri/Cargo.toml        # version = "新版本号"
 Edit package.json                # "version": "新版本号"
 ```
 
-### 步骤 3：更新两个 release 仓库的 README.md
-
-> **CI 产物文件名规则**：CI 构建的产物前缀为 `<productName>_`，
-> 由 `tauri.conf.json` 的 `productName` 决定（空格会被替换为连字符或下划线）。
-> README 中的下载链接和项目结构树必须使用 CI 实际产物文件名。
-> **只包含 `platforms` 配置中的平台**。
-
-```bash
-VERSION="x.y.z"
-GITEE_DIR="<本地 Gitee Release 仓库路径>"
-GITHUB_DIR="<本地 GitHub Release 仓库路径>"
-
-# 需要更新 3 处：
-# 1. 最新版本下载表格（版本号 + 多平台链接，按 platforms 过滤）
-# 2. 版本历史（添加新版本条目）
-# 3. 项目结构树（添加新版本目录，按 platforms 过滤）
-
-# 两个仓库的 README.md 内容一致，同步更新
-Edit "$GITEE_DIR/README.md"
-Edit "$GITHUB_DIR/README.md"
-```
-
-**下载表格模板**（根据 platforms 配置选择包含哪些行）：
-
-```markdown
-### 最新版本: vx.y.z
-
-| 平台 | 下载链接 |
-|------|---------|
-| Windows x64 | [<AppName>_x.y.z_x64-setup.exe](releases/vx.y.z/<AppName>_x.y.z_x64-setup.exe) |          ← platforms 含 windows
-| macOS Apple Silicon | [<AppName>_x.y.z_aarch64.dmg](releases/vx.y.z/<AppName>_x.y.z_aarch64.dmg) |  ← platforms 含 macos
-| macOS Intel | [<AppName>_x.y.z_x64.dmg](releases/vx.y.z/<AppName>_x.y.z_x64.dmg) |                  ← platforms 含 macos
-| Linux x64 (AppImage) | [<AppName>_x.y.z_amd64.AppImage](releases/vx.y.z/<AppName>_x.y.z_amd64.AppImage) | ← platforms 含 linux
-| Linux x64 (deb) | [<AppName>_x.y.z_amd64.deb](releases/vx.y.z/<AppName>_x.y.z_amd64.deb) |          ← platforms 含 linux
-```
-
-### 步骤 4：提交并推送 release 仓库 README 变更
-
-> **推送前必须先拉取**：上一版本可能已推送产物到远程，本地可能落后。
-
-```bash
-# === Gitee release 仓库 ===
-cd "$GITEE_DIR"
-git add README.md
-git commit -m "docs: 更新 README 至 v$VERSION
-
-Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>"
-git pull --rebase origin master
-git push origin master
-
-# === GitHub release 仓库 ===
-cd "$GITHUB_DIR"
-git add README.md
-git commit -m "docs: 更新 README 至 v$VERSION
-
-Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>"
-git pull --rebase origin master
-git push origin master
-```
-
-### 步骤 5：提交源码仓库并打 Tag 触发 CI
+### 步骤 3：提交源码仓库并打 Tag 触发 CI
 
 ```bash
 cd "<源码仓库路径>"
@@ -298,7 +241,7 @@ git tag "v$VERSION"
 git push <github_remote> "v$VERSION"
 ```
 
-### 步骤 6：等待 CI 构建完成
+### 步骤 4：等待 CI 构建完成
 
 根据 `platforms` 配置输出对应平台的文件清单。
 
@@ -313,7 +256,7 @@ git push <github_remote> "v$VERSION"
 
 使用 AskUserQuestion 询问：**文件下载到了哪个目录？**
 
-### 步骤 7：处理下载的产物（Claude 自动执行）
+### 步骤 5：处理下载的产物 + 更新 README（Claude 自动执行）
 
 用户提供下载目录后，Claude 自动执行以下操作：
 
@@ -338,6 +281,41 @@ for DIR in "$GITEE_DIR" "$GITHUB_DIR"; do
 done
 
 # 2. 读取签名文件，生成 update.json（仅包含已配置平台）
+
+# 3. 更新两个 release 仓库的 README.md（三处更新）
+#    - 最新版本下载表格（版本号 + 多平台链接）
+#    - 版本历史（添加新版本条目）
+#    - 项目结构树（添加新版本目录）
+#    两个仓库的 README.md 内容一致，同步更新
+Edit "$GITEE_DIR/README.md"
+Edit "$GITHUB_DIR/README.md"
+```
+
+**下载表格模板**（根据 platforms 配置选择包含哪些平台）：
+
+```markdown
+### 最新版本: vx.y.z
+
+| 平台 | 下载链接 |
+|------|---------|
+| Windows x64 | [AppName_x.y.z_x64-setup.exe](releases/vx.y.z/AppName_x.y.z_x64-setup.exe) |
+| macOS Apple Silicon | [AppName_x.y.z_aarch64.dmg](releases/vx.y.z/AppName_x.y.z_aarch64.dmg) |
+| macOS Intel | [AppName_x.y.z_x64.dmg](releases/vx.y.z/AppName_x.y.z_x64.dmg) |
+| Linux | [AppName_x.y.z_amd64.AppImage](releases/vx.y.z/AppName_x.y.z_amd64.AppImage) |
+```
+
+**项目结构树模板**（根据 platforms 配置选择包含哪些文件）：
+
+```
+    └── vx.y.z/         # vx.y.z 版本
+        ├── AppName_x.y.z_x64-setup.exe           # Windows 安装包
+        ├── AppName_x.y.z_x64-setup.exe.sig       # Windows updater 签名
+        ├── AppName_x.y.z_aarch64.dmg             # macOS Apple Silicon
+        ├── AppName_aarch64.app.tar.gz            # macOS ARM updater 产物
+        ├── AppName_aarch64.app.tar.gz.sig        # macOS ARM updater 签名
+        ├── AppName_x.y.z_x64.dmg                 # macOS Intel
+        ├── AppName_x64.app.tar.gz               # macOS Intel updater 产物
+        └── AppName_x64.app.tar.gz.sig           # macOS Intel updater 签名
 ```
 
 **update.json 模板**（根据 platforms 配置选择包含哪些平台）：
@@ -360,7 +338,10 @@ done
 > - Gitee: `https://gitee.com/<用户名>/<项目名>-release/raw/master/releases/vx.y.z`
 > - GitHub: `https://github.com/<用户名>/<项目名>-release/raw/master/releases/vx.y.z`
 
-### 步骤 8：推送 release 仓库（产物 + update.json）
+### 步骤 6：推送 release 仓库（README + 产物 + update.json）
+
+> **推送前必须先拉取**：上一版本可能已推送产物到远程，本地可能落后。
+> **推送超时处理**：release 仓库包含大量二进制文件，`git push` 可能超时。如果推送失败（SSL_ERROR_SYSCALL / RPC failed / hung up），**不要重试**，直接提示用户手动执行推送命令，然后继续后续步骤。
 
 ```bash
 # === Gitee release 仓库 ===
@@ -382,7 +363,7 @@ git pull --rebase origin master
 git push origin master
 ```
 
-### 步骤 9：完成报告
+### 步骤 7：完成报告
 
 ```markdown
 ## 发布完成
