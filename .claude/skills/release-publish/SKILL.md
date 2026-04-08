@@ -1,7 +1,7 @@
 ---
 name: release-publish
 description: |
-  发布版本/发布更新/release/推送Gitee/签名构建/update.json/版本发布
+  发布版本/发布更新/release/推送Gitee/签名构建/update.json/版本发布/R2 CDN/rclone
 
   触发场景：
   - 需要发布新版本
@@ -15,14 +15,14 @@ description: |
 
 ## 概述
 
-Tauri 桌面应用采用 **CI 构建 + 本地推送** 模式：
+Tauri 桌面应用采用 **CI 构建 + 本地推送** 模式（可选 R2 CDN 加速）：
 
 ```
 本地：更新版本号 → 提交 → 打 Tag → 推送（触发 CI）
   ↓ CI 构建中（不推送任何内容到 release 仓库）
 CI：构建安装包（按配置的平台） → 上传到 GitHub Release（草稿）
   ↓ CI 完成后，用户下载产物
-本地：更新 README + 复制产物 + 生成 update.json → 一次性推送到 Gitee/GitHub release 仓库
+本地：[可选] 上传产物到 R2 CDN + 更新 README + 复制产物 + 生成 update.json → 推送到 Gitee/GitHub release 仓库
 ```
 
 > **关键原则**：CI 构建完成、用户提供下载文件之前，**不要推送任何内容到 release 仓库**。
@@ -45,9 +45,25 @@ CI：构建安装包（按配置的平台） → 上传到 GitHub Release（草�
 > **首次发布时通过 `/release` 命令询问用户选择平台，记录后不再重复询问。**
 > 去掉 Linux 可节省 CI 时间、减少产物体积（Linux AppImage 约 80MB）。
 
-### 双仓库发布策略
+### 三级分发策略
 
-由于 GitHub raw URL 在中国大陆不稳定，应用内自动更新使用 **Gitee** 作为更新端点：
+支持可选的 R2 CDN 作为主下载源，通过 `.claude/release-config.json` 的 `r2.enabled` 字段控制：
+
+**R2 CDN 启用时（r2.enabled = true）：**
+
+| 用途 | 平台 | 角色 | 原因 |
+|------|------|------|------|
+| **源码托管** | GitHub（私有） | — | 代码管理 + CI 构建 |
+| **CI 构建** | GitHub Actions | — | 跨平台构建 + 签名 |
+| **安装包下载 + 自动更新** | Cloudflare R2 CDN | **主源** | 全球 CDN，零流量费，上传秒级 |
+| **自动更新兜底** | Gitee（公开） | **备源** | R2 不通时兜底，中国大陆可访问 |
+| **备份存档** | GitHub（公开） | **存档** | 海外用户 + 历史备份 |
+
+> **R2 CDN 优势**：上传 24MB 产物仅需 ~8 秒，零流量费，全球 CDN 加速。
+> 自定义域名（如 `dl.example.com`）为可选配置，需将域名 DNS 迁移到 Cloudflare。
+> 当前使用 R2.dev 公开 URL，功能完全等价。
+
+**R2 CDN 未启用时（默认模式）：**
 
 | 用途 | 平台 | 原因 |
 |------|------|------|
@@ -108,6 +124,30 @@ pnpm tauri signer generate -w src-tauri/keys/tauri-updater.key
 > 因为 CI 不再推送到 release 仓库，推送由本地完成。
 
 ### 4. 配置 tauri.conf.json
+
+**如果 R2 CDN 启用（r2.enabled = true）：**
+
+```json
+{
+  "plugins": {
+    "updater": {
+      "endpoints": [
+        "<r2.publicUrl>/<r2.pathPrefix>/update.json",
+        "https://gitee.com/<用户名>/<项目名>-release/raw/master/update.json"
+      ],
+      "pubkey": "<公钥内容>"
+    }
+  },
+  "bundle": {
+    "targets": ["nsis"],
+    "createUpdaterArtifacts": "v1Compatible"
+  }
+}
+```
+
+> R2 作为第一端点（主源），Gitee 作为第二端点（备源）。Tauri updater 按顺序尝试，第一个失败自动 fallback。
+
+**如果 R2 未启用（默认）：**
 
 ```json
 {
@@ -184,11 +224,16 @@ matrix:
 | **支持平台** | 构建哪些平台 | `["windows", "macos"]` |
 | **源码仓库 GitHub remote 名** | 推送源码用 | `github` 或 `origin` |
 | **源码仓库 GitHub URL** | CI 所在仓库 | `https://github.com/user/my-app` |
-| **Release 仓库（Gitee）URL** | 主更新端点 | `https://gitee.com/user/my-app-release` |
-| **Release 仓库（GitHub）URL** | 备份 | `https://github.com/user/my-app-release` |
+| **Release 仓库（Gitee）URL** | 更新端点（主/备取决于 R2） | `https://gitee.com/user/my-app-release` |
+| **Release 仓库（GitHub）URL** | 备份存档 | `https://github.com/user/my-app-release` |
 | **本地 Release 仓库（Gitee）路径** | 本地 clone 目录 | `../my-app-release-gitee` |
 | **本地 Release 仓库（GitHub）路径** | 本地 clone 目录 | `../my-app-release` |
 | **主分支名** | master 或 main | `master` |
+| **R2 CDN 启用**（可选） | 是否使用 R2 作为主源 | `true` / `false` |
+| **R2 公开地址**（可选） | R2.dev 或自定义域名 | `https://pub-xxx.r2.dev` |
+| **R2 rclone remote**（可选） | rclone 配置名 | `r2` |
+| **R2 bucket**（可选） | R2 存储桶名 | `downloads` |
+| **R2 路径前缀**（可选） | 多项目隔离路径 | `myapp` |
 
 ---
 
@@ -221,6 +266,9 @@ Edit package.json                # "version": "新版本号"
 ```
 
 ### 步骤 3：提交源码仓库并打 Tag 触发 CI
+
+> **注意**：此阶段只操作源码仓库，**不推送任何内容到 release 仓库**。
+> release 仓库的 README、产物、update.json 全部在步骤 5（CI 完成后）一次性处理。
 
 ```bash
 cd "<源码仓库路径>"
@@ -266,7 +314,23 @@ DOWNLOAD_DIR="<用户提供的下载目录>"
 GITEE_DIR="<本地 Gitee Release 仓库路径>"
 GITHUB_DIR="<本地 GitHub Release 仓库路径>"
 
-# 1. 复制所有产物到两个 release 仓库
+# === R2 配置（从 release-config.json 读取，r2.enabled 时才有值） ===
+R2_ENABLED=<true/false>
+R2_PUBLIC_URL="<r2.publicUrl>"          # 如 https://pub-xxx.r2.dev
+RCLONE_REMOTE="<r2.rcloneRemote>"      # 如 r2
+R2_BUCKET="<r2.bucket>"                # 如 downloads
+R2_PREFIX="<r2.pathPrefix>"            # 如 myapp
+RCLONE="$HOME/bin/rclone.exe"          # rclone 程序路径
+
+# ========== 1. [可选] 上传产物到 R2 CDN（如果 r2.enabled） ==========
+if [ "$R2_ENABLED" = "true" ]; then
+  $RCLONE copy "$DOWNLOAD_DIR"/ ${RCLONE_REMOTE}:${R2_BUCKET}/${R2_PREFIX}/releases/v${VERSION}/ --progress \
+    --include "*.exe" --include "*.exe.sig" --include "*.dmg" \
+    --include "*.app.tar.gz" --include "*.app.tar.gz.sig" \
+    --include "*.AppImage" --include "*.AppImage.sig" --include "*.deb"
+fi
+
+# ========== 2. 复制所有产物到两个 release 仓库 ==========
 for DIR in "$GITEE_DIR" "$GITHUB_DIR"; do
   mkdir -p "$DIR/releases/v$VERSION"
   # 按 platforms 配置复制对应文件
@@ -280,9 +344,21 @@ for DIR in "$GITEE_DIR" "$GITHUB_DIR"; do
   cp "$DOWNLOAD_DIR"/*.deb "$DIR/releases/v$VERSION/" 2>/dev/null         # linux
 done
 
-# 2. 读取签名文件，生成 update.json（仅包含已配置平台）
+# ========== 3. 读取签名文件，生成 update.json（仅包含已配置平台） ==========
+# 如果 r2.enabled：生成 R2 版（URL 指向 R2 CDN）+ Gitee 版 + GitHub 版（3 个版本）
+# 如果 r2 未启用：生成 Gitee 版 + GitHub 版（2 个版本）
+#
+# R2 版 URL 基准: ${R2_PUBLIC_URL}/${R2_PREFIX}/releases/v${VERSION}
+# Gitee 版 URL 基准: https://gitee.com/<用户名>/<项目名>-release/raw/master/releases/vx.y.z
+# GitHub 版 URL 基准: https://github.com/<用户名>/<项目名>-release/raw/master/releases/vx.y.z
 
-# 3. 更新两个 release 仓库的 README.md（三处更新）
+# ========== 4. [可选] 上传 R2 版 update.json（如果 r2.enabled） ==========
+if [ "$R2_ENABLED" = "true" ]; then
+  # 生成 R2 版 update.json（URL 指向 R2 CDN），写入临时文件后上传
+  $RCLONE copyto /tmp/update-r2.json ${RCLONE_REMOTE}:${R2_BUCKET}/${R2_PREFIX}/update.json --progress
+fi
+
+# ========== 5. 更新两个 release 仓库的 README.md（三处更新） ==========
 #    - 最新版本下载表格（版本号 + 多平台链接）
 #    - 版本历史（添加新版本条目）
 #    - 项目结构树（添加新版本目录）
@@ -334,9 +410,12 @@ Edit "$GITHUB_DIR/README.md"
 }
 ```
 
-> **注意**：Gitee 版和 GitHub 版 update.json 只有 URL 中的 `<BASE>` 不同。
+> **注意**：各版本 update.json 只有 URL 中的 `<BASE>` 不同。
+> - R2（如果启用）: `<r2.publicUrl>/<r2.pathPrefix>/releases/vx.y.z`
 > - Gitee: `https://gitee.com/<用户名>/<项目名>-release/raw/master/releases/vx.y.z`
 > - GitHub: `https://github.com/<用户名>/<项目名>-release/raw/master/releases/vx.y.z`
+>
+> R2 版 update.json 上传到 R2 CDN 作为主更新端点，Gitee 版写入 Gitee release 仓库作为备用。
 
 ### 步骤 6：推送 release 仓库（README + 产物 + update.json）
 
@@ -374,9 +453,10 @@ git push origin master
 | 支持平台 | <从 platforms 配置读取> |
 | 源码仓库 | 已推送到 <GitHub URL> |
 | CI 构建 | 已完成，产物已上传到 GitHub Release |
+| R2 CDN | 产物 + update.json 已上传（如果 r2.enabled，否则显示"未启用"） |
 | Release 仓库（Gitee） | 产物 + update.json 已推送 |
 | Release 仓库（GitHub） | 产物 + update.json 已推送 |
-| 应用内自动更新 | Gitee 端点已生效 |
+| 应用内自动更新 | R2 主 + Gitee 备，双端点已生效（如果 r2.enabled）/ Gitee 端点已生效（如果 r2 未启用） |
 ```
 
 ---
@@ -446,6 +526,76 @@ pnpm tauri signer generate -w src-tauri/keys/tauri-updater.key
 
 ---
 
+## Cloudflare R2 CDN 配置（可选）
+
+> 以下内容仅在 `release-config.json` 中 `r2.enabled = true` 时适用。
+
+### R2 目录规划（支持多项目）
+
+```
+<bucket>/                              ← Bucket 根目录（如 downloads）
+├── <pathPrefix>/                      ← 项目隔离目录（如 myapp）
+│   ├── releases/vX.Y.Z/              ← 版本产物
+│   └── update.json                   ← Tauri 自动更新端点
+├── other-project/                     ← 其他项目
+│   └── releases/
+└── shared/                            ← 共享资源
+```
+
+### 自定义域名（可选）
+
+> 当前使用 R2.dev 公开 URL（如 `https://pub-xxx.r2.dev`），功能完全等价。
+> 如需绑定自定义域名（如 `dl.example.com`），需要：
+> 1. 将域名 DNS 迁移到 Cloudflare（NS 变更）
+> 2. R2 Settings → Custom Domains → 添加子域名
+> 3. 更新 `tauri.conf.json` 和 release-config.json 中的 URL
+>
+> **注意**：DNS 迁移会影响现有域名解析，需提前导入所有 DNS 记录。
+
+### R2 成本（永久免费额度内）
+
+| 项目 | 免费额度 | 实际用量（估） |
+|------|---------|--------------|
+| 存储 | 10 GB/月 | ~500MB（20 版本） |
+| 上传操作 | 100万次/月 | ~50次/月 |
+| 下载操作 | 1000万次/月 | ~2000次/月 |
+| 出站流量 | **无限免费** | ~50GB/月 |
+
+### rclone 配置方法
+
+```bash
+# 1. 安装 rclone（下载到 ~/bin/rclone.exe 或其他位置）
+# 2. 配置 R2 remote
+rclone config
+# 选 "New remote" → 名称填 r2 → 类型选 "Cloudflare R2" → 填入 Access Key ID + Secret
+# 配置完成后验证：
+rclone ls r2:<bucket>/
+
+# 3. 测试上传
+rclone copy ./test.txt r2:<bucket>/<pathPrefix>/test/ --progress
+```
+
+> rclone 配置文件位于 `~/.config/rclone/rclone.conf`。
+
+### Tauri updater 端点配置（R2 启用时）
+
+```json
+{
+  "plugins": {
+    "updater": {
+      "endpoints": [
+        "<r2.publicUrl>/<r2.pathPrefix>/update.json",
+        "https://gitee.com/<用户名>/<项目名>-release/raw/master/update.json"
+      ]
+    }
+  }
+}
+```
+
+> R2 作为第一端点（主源），Gitee 作为第二端点（备源）。Tauri updater 会按顺序尝试，第一个失败自动 fallback。
+
+---
+
 ## 常见问题排查
 
 ### 应用内更新问题
@@ -455,6 +605,16 @@ pnpm tauri signer generate -w src-tauri/keys/tauri-updater.key
 | 应用检查不到更新 | release 仓库是私有的 | 将仓库设为公开，否则 raw 地址需认证 |
 | 应用检查不到更新 | update.json 中版本号 <= 当前版本 | 确保 update.json 的 version 大于已安装版本 |
 | 签名验证失败 | 公钥不匹配 | 确保 `tauri.conf.json` 中的 pubkey 与签名使用的私钥配对 |
+
+### R2 CDN 问题（r2.enabled 时）
+
+| 问题 | 原因 | 解决方案 |
+|------|------|---------|
+| R2 下载失败 | R2.dev 域名偶尔被墙 | Tauri updater 自动 fallback 到 Gitee 备源端点 |
+| rclone 上传失败 | Access Key 过期或 bucket 名错误 | 检查 `~/.config/rclone/rclone.conf` 中的 R2 配置 |
+| R2 update.json 未更新 | rclone copyto 命令未执行 | 检查 `release-config.json` 中 `r2.enabled` 是否为 `true` |
+| R2 产物 URL 404 | pathPrefix 或 bucket 名不匹配 | 确认 `r2.publicUrl` + `r2.pathPrefix` 与 rclone 上传路径一致 |
+| 自定义域名不生效 | DNS 未迁移到 Cloudflare | 使用 R2.dev 公开 URL 作为替代 |
 
 ### Git 推送问题
 

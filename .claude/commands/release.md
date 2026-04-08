@@ -35,6 +35,14 @@ Read src-tauri/tauri.conf.json  # 读取当前 version 和 productName
 - 本地 Release 仓库（GitHub）路径
 - 主分支名（master/main）
 
+**问题4**（可选）：是否使用 Cloudflare R2 CDN 作为主下载源？
+- 选项：`是`、`否`（默认否）
+- 如果选"是"，继续询问：
+  - R2 公开地址（如 `https://pub-xxx.r2.dev`）
+  - rclone remote 名（默认 `r2`）
+  - R2 bucket 名（默认 `downloads`）
+  - R2 路径前缀（如 `myapp`，用于多项目隔离）
+
 将信息保存到 `.claude/release-config.json`：
 
 ```json
@@ -47,9 +55,19 @@ Read src-tauri/tauri.conf.json  # 读取当前 version 和 productName
   "releaseRepoGithubUrl": "https://github.com/user/my-app-release",
   "localReleaseGiteePath": "<绝对路径>",
   "localReleaseGithubPath": "<绝对路径>",
-  "mainBranch": "master"
+  "mainBranch": "master",
+  "r2": {
+    "enabled": false,
+    "publicUrl": "",
+    "rcloneRemote": "r2",
+    "bucket": "downloads",
+    "pathPrefix": ""
+  }
 }
 ```
+
+> **R2 CDN 说明**：`r2` 字段为可选配置。`enabled` 为 `false` 时，所有 R2 相关步骤跳过，回退到 Gitee 主源模式。
+> 启用后，R2 作为主下载源和自动更新端点，Gitee 降级为备源。
 
 > **平台配置说明**：`platforms` 数组决定 CI 构建矩阵、README 下载表格、产物清单和 update.json 内容。
 > 修改平台配置后，需同步更新 `.github/workflows/release.yml` 的构建矩阵。
@@ -71,11 +89,13 @@ Skill(release-publish)
 
 ### 第五步：按技能中的步骤执行发布前半段
 
+> **注意**：此阶段只操作源码仓库，**不推送任何内容到 release 仓库**。
+> release 仓库的 README、产物、update.json 全部在第七步（CI 完成后）一次性处理。
+
 1. 更新三处版本号（tauri.conf.json / Cargo.toml / package.json）
-2. 更新两个 release 仓库的 README.md（下载链接 + 版本历史 + 项目结构树，**仅包含已配置的平台**）
-3. 提交 + pull rebase + 推送 release 仓库 README 变更（Gitee 先推，GitHub 后推）
-4. 提交源码仓库 + 推送到 GitHub
-5. 打 Tag + 推送（触发 CI）
+2. 提交源码仓库（包含所有未提交的改动）
+3. 推送到 GitHub
+4. 打 Tag + 推送（触发 CI）
 
 ### 第六步：输出等待提示和文件清单
 
@@ -105,10 +125,15 @@ CI 已触发，请等待构建完成。
 
 用户提供下载目录后：
 
-1. 复制所有产物到两个 release 仓库的 `releases/vX.Y.Z/` 目录
-2. 读取 `.sig` 文件生成 `update.json`（**仅包含已配置平台**，Gitee 版 + GitHub 版）
-3. 提交 + pull rebase + 推送 release 仓库（Gitee 先推，GitHub 后推）
-4. 输出完成报告
+1. **如果 r2.enabled**：使用 rclone 上传产物到 R2 CDN（`rclone copy` → `<rcloneRemote>:<bucket>/<pathPrefix>/releases/vX.Y.Z/`）
+2. 复制所有产物到两个 release 仓库的 `releases/vX.Y.Z/` 目录
+3. 读取 `.sig` 文件生成 `update.json`（**仅包含已配置平台**）
+   - **如果 r2.enabled**：生成 R2 版 + Gitee 版 + GitHub 版（3 个版本）
+   - **如果 r2 未启用**：生成 Gitee 版 + GitHub 版（2 个版本）
+4. **如果 r2.enabled**：上传 R2 版 update.json 到 R2（`rclone copyto` → `<rcloneRemote>:<bucket>/<pathPrefix>/update.json`）
+5. 更新两个 release 仓库的 README.md（下载链接 + 版本历史 + 项目结构树，**仅包含已配置的平台**）
+6. 提交 + pull rebase + 推送 release 仓库（Gitee 先推，GitHub 后推）
+7. 输出完成报告
 
 ---
 
@@ -138,5 +163,10 @@ CI 已触发，请等待构建完成。
 ### CI 与产物处理
 14. **不需要本地构建**：`pnpm tauri build` 由 CI 执行
 15. **签名由 CI 完成**：`.sig` 文件已包含在 CI 产物中，用户只需下载
-16. **Claude 生成 update.json**：读取 `.sig` 文件内容写入 update.json（仅包含已配置平台）
+16. **Claude 生成 update.json**：读取 `.sig` 文件内容写入 update.json（仅包含已配置平台）。如果 r2.enabled，生成 3 个版本（R2 版 + Gitee 版 + GitHub 版）；否则生成 2 个版本（Gitee 版 + GitHub 版）
 17. **Claude 推送 release 仓库**：复制产物 + update.json 后本地推送到 Gitee/GitHub
+
+### R2 CDN（可选）
+18. **R2 为可选功能**：通过 `release-config.json` 的 `r2.enabled` 字段控制，未配置时回退到 Gitee 主源模式
+19. **R2 上传使用 rclone**：`rclone copy` 上传产物，`rclone copyto` 上传 update.json
+20. **R2 启用后分发策略**：R2 CDN 为主源，Gitee 为备源，GitHub 为存档
