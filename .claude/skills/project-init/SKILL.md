@@ -14,6 +14,18 @@ description: |
 
 # 新项目初始化指南
 
+## 🔴 全局强制规则（最高优先级）
+
+> **仓库可见性：必须私有**
+>
+> 本技能创建的**所有** Git 仓库（项目主仓库、release 仓库等），无论平台（Gitee / GitHub / GitCode），
+> 都**必须**创建为**私有仓库**（`private: true`），**绝对禁止**创建为公开仓库。
+>
+> - 即使用户未指定可见性，默认也必须私有
+> - API 调用中 `private: true` 必须硬编码，不可省略、不可通过变量覆盖
+> - 如果用户明确要求公开，需先提示风险并得到用户的二次确认（明确的"确认公开"回复）后才能改为 `false`
+> - 该规则继承自全局 CLAUDE.md 的"仓库创建规范"章节
+
 ## 概述
 
 本技能用于基于 Tauri 桌面应用框架（模板仓库）创建全新的独立项目。**模板仓库始终保持不变**，所有操作在新目录中进行，支持反复创建新项目。
@@ -146,16 +158,22 @@ git pull origin master
 
 ### Step 0.3：收集发布配置
 
+> 🔴 **仓库可见性强制规则**：所有新建仓库**必须**创建为**私有仓库**（`private: true`），
+> 绝对禁止创建为公开仓库。该规则继承自全局 CLAUDE.md 的"仓库创建规范"，适用于 Gitee / GitHub / GitCode 等所有平台。
+> 即使用户未指定可见性，也默认私有。
+
 **必须询问用户**：
 
 ```
 请选择 Git 仓库方式：
-1. 自动创建 Gitee 仓库（推荐，需要 Gitee Token）
+1. 自动创建 Gitee 仓库（默认私有，需要 Gitee Token）
 2. 提供已有的仓库地址（Gitee/GitHub）
 3. 稍后手动创建
 
+⚠️ 所有新建仓库将强制创建为「私有仓库」，不支持公开可见。
+
 更新服务配置（用于应用自动更新）：
-1. 提供 release 仓库地址（如 https://gitee.com/user/myapp-release）
+1. 提供 release 仓库地址（如 https://gitee.com/user/myapp-release，也必须私有）
 2. 稍后配置（更新功能暂不可用）
 ```
 
@@ -186,8 +204,8 @@ git pull origin master
 
   新目录：{模板仓库同级}/mall_admin
   开发端口：{dev_port}（HMR: {hmr_port}）
-  Git 仓库：https://gitee.com/user/mall_admin.git
-  Release 仓库：https://gitee.com/user/mall_admin-release.git
+  Git 仓库：https://gitee.com/user/mall_admin.git  [私有 🔒]
+  Release 仓库：https://gitee.com/user/mall_admin-release.git  [私有 🔒]
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -552,6 +570,10 @@ https.get('https://gitee.com/api/v5/user?access_token=$TOKEN', res => {
 
 > **重要**：必须使用 Node.js 发送请求，不要用 curl！
 > Git Bash 的 curl 处理中文编码有问题，会导致仓库描述变成乱码。
+>
+> 🔴 **强制私有仓库**：`private` 字段必须硬编码为 `true`，**绝对禁止**创建为 `false`（公开仓库）。
+> 即使用户未明确要求，默认也必须是私有。该规则遵循全局 CLAUDE.md 的"仓库创建规范"。
+> 如果用户明确要求公开，需要先二次确认风险，并在对话中得到明确"是，确认公开"的回复后才能改为 `false`。
 
 ```javascript
 // 使用 Node.js 调用 Gitee API 创建仓库
@@ -561,7 +583,7 @@ const data = JSON.stringify({
   access_token: '{TOKEN}',
   name: '{包名}',
   description: '{项目描述}',
-  private: false,
+  private: true,           // 🔴 强制私有，绝对禁止改为 false
   auto_init: false
 });
 const options = {
@@ -878,7 +900,17 @@ git cherry-pick <commit-hash>
 
 与 ruoyi-plus-uniapp 不同，本框架的 SQLite 数据库由 `database/schema.rs` 中的迁移逻辑在首次启动时**自动创建**，无需手动导入 SQL 文件。
 
-### 8. Gitee Token 管理
+### 8. 🔴 仓库必须私有（强制规则）
+
+- **所有**新建仓库（项目主仓库 + release 仓库）一律创建为**私有**，无论 Gitee / GitHub / GitCode
+- Gitee API 请求体中 `private: true` 必须硬编码，禁止省略、禁止通过变量传入可能为 `false` 的值
+- 即使用户未指定可见性，默认也按私有处理
+- 如果用户明确要求公开，执行前必须：
+  1. 向用户说明公开仓库的风险（源码、签名配置、业务逻辑暴露）
+  2. 得到用户明确的二次确认（如"我确认要创建公开仓库"）后，才能将 `private` 改为 `false`
+- release 仓库（用于分发安装包和 update.json）**强烈建议保持私有**，避免安装包/签名公钥暴露
+
+### 9. Gitee Token 管理
 
 - **存储位置**：`~/.gitee_token`（纯文本，仅包含 token 字符串）
 - **获取方式**：https://gitee.com/profile/personal_access_tokens/new（勾选 `projects` 权限）
