@@ -356,6 +356,14 @@ done
 if [ "$R2_ENABLED" = "true" ]; then
   # 生成 R2 版 update.json（URL 指向 R2 CDN），写入临时文件后上传
   $RCLONE copyto /tmp/update-r2.json ${RCLONE_REMOTE}:${R2_BUCKET}/${R2_PREFIX}/update.json --progress
+
+  # ========== 4b. [可选] 更新 R2 版本列表（文档站下载页依赖此文件） ==========
+  # 下载当前 versions.json → 在数组头部插入新版本 → 上传回 R2
+  # versions.json 格式: {"versions": ["v2.8.2", "v2.8.1", ...]}
+  # 如果文档站使用 R2 versions.json 获取版本列表，则需要维护此文件
+  curl -s "${R2_PUBLIC_URL}/${R2_PREFIX}/versions.json" -o /tmp/versions.json 2>/dev/null || echo '{"versions":[]}' > /tmp/versions.json
+  # 在 versions 数组头部插入 "v${VERSION}"
+  $RCLONE copyto /tmp/versions.json ${RCLONE_REMOTE}:${R2_BUCKET}/${R2_PREFIX}/versions.json --progress
 fi
 
 # ========== 5. 更新两个 release 仓库的 README.md（三处更新） ==========

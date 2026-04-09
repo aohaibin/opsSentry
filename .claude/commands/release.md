@@ -131,9 +131,10 @@ CI 已触发，请等待构建完成。
    - **如果 r2.enabled**：生成 R2 版 + Gitee 版 + GitHub 版（3 个版本）
    - **如果 r2 未启用**：生成 Gitee 版 + GitHub 版（2 个版本）
 4. **如果 r2.enabled**：上传 R2 版 update.json 到 R2（`rclone copyto` → `<rcloneRemote>:<bucket>/<pathPrefix>/update.json`）
-5. 更新两个 release 仓库的 README.md（下载链接 + 版本历史 + 项目结构树，**仅包含已配置的平台**）
-6. 提交 + pull rebase + 推送 release 仓库（Gitee 先推，GitHub 后推）
-7. 输出完成报告
+5. **如果 r2.enabled**：更新 R2 上的 `versions.json`（下载当前版本列表 → 在数组头部插入新版本 → 上传回 R2）。文档站下载页依赖此文件获取版本列表。
+6. 更新两个 release 仓库的 README.md（下载链接 + 版本历史 + 项目结构树，**仅包含已配置的平台**）
+7. 提交 + pull rebase + 推送 release 仓库（Gitee 先推，GitHub 后推）
+8. 输出完成报告
 
 ---
 
