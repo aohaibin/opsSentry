@@ -1,12 +1,12 @@
-import { useRef } from "react";
+import { useRef, type ReactNode } from "react";
 import { Outlet, useNavigate } from "react-router-dom";
 import { Layout, Button, theme as antdTheme } from "antd";
 import { MenuFoldOutlined, MenuUnfoldOutlined, SettingOutlined } from "@ant-design/icons";
-import { Sun, Moon, Monitor } from "lucide-react";
 import { getCurrentWindow, type Window } from "@tauri-apps/api/window";
 import { useAppStore } from "@/store";
 import { Sidebar } from "./Sidebar";
 import { WindowControls } from "./WindowControls";
+import { ThemeToggle } from "@/components/ui/ThemeToggle";
 
 const { Header, Sider, Content } = Layout;
 
@@ -45,9 +45,13 @@ function DragRegion() {
   );
 }
 
-export function AppLayout() {
-  const { sidebarCollapsed, toggleSidebar, theme, toggleTheme } =
-    useAppStore();
+interface AppLayoutProps {
+  /** Header 右侧额外操作区（插入在主题切换和设置按钮之前） */
+  headerExtra?: ReactNode;
+}
+
+export function AppLayout({ headerExtra }: AppLayoutProps) {
+  const { sidebarCollapsed, toggleSidebar } = useAppStore();
   const { token } = antdTheme.useToken();
   const navigate = useNavigate();
 
@@ -87,20 +91,8 @@ export function AppLayout() {
           </div>
           <DragRegion />
           <div style={{ display: "flex", alignItems: "center" }}>
-            <Button
-              type="text"
-              icon={
-                theme === "dark" ? <Moon size={16} /> :
-                theme === "light" ? <Sun size={16} /> :
-                <Monitor size={16} />
-              }
-              onClick={toggleTheme}
-              title={
-                theme === "dark" ? "暗色主题" :
-                theme === "light" ? "亮色主题" :
-                "跟随系统"
-              }
-            />
+            {headerExtra}
+            <ThemeToggle />
             <Button
               type="text"
               icon={<SettingOutlined />}

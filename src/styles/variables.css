@@ -126,4 +126,5 @@
   --sidebar-width: 220px;
   --sidebar-collapsed-width: 60px;
   --header-height: 48px;
+  --content-max-width: none;  /* 默认无限制，新项目可覆盖为如 1200px */
 }
