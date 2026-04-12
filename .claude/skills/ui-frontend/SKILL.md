@@ -45,7 +45,10 @@ src/
 │   ├── settings.ts             # 设置状态（持久化 ↔ tauri-plugin-store）
 │   └── index.ts                # 统一导出
 ├── styles/
-│   └── global.css              # TailwindCSS
+│   ├── variables.css           # CSS 设计令牌（双主题颜色/间距/阴影）
+│   └── global.css              # TailwindCSS + 全局样式
+├── theme/
+│   └── antdTheme.ts            # Ant Design 主题配置（dark/light）
 ├── types/
 │   ├── config.ts               # 配置相关类型
 │   ├── system.ts               # 系统相关类型
@@ -403,7 +406,25 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
 | 系统菜单 | 可通过 Tauri Menu API 实现原生菜单 |
 | 拖拽区域 | 使用 `data-tauri-drag-region` 创建可拖拽标题栏 |
 | 快捷键 | 可通过 Tauri 全局快捷键 API 注册 |
-| 深色模式 | 使用 CSS `prefers-color-scheme` 媒体查询 |
+| 主题系统 | 通过 `data-theme` 属性 + CSS 变量切换暗色/亮色，详见 `theme-system` 技能 |
+
+### 样式选择规则
+
+| 场景 | 方案 | 示例 |
+|------|------|------|
+| Ant Design 组件内 | `token.*`（`useToken()`） | `token.colorBgContainer` |
+| 自定义组件颜色 | CSS 变量 `var(--xxx)` | `background: var(--bg-secondary)` |
+| 布局/间距 | TailwindCSS 原子类 | `className="flex gap-4 p-6"` |
+| 边框颜色 | CSS 变量 | `border: 1px solid var(--border)` |
+| TailwindCSS 引用变量 | arbitrary values | `bg-[var(--bg-hover)]` |
+
+### 关键主题文件
+
+| 文件 | 职责 |
+|------|------|
+| `src/styles/variables.css` | 设计令牌（颜色/间距/阴影/圆角/字体） |
+| `src/theme/antdTheme.ts` | Ant Design 主题配置（`getAntdTheme(resolved)`） |
+| `src/store/app.ts` | 主题状态管理（dark/light/system 三态） |
 
 ---
 
@@ -413,7 +434,8 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
 |---------|---------|
 | 使用 `window.alert()` | 使用自定义弹窗组件或 Tauri dialog 插件 |
 | 使用 `window.open()` | 使用 Tauri 窗口 API 或 opener 插件 |
-| 不考虑深色模式 | 使用 CSS 变量 + prefers-color-scheme |
+| 硬编码颜色值 `#1a1a1c` | 使用 `var(--bg-primary)` 或 `token.colorBgLayout` |
+| 使用 TailwindCSS `dark:` 前缀 | 使用 CSS 变量 `var(--xxx)` 或 `data-theme` 选择器 |
 | 使用绝对像素布局 | 使用 flexbox/grid 响应式布局 |
 | 组件过大不拆分 | 按功能拆分为 < 200 行的小组件 |
 | `` message.error(`加载失败: ${error}`) `` | `message.error(getErrorMessage(error))` + `import { getErrorMessage } from "@/lib/api"` |

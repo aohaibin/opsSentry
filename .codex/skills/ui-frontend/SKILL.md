@@ -32,17 +32,27 @@ src/
 │   └── useCommand.ts           # invoke 封装
 ├── lib/
 │   └── api/
-│       └── index.ts            # API 类型安全封装
+│       ├── client.ts           # invoke 封装 + getErrorMessage 工具
+│       ├── config.ts           # 配置相关 API
+│       ├── system.ts           # 系统相关 API
+│       └── index.ts            # 统一导出
 ├── pages/
 │   ├── home/index.tsx           # 首页
 │   ├── settings/index.tsx       # 设置页
 │   └── about/index.tsx          # 关于页
 ├── store/
-│   └── index.ts                # Zustand 全局状态
+│   ├── app.ts                  # 应用状态（主题/侧边栏）
+│   ├── settings.ts             # 设置状态（持久化 ↔ tauri-plugin-store）
+│   └── index.ts                # 统一导出
 ├── styles/
-│   └── global.css              # TailwindCSS
+│   ├── variables.css           # CSS 设计令牌（双主题颜色/间距/阴影）
+│   └── global.css              # TailwindCSS + 全局样式
+├── theme/
+│   └── antdTheme.ts            # Ant Design 主题配置（dark/light）
 ├── types/
-│   └── index.ts                # TS 类型
+│   ├── config.ts               # 配置相关类型
+│   ├── system.ts               # 系统相关类型
+│   └── index.ts                # 统一导出
 ├── App.tsx                      # 根组件（ConfigProvider + Router）
 ├── Router.tsx                   # React Router 配置
 └── main.tsx                     # 入口
@@ -80,7 +90,9 @@ src/
 
 ```tsx
 import { useState } from "react";
+import { message } from "antd";
 import { invoke } from "@tauri-apps/api/core";
+import { getErrorMessage } from "@/lib/api";
 
 interface Props {
   title: string;
@@ -89,23 +101,20 @@ interface Props {
 function FeaturePage({ title }: Props) {
   const [data, setData] = useState<DataType[]>([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   async function loadData() {
     setLoading(true);
-    setError(null);
     try {
       const result = await invoke<DataType[]>("get_data");
       setData(result);
     } catch (e) {
-      setError(String(e));
+      message.error(getErrorMessage(e));
     } finally {
       setLoading(false);
     }
   }
 
   if (loading) return <div className="loading">加载中...</div>;
-  if (error) return <div className="error">错误: {error}</div>;
 
   return (
     <div className="page">
@@ -122,11 +131,19 @@ function FeaturePage({ title }: Props) {
 export default FeaturePage;
 ```
 
+> **错误处理规范**: 所有 catch 块统一使用 `getErrorMessage(error)` 提取错误信息，禁止 `` `加载失败: ${error}` `` 模板字符串拼接。
+> ```tsx
+> import { getErrorMessage } from "@/lib/api";
+> // catch (e) { message.error(getErrorMessage(e)); }
+> ```
+
 ### 表单组件
 
 ```tsx
 import { useState, FormEvent } from "react";
+import { message } from "antd";
 import { invoke } from "@tauri-apps/api/core";
+import { getErrorMessage } from "@/lib/api";
 
 interface FormData {
   name: string;
@@ -149,7 +166,7 @@ function CreateForm() {
       await invoke("create_item", { input: form });
       setForm({ name: "", email: "", description: "" });
     } catch (e) {
-      alert(`保存失败: ${e}`);
+      message.error(getErrorMessage(e));
     }
   }
 
@@ -219,6 +236,167 @@ function ItemList() {
 
 ---
 
+## 设置页规范
+
+设置页使用 **Drawer + Tabs + Form** 模式，从右侧滑入，无需路由切换。
+
+### 设计原则
+
+| 原则 | 说明 |
+|------|------|
+| **Drawer 而非路由** | 设置面板用 `Drawer` 从右侧滑入，不占用路由 |
+| **Tabs 分类** | 使用 `Tabs` 对设置项分类（通用、外观、关于等） |
+| **自动保存** | `onValuesChange` 触发自动保存，无需手动点击保存按钮 |
+| **持久化** | Zustand store 与 tauri-plugin-store 双向同步 |
+
+### SettingsDrawer 标准模板
+
+```tsx
+import { Drawer, Tabs, Form, Switch, Select, message } from "antd";
+import { useAppStore } from "@/store";
+import { useSettingsStore } from "@/store";
+import { getErrorMessage } from "@/lib/api";
+
+interface SettingsDrawerProps {
+  open: boolean;
+  onClose: () => void;
+}
+
+export default function SettingsDrawer({ open, onClose }: SettingsDrawerProps) {
+  const [form] = Form.useForm();
+  const settings = useSettingsStore();
+
+  // Tabs 切换时重置 form 值（防止脏数据）
+  function handleTabChange() {
+    form.resetFields();
+  }
+
+  // 自动保存：任意值变化时触发
+  async function handleValuesChange(changed: Record<string, unknown>) {
+    try {
+      await settings.update(changed);
+    } catch (e) {
+      message.error(getErrorMessage(e));
+    }
+  }
+
+  const tabItems = [
+    {
+      key: "general",
+      label: "通用",
+      children: (
+        <Form
+          form={form}
+          layout="vertical"
+          initialValues={settings.general}
+          onValuesChange={handleValuesChange}
+        >
+          <Form.Item name="autoStart" label="开机启动" valuePropName="checked">
+            <Switch />
+          </Form.Item>
+          <Form.Item name="language" label="语言">
+            <Select options={[
+              { label: "简体中文", value: "zh-CN" },
+              { label: "English", value: "en-US" },
+            ]} />
+          </Form.Item>
+        </Form>
+      ),
+    },
+    {
+      key: "appearance",
+      label: "外观",
+      children: (
+        <Form
+          form={form}
+          layout="vertical"
+          initialValues={settings.appearance}
+          onValuesChange={handleValuesChange}
+        >
+          <Form.Item name="theme" label="主题">
+            <Select options={[
+              { label: "跟随系统", value: "system" },
+              { label: "浅色", value: "light" },
+              { label: "深色", value: "dark" },
+            ]} />
+          </Form.Item>
+          <Form.Item name="fontSize" label="字号">
+            <Select options={[
+              { label: "小", value: "small" },
+              { label: "中", value: "medium" },
+              { label: "大", value: "large" },
+            ]} />
+          </Form.Item>
+        </Form>
+      ),
+    },
+    {
+      key: "about",
+      label: "关于",
+      children: <div className="text-sm text-gray-500">版本信息、开源协议等</div>,
+    },
+  ];
+
+  return (
+    <Drawer
+      title="设置"
+      placement="right"
+      width={480}
+      open={open}
+      onClose={onClose}
+      destroyOnClose
+    >
+      <Tabs items={tabItems} onChange={handleTabChange} />
+    </Drawer>
+  );
+}
+```
+
+### 持久化同步模式（Zustand + tauri-plugin-store）
+
+```tsx
+// src/store/settings.ts
+import { create } from "zustand";
+import { load } from "@tauri-apps/plugin-store";
+
+interface SettingsState {
+  general: { autoStart: boolean; language: string };
+  appearance: { theme: string; fontSize: string };
+  load: () => Promise<void>;
+  update: (changed: Record<string, unknown>) => Promise<void>;
+}
+
+export const useSettingsStore = create<SettingsState>((set, get) => ({
+  general: { autoStart: false, language: "zh-CN" },
+  appearance: { theme: "system", fontSize: "medium" },
+
+  load: async () => {
+    const store = await load("settings.json", { autoSave: false });
+    const general = await store.get<SettingsState["general"]>("general");
+    const appearance = await store.get<SettingsState["appearance"]>("appearance");
+    if (general) set({ general });
+    if (appearance) set({ appearance });
+  },
+
+  update: async (changed) => {
+    const store = await load("settings.json", { autoSave: false });
+    // 合并到当前状态
+    const state = get();
+    const newState = { ...state, ...changed };
+    set(newState);
+    // 持久化到 tauri-plugin-store
+    for (const [key, value] of Object.entries(changed)) {
+      await store.set(key, value);
+    }
+    await store.save();
+  },
+}));
+```
+
+> **要点**: 应用启动时调用 `useSettingsStore.getState().load()` 从磁盘加载设置。
+
+---
+
 ## 桌面应用 UI 注意事项
 
 | 注意事项 | 说明 |
@@ -228,7 +406,25 @@ function ItemList() {
 | 系统菜单 | 可通过 Tauri Menu API 实现原生菜单 |
 | 拖拽区域 | 使用 `data-tauri-drag-region` 创建可拖拽标题栏 |
 | 快捷键 | 可通过 Tauri 全局快捷键 API 注册 |
-| 深色模式 | 使用 CSS `prefers-color-scheme` 媒体查询 |
+| 主题系统 | 通过 `data-theme` 属性 + CSS 变量切换暗色/亮色，详见 `theme-system` 技能 |
+
+### 样式选择规则
+
+| 场景 | 方案 | 示例 |
+|------|------|------|
+| Ant Design 组件内 | `token.*`（`useToken()`） | `token.colorBgContainer` |
+| 自定义组件颜色 | CSS 变量 `var(--xxx)` | `background: var(--bg-secondary)` |
+| 布局/间距 | TailwindCSS 原子类 | `className="flex gap-4 p-6"` |
+| 边框颜色 | CSS 变量 | `border: 1px solid var(--border)` |
+| TailwindCSS 引用变量 | arbitrary values | `bg-[var(--bg-hover)]` |
+
+### 关键主题文件
+
+| 文件 | 职责 |
+|------|------|
+| `src/styles/variables.css` | 设计令牌（颜色/间距/阴影/圆角/字体） |
+| `src/theme/antdTheme.ts` | Ant Design 主题配置（`getAntdTheme(resolved)`） |
+| `src/store/app.ts` | 主题状态管理（dark/light/system 三态） |
 
 ---
 
@@ -238,6 +434,10 @@ function ItemList() {
 |---------|---------|
 | 使用 `window.alert()` | 使用自定义弹窗组件或 Tauri dialog 插件 |
 | 使用 `window.open()` | 使用 Tauri 窗口 API 或 opener 插件 |
-| 不考虑深色模式 | 使用 CSS 变量 + prefers-color-scheme |
+| 硬编码颜色值 `#1a1a1c` | 使用 `var(--bg-primary)` 或 `token.colorBgLayout` |
+| 使用 TailwindCSS `dark:` 前缀 | 使用 CSS 变量 `var(--xxx)` 或 `data-theme` 选择器 |
 | 使用绝对像素布局 | 使用 flexbox/grid 响应式布局 |
 | 组件过大不拆分 | 按功能拆分为 < 200 行的小组件 |
+| `` message.error(`加载失败: ${error}`) `` | `message.error(getErrorMessage(error))` + `import { getErrorMessage } from "@/lib/api"` |
+| 设置页用独立路由 | 使用 `Drawer` 从右侧滑入，无需路由切换 |
+| 所有 API/类型/store 写在单文件 | 按模块拆分（`api/config.ts`、`store/settings.ts`、`types/system.ts`） |

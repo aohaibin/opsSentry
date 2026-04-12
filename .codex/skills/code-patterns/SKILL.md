@@ -49,16 +49,19 @@ impl Database {
     pub fn init(db_path: &str) -> Result<Self, AppError> {
         let conn = Connection::open(db_path)?;
         conn.pragma_update(None, "journal_mode", "WAL")?;
+        conn.busy_timeout(std::time::Duration::from_secs(5))?;
         schema::migrate(&conn)?;
         Ok(Self { conn: Mutex::new(conn) })
     }
 
-    /// CRUD 模式：获取所有
+    /// CRUD 模式：获取所有（排除已软删除的）
     pub fn get_all_config(&self) -> Result<Vec<AppConfig>, AppError> {
         let conn = self.conn.lock()
             .map_err(|e| AppError::Custom(e.to_string()))?;
 
-        let mut stmt = conn.prepare("SELECT key, value FROM app_config")?;
+        let mut stmt = conn.prepare(
+            "SELECT key, value FROM app_config WHERE deleted_at IS NULL"
+        )?;
         let configs = stmt.query_map([], |row| {
             Ok(AppConfig {
                 key: row.get(0)?,
@@ -149,45 +152,41 @@ impl ConfigService {
 }
 ```
 
-### 3. Command 层模式（IPC 接口）
+### 3. Command 层模式（IPC 接口 → 返回 CommandError）
 
 ```rust
 // src-tauri/src/commands/config.rs
-use tauri::State;
-use crate::database::Database;
+use crate::error::CommandError;
 use crate::models::AppConfig;
+use crate::services::config::ConfigService;
+use crate::state::AppState;
 
 /// 获取所有配置
 #[tauri::command]
-pub fn get_all_config(db: State<'_, Database>) -> Result<Vec<AppConfig>, String> {
-    db.get_all_config()
-        .map_err(|e| e.to_string())
+pub fn get_all_config(state: tauri::State<'_, AppState>) -> Result<Vec<AppConfig>, CommandError> {
+    ConfigService::get_all(&state.db).map_err(|e| e.into())
 }
 
 /// 获取单个配置
 #[tauri::command]
-pub fn get_config(db: State<'_, Database>, key: String) -> Result<String, String> {
-    db.get_config(&key)
-        .map_err(|e| e.to_string())?
-        .ok_or_else(|| format!("配置 {} 不存在", key))
+pub fn get_config(state: tauri::State<'_, AppState>, key: String) -> Result<String, CommandError> {
+    ConfigService::get(&state.db, &key).map_err(|e| e.into())
 }
 
 /// 设置配置
 #[tauri::command]
 pub fn set_config(
-    db: State<'_, Database>,
+    state: tauri::State<'_, AppState>,
     key: String,
     value: String,
-) -> Result<(), String> {
-    db.set_config(&key, &value)
-        .map_err(|e| e.to_string())
+) -> Result<(), CommandError> {
+    ConfigService::set(&state.db, &key, &value).map_err(|e| e.into())
 }
 
 /// 删除配置
 #[tauri::command]
-pub fn delete_config(db: State<'_, Database>, key: String) -> Result<bool, String> {
-    db.delete_config(&key)
-        .map_err(|e| e.to_string())
+pub fn delete_config(state: tauri::State<'_, AppState>, key: String) -> Result<(), CommandError> {
+    ConfigService::delete(&state.db, &key).map_err(|e| e.into())
 }
 ```
 
@@ -243,7 +242,7 @@ pub fn run() {
 import { useState, useEffect } from "react";
 import { Table, Button, message, Modal, Form, Input } from "antd";
 import type { ColumnsType } from "antd/es/table";
-import { configApi } from "@/lib/api";
+import { configApi, getErrorMessage } from "@/lib/api";
 import type { AppConfig } from "@/types";
 
 export default function ConfigPage() {
@@ -262,7 +261,7 @@ export default function ConfigPage() {
       const data = await configApi.getAll();
       setConfigs(data);
     } catch (error) {
-      message.error(`加载失败: ${error}`);
+      message.error(getErrorMessage(error));
     } finally {
       setLoading(false);
     }
@@ -275,7 +274,7 @@ export default function ConfigPage() {
       setModalOpen(false);
       loadConfigs();
     } catch (error) {
-      message.error(`保存失败: ${error}`);
+      message.error(getErrorMessage(error));
     }
   }
 
@@ -299,7 +298,7 @@ export default function ConfigPage() {
       message.success("删除成功");
       loadConfigs();
     } catch (error) {
-      message.error(`删除失败: ${error}`);
+      message.error(getErrorMessage(error));
     }
   }
 
@@ -338,14 +337,46 @@ export default function ConfigPage() {
 }
 ```
 
-### 2. API 封装模式
+### 2. API 封装模式（模块化拆分 + Re-export Hub）
 
 ```typescript
-// src/lib/api/index.ts
+// ─── src/lib/api/client.ts ─── 基础客户端 + 错误解析
 import { invoke } from "@tauri-apps/api/core";
-import type { AppConfig, SystemInfo } from "@/types";
 
-/** 配置管理 API */
+/** 结构化错误（与 Rust CommandError 对齐） */
+export interface CommandError {
+  code: string;
+  message: string;
+}
+
+/** 解析 invoke 错误为 CommandError */
+export function parseCommandError(error: unknown): CommandError {
+  if (typeof error === "string") {
+    try {
+      return JSON.parse(error) as CommandError;
+    } catch {
+      return { code: "UNKNOWN", message: error };
+    }
+  }
+  return { code: "UNKNOWN", message: String(error) };
+}
+
+/** 快速获取错误信息（用于 message.error()） */
+export function getErrorMessage(error: unknown): string {
+  return parseCommandError(error).message;
+}
+
+/** 快速获取错误码（用于条件判断） */
+export function getErrorCode(error: unknown): string {
+  return parseCommandError(error).code;
+}
+
+export { invoke };
+
+// ─── src/lib/api/config.ts ─── 配置 API 模块
+import { invoke } from "./client";
+import type { AppConfig } from "@/types";
+
 export const configApi = {
   getAll: () => invoke<AppConfig[]>("get_all_config"),
   get: (key: string) => invoke<string>("get_config", { key }),
@@ -354,11 +385,20 @@ export const configApi = {
   delete: (key: string) => invoke<void>("delete_config", { key }),
 };
 
-/** 系统相关 API */
+// ─── src/lib/api/system.ts ─── 系统 API 模块
+import { invoke } from "./client";
+import type { SystemInfo } from "@/types";
+
 export const systemApi = {
   greet: (name: string) => invoke<string>("greet", { name }),
   getSystemInfo: () => invoke<SystemInfo>("get_system_info"),
 };
+
+// ─── src/lib/api/index.ts ─── Re-export Hub（统一出口）
+export { parseCommandError, getErrorMessage, getErrorCode, invoke } from "./client";
+export type { CommandError } from "./client";
+export { systemApi } from "./system";
+export { configApi } from "./config";
 ```
 
 ### 3. 自定义 Hook 模式
@@ -412,10 +452,10 @@ function MyComponent() {
 }
 ```
 
-### 4. Zustand 状态管理模式
+### 4. Zustand 状态管理模式（模块化拆分）
 
 ```typescript
-// src/store/index.ts
+// ─── src/store/app.ts ─── UI 状态（主题/侧边栏）
 import { create } from "zustand";
 
 interface AppStore {
@@ -435,10 +475,30 @@ export const useAppStore = create<AppStore>((set) => ({
   toggleSidebar: () => set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),
 }));
 
-// 使用
+// ─── src/store/settings.ts ─── 设置状态（语言/关闭行为等）
+import { create } from "zustand";
+
+interface SettingsStore {
+  language: string;
+  closeBehavior: "quit" | "tray";
+  setLanguage: (lang: string) => void;
+  setCloseBehavior: (behavior: "quit" | "tray") => void;
+}
+
+export const useSettingsStore = create<SettingsStore>((set) => ({
+  language: "zh-CN",
+  closeBehavior: "quit",
+  setLanguage: (language) => set({ language }),
+  setCloseBehavior: (closeBehavior) => set({ closeBehavior }),
+}));
+
+// ─── src/store/index.ts ─── Re-export Hub
+export { useAppStore } from "./app";
+export { useSettingsStore } from "./settings";
+
+// ─── 使用示例 ───
 function ThemeButton() {
   const { theme, toggleTheme } = useAppStore();
-
   return (
     <Button onClick={toggleTheme}>
       当前主题: {theme === "light" ? "亮色" : "暗色"}
@@ -458,11 +518,16 @@ function ThemeButton() {
 | **Database** | `database/mod.rs`, `database/schema.rs` | - |
 | **Service** | `services/config_service.rs` | - |
 | **Command** | `commands/config.rs`, `commands/system.rs` | - |
-| **Model** | `models.rs` | `types/index.ts` |
-| **API 封装** | - | `lib/api/index.ts` |
-| **组件** | - | `pages/ConfigPage.tsx`, `components/Header.tsx` |
-| **Store** | - | `store/index.ts` |
-| **Hook** | - | `hooks/useConfig.ts` |
+| **Shared 工具** | `shared/time_utils.rs` | - |
+| **Model** | `models/mod.rs` | `types/config.ts`, `types/system.ts` |
+| **API 客户端** | - | `lib/api/client.ts` |
+| **API 模块** | - | `lib/api/config.ts`, `lib/api/system.ts` |
+| **API Hub** | - | `lib/api/index.ts`（Re-export） |
+| **组件** | - | `pages/home/index.tsx`, `components/layout/*.tsx` |
+| **Store 模块** | - | `store/app.ts`, `store/settings.ts` |
+| **Store Hub** | - | `store/index.ts`（Re-export） |
+| **Types Hub** | - | `types/index.ts`（Re-export） |
+| **Hook** | - | `hooks/useCommand.ts` |
 
 ### 标识符命名
 
@@ -478,26 +543,44 @@ function ThemeButton() {
 
 ---
 
-## TailwindCSS 样式模式
+## 样式与主题模式
+
+### 样式分层原则
+
+| 层级 | 职责 | 使用场景 |
+|------|------|---------|
+| CSS 变量 `var(--xxx)` | 设计令牌（颜色/间距/阴影） | 自定义组件、边框、背景 |
+| Ant Design `token.*` | 组件库内部颜色 | Ant Design 组件上下文（`useToken()`） |
+| TailwindCSS 原子类 | 布局和间距 | `flex gap-4 p-6 max-w-2xl` |
+
+### 正确用法
 
 ```tsx
-// ✅ 推荐：使用 TailwindCSS 工具类
-<div className="flex items-center justify-between p-4 bg-white rounded-lg shadow-md">
-  <h1 className="text-2xl font-bold text-gray-900">标题</h1>
-  <Button type="primary">操作</Button>
-</div>
+// ✅ 布局用 TailwindCSS
+<div className="flex items-center justify-between p-4">
 
-// ✅ 推荐：组合 Ant Design + TailwindCSS
-<Card className="w-full max-w-2xl mx-auto mt-8">
-  <div className="space-y-4">
-    <Input placeholder="输入内容" className="w-full" />
-  </div>
-</Card>
+// ✅ 颜色用 CSS 变量
+<div style={{ background: "var(--bg-secondary)", borderBottom: "1px solid var(--border)" }}>
 
-// ❌ 避免：内联样式
-<div style={{ padding: "16px", backgroundColor: "white" }}>
-  {/* ... */}
-</div>
+// ✅ Ant Design 组件内用 token
+const { token } = antdTheme.useToken();
+<Card style={{ background: token.colorBgContainer }}>
+
+// ✅ TailwindCSS arbitrary values 引用 CSS 变量
+<div className="bg-[var(--bg-hover)] text-[var(--text-primary)]">
+```
+
+### 禁止用法
+
+```tsx
+// ❌ 硬编码颜色值
+<div style={{ background: "#1a1a1c", color: "#dcdcde" }}>
+
+// ❌ 使用 TailwindCSS dark: 前缀（项目用 data-theme 机制）
+<div className="bg-white dark:bg-gray-900">
+
+// ❌ 内联样式写布局（应用 TailwindCSS）
+<div style={{ display: "flex", padding: "16px", gap: "8px" }}>
 ```
 
 ---
@@ -524,17 +607,19 @@ function ThemeButton() {
 ### Rust 后端
 
 - [ ] 使用三层架构（Database → Service → Command）
-- [ ] 所有 Command 返回 `Result<T, String>`
+- [ ] 所有 Command 返回 `Result<T, CommandError>`（不是 `String`）
 - [ ] Mutex 加锁使用 `map_err` 处理错误
 - [ ] SQL 查询使用 `?` 占位符防注入
+- [ ] 查询包含 `WHERE deleted_at IS NULL`（软删除过滤）
+- [ ] Database 初始化包含 `busy_timeout(5s)` 和 WAL 模式
 - [ ] 模块在 `mod.rs` 中导出并在 `lib.rs` 注册
 
 ### React 前端
 
 - [ ] 组件使用函数组件 + Hooks
-- [ ] API 调用封装在 `lib/api/`
-- [ ] 错误处理使用 `try-catch` + `message.error()`
-- [ ] 类型定义在 `types/index.ts`
-- [ ] 全局状态使用 Zustand
+- [ ] API 按模块拆分（`lib/api/config.ts` 等）+ Re-export Hub
+- [ ] 错误处理使用 `try-catch` + `getErrorMessage()` + `message.error()`
+- [ ] 类型按模块拆分（`types/config.ts` 等）+ Re-export Hub
+- [ ] Store 按职责拆分（`store/app.ts` 等）+ Re-export Hub
 - [ ] 样式优先使用 TailwindCSS
 - [ ] 路径使用 `@/` 别名

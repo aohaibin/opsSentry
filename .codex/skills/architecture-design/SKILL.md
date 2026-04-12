@@ -62,7 +62,10 @@ src/                              # React 前端
 ├── store/
 │   └── index.ts                # Zustand 全局状态
 ├── styles/
-│   └── global.css              # TailwindCSS
+│   ├── variables.css           # CSS 设计令牌（双主题颜色/间距/阴影）
+│   └── global.css              # TailwindCSS + 全局样式
+├── theme/
+│   └── antdTheme.ts            # Ant Design 主题（darkTheme/lightTheme）
 ├── types/
 │   └── index.ts                # TS 类型
 ├── App.tsx                      # 根组件（ConfigProvider + Router）
@@ -156,6 +159,12 @@ UI 状态 (React)
 ├── 组件内 useState
 ├── 全局状态 Zustand (src/store/index.ts)
 └── API 封装 src/lib/api/index.ts
+
+样式/主题 (CSS 变量 + Ant Design)
+├── src/styles/variables.css → 设计令牌（通过 data-theme 切换 dark/light）
+├── src/theme/antdTheme.ts  → Ant Design 主题配置（与 CSS 变量同步）
+├── src/store/app.ts        → 主题状态管理（dark/light/system 三态）
+└── src/App.tsx              → data-theme 写入 DOM + ConfigProvider 主题选择
 ```
 
 ---

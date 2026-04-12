@@ -543,26 +543,44 @@ function ThemeButton() {
 
 ---
 
-## TailwindCSS 样式模式
+## 样式与主题模式
+
+### 样式分层原则
+
+| 层级 | 职责 | 使用场景 |
+|------|------|---------|
+| CSS 变量 `var(--xxx)` | 设计令牌（颜色/间距/阴影） | 自定义组件、边框、背景 |
+| Ant Design `token.*` | 组件库内部颜色 | Ant Design 组件上下文（`useToken()`） |
+| TailwindCSS 原子类 | 布局和间距 | `flex gap-4 p-6 max-w-2xl` |
+
+### 正确用法
 
 ```tsx
-// ✅ 推荐：使用 TailwindCSS 工具类
-<div className="flex items-center justify-between p-4 bg-white rounded-lg shadow-md">
-  <h1 className="text-2xl font-bold text-gray-900">标题</h1>
-  <Button type="primary">操作</Button>
-</div>
+// ✅ 布局用 TailwindCSS
+<div className="flex items-center justify-between p-4">
 
-// ✅ 推荐：组合 Ant Design + TailwindCSS
-<Card className="w-full max-w-2xl mx-auto mt-8">
-  <div className="space-y-4">
-    <Input placeholder="输入内容" className="w-full" />
-  </div>
-</Card>
+// ✅ 颜色用 CSS 变量
+<div style={{ background: "var(--bg-secondary)", borderBottom: "1px solid var(--border)" }}>
 
-// ❌ 避免：内联样式
-<div style={{ padding: "16px", backgroundColor: "white" }}>
-  {/* ... */}
-</div>
+// ✅ Ant Design 组件内用 token
+const { token } = antdTheme.useToken();
+<Card style={{ background: token.colorBgContainer }}>
+
+// ✅ TailwindCSS arbitrary values 引用 CSS 变量
+<div className="bg-[var(--bg-hover)] text-[var(--text-primary)]">
+```
+
+### 禁止用法
+
+```tsx
+// ❌ 硬编码颜色值
+<div style={{ background: "#1a1a1c", color: "#dcdcde" }}>
+
+// ❌ 使用 TailwindCSS dark: 前缀（项目用 data-theme 机制）
+<div className="bg-white dark:bg-gray-900">
+
+// ❌ 内联样式写布局（应用 TailwindCSS）
+<div style={{ display: "flex", padding: "16px", gap: "8px" }}>
 ```
 
 ---

@@ -20,7 +20,7 @@ description: |
 ┌──────────────────────────────────────────┐
 │  前端状态 (React)                          │
 │  ├── 组件内: useState                      │
-│  ├── 全局状态: Zustand (src/store/index.ts)│
+│  ├── 全局状态: Zustand (src/store/*.ts)     │
 │  ├── API 封装: src/lib/api/index.ts        │
 │  └── Hooks: src/hooks/useCommand.ts        │
 ├──────────────────────────────────────────┤
@@ -42,7 +42,9 @@ description: |
 | Rust AppState 定义 | `src-tauri/src/state.rs` |
 | Database 结构体 | `src-tauri/src/database/mod.rs` |
 | Schema 迁移 | `src-tauri/src/database/schema.rs` |
-| 前端 Zustand Store | `src/store/index.ts` |
+| 前端 Zustand Store (UI 状态) | `src/store/app.ts` |
+| 前端 Zustand Store (设置状态) | `src/store/settings.ts` |
+| 前端 Store 统一出口 | `src/store/index.ts` |
 | API 类型安全封装 | `src/lib/api/index.ts` |
 | invoke Hook 封装 | `src/hooks/useCommand.ts` |
 
@@ -97,33 +99,77 @@ function useApp() {
 pnpm add zustand
 ```
 
+#### Store 按职责拆分
+
+Store 不再集中在单文件，而是按职责拆分为独立模块，通过 `index.ts` 统一导出：
+
+```
+src/store/
+├── app.ts        # UI 状态（theme、sidebarCollapsed）
+├── settings.ts   # 设置状态（language、closeBehavior）
+└── index.ts      # Re-export Hub（统一导出入口）
+```
+
+**`src/store/app.ts`** — UI 状态:
+
 ```tsx
 import { create } from "zustand";
 
 interface AppStore {
-  count: number;
-  increment: () => void;
-  items: Item[];
-  setItems: (items: Item[]) => void;
-  loadItems: () => Promise<void>;
+  theme: "light" | "dark";
+  setTheme: (theme: "light" | "dark") => void;
+  sidebarCollapsed: boolean;
+  setSidebarCollapsed: (collapsed: boolean) => void;
+  toggleSidebar: () => void;
 }
 
-const useAppStore = create<AppStore>((set) => ({
-  count: 0,
-  increment: () => set((state) => ({ count: state.count + 1 })),
-  items: [],
-  setItems: (items) => set({ items }),
-  loadItems: async () => {
-    const items = await invoke<Item[]>("list_items");
-    set({ items });
-  },
+export const useAppStore = create<AppStore>((set) => ({
+  theme: "light",
+  setTheme: (theme) => set({ theme }),
+  sidebarCollapsed: false,
+  setSidebarCollapsed: (collapsed) => set({ sidebarCollapsed: collapsed }),
+  toggleSidebar: () => set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),
 }));
+```
 
-// 使用
+**`src/store/settings.ts`** — 设置状态:
+
+```tsx
+import { create } from "zustand";
+
+interface SettingsStore {
+  language: string;
+  setLanguage: (lang: string) => void;
+  closeBehavior: "quit" | "tray";
+  setCloseBehavior: (behavior: "quit" | "tray") => void;
+}
+
+export const useSettingsStore = create<SettingsStore>((set) => ({
+  language: "zh-CN",
+  setLanguage: (language) => set({ language }),
+  closeBehavior: "quit",
+  setCloseBehavior: (closeBehavior) => set({ closeBehavior }),
+}));
+```
+
+**`src/store/index.ts`** — Re-export Hub:
+
+```tsx
+// 统一导出所有 store，外部始终从 @/store 导入
+export { useAppStore } from "./app";
+export { useSettingsStore } from "./settings";
+```
+
+#### 使用方式
+
+```tsx
+// 从统一入口导入（推荐）
+import { useAppStore, useSettingsStore } from "@/store";
+
 function MyComponent() {
-  const { items, loadItems } = useAppStore();
-  useEffect(() => { loadItems(); }, []);
-  return <div>{items.length} items</div>;
+  const theme = useAppStore((s) => s.theme);
+  const language = useSettingsStore((s) => s.language);
+  return <div>Theme: {theme}, Lang: {language}</div>;
 }
 ```
 
@@ -190,13 +236,97 @@ await store.save();  // 持久化到磁盘
 
 ---
 
+## 主题配置规范
+
+主题切换涉及多层协作：Zustand 管理运行时状态、`tauri-plugin-store` 持久化到磁盘、Ant Design `ConfigProvider` 应用主题、CSS Variables 提供设计令牌。
+
+### 数据流
+
+```
+应用启动
+  │
+  ▼
+tauri-plugin-store 读取磁盘偏好 (settings.json)
+  │
+  ▼
+设置 Zustand store (useAppStore.setTheme)
+  │
+  ▼
+App.tsx useEffect → resolveTheme(theme) → resolved = "dark" | "light"
+  │
+  ├──► document.documentElement.setAttribute("data-theme", resolved)
+  │       → :root[data-theme] CSS 变量切换（variables.css）
+  │
+  └──► ConfigProvider theme={getAntdTheme(resolved)}
+          → Ant Design 组件自动响应（antdTheme.ts）
+
+用户切换主题时:
+  useAppStore.toggleTheme() → resolved 更新 → data-theme + ConfigProvider 同步响应
+```
+
+### 关键代码位置
+
+| 职责 | 文件 |
+|------|------|
+| 主题运行时状态 | `src/store/app.ts` (`useAppStore`) |
+| 主题持久化 | `tauri-plugin-store` → `settings.json` |
+| 主题应用 | `src/App.tsx` (`ConfigProvider theme={}`) |
+| 主题 token 配置 | `src/theme/antdTheme.ts` |
+| CSS 设计令牌 | `src/styles/variables.css` |
+
+### 初始化模式
+
+```tsx
+// App.tsx 中初始化主题
+import { Store } from "@tauri-apps/plugin-store";
+import { useAppStore } from "@/store";
+import { getAntdTheme } from "@/theme/antdTheme";
+
+function App() {
+  const theme = useAppStore((s) => s.theme);
+  const setTheme = useAppStore((s) => s.setTheme);
+
+  // 启动时从 plugin-store 加载持久化偏好
+  useEffect(() => {
+    (async () => {
+      const store = await Store.load("settings.json");
+      const saved = await store.get<string>("theme");
+      if (saved === "dark" || saved === "light") {
+        setTheme(saved);
+      }
+    })();
+  }, []);
+
+  return (
+    <ConfigProvider theme={getAntdTheme(theme)}>
+      {/* ... */}
+    </ConfigProvider>
+  );
+}
+```
+
+### 切换时持久化
+
+```tsx
+async function handleThemeToggle() {
+  const next = theme === "light" ? "dark" : "light";
+  setTheme(next); // 更新 Zustand → ConfigProvider 立即响应
+  const store = await Store.load("settings.json");
+  await store.set("theme", next);
+  await store.save(); // 持久化到磁盘
+}
+```
+
+---
+
 ## 选型建议
 
 | 场景 | 推荐方案 | 文件位置 |
 |------|---------|---------|
 | 组件内简单状态 | `useState` | 组件内 |
-| 全局 UI 状态(主题/侧边栏) | Zustand | `src/store/index.ts` |
-| 需要持久化的设置 | tauri-plugin-store | 前端调用 + Rust 注册 |
+| 全局 UI 状态(主题/侧边栏) | Zustand | `src/store/app.ts` |
+| 全局设置状态(语言/关闭行为) | Zustand | `src/store/settings.ts` |
+| 需要持久化的设置 | tauri-plugin-store + Zustand | plugin-store 持久化 → Zustand 运行时 |
 | 业务数据(配置等) | Rust State + Command (三层架构) | `src-tauri/src/services/` |
 | 大量结构化数据 | rusqlite (SQLite) | `src-tauri/src/database/` |
 | API 调用封装 | 类型安全 invoke 封装 | `src/lib/api/index.ts` |

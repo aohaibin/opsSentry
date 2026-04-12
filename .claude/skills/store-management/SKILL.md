@@ -252,16 +252,16 @@ tauri-plugin-store 读取磁盘偏好 (settings.json)
 设置 Zustand store (useAppStore.setTheme)
   │
   ▼
-App.tsx 中 ConfigProvider 读取 Zustand theme 状态
+App.tsx useEffect → resolveTheme(theme) → resolved = "dark" | "light"
   │
-  ▼
-Ant Design 渲染对应主题 (dark/light)
+  ├──► document.documentElement.setAttribute("data-theme", resolved)
+  │       → :root[data-theme] CSS 变量切换（variables.css）
   │
-  ▼
-CSS Variables (src/styles/variables.css) 跟随主题切换
+  └──► ConfigProvider theme={getAntdTheme(resolved)}
+          → Ant Design 组件自动响应（antdTheme.ts）
 
 用户切换主题时:
-  useAppStore.setTheme() → ConfigProvider 响应 → 同时写回 plugin-store 持久化
+  useAppStore.toggleTheme() → resolved 更新 → data-theme + ConfigProvider 同步响应
 ```
 
 ### 关键代码位置
