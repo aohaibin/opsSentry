@@ -233,6 +233,7 @@ tauri/
 | `tauri-window-management` | 窗口、window、多窗口、无边框、标题栏、托盘、tray、最小化、最大化 |
 | `tech-decision` | 技术选型、架构决策、ADR、方案对比、技术评估 |
 | `test-development` | 测试、test、单元测试、集成测试、TDD、测试用例 |
+| `theme-system` | 主题、theme、暗色、亮色、dark、light、CSS变量、设计令牌、配色、antdTheme |
 | `ui-frontend` | UI、组件、页面、前端、界面、表单、表格、弹窗、布局、样式、React |
 | `utils-toolkit` | 工具、工具函数、crate、工具类、日期处理、文件处理、字符串处理、通用 |
 

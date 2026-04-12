@@ -214,6 +214,8 @@ tauri/
 | **前端 API 封装** | `src/lib/api/index.ts`（invoke 调用封装） |
 | **前端状态管理** | `src/store/index.ts`（Zustand store） |
 | **前端类型定义** | `src/types/index.ts` |
+| **主题设计令牌** | `src/styles/variables.css`（CSS 变量，双主题颜色/间距/阴影） |
+| **Ant Design 主题** | `src/theme/antdTheme.ts`（darkTheme/lightTheme + getAntdTheme） |
 | **Tauri 配置** | `src-tauri/tauri.conf.json` |
 | **权限声明** | `src-tauri/capabilities/default.json` |
 
@@ -244,6 +246,8 @@ tauri/
 | `invoke` 不处理错误 | `try-catch` 包裹或使用 `safeInvoke` | Command 可能返回错误 |
 | 直接 `import` Node.js 模块 | 使用 `@tauri-apps/api/*` 或 Rust Command | WebView 中无 Node.js |
 | 裸写 `invoke()` 调用 | 封装到 `src/lib/api/` 中统一管理 | 便于维护和类型安全 |
+| 硬编码颜色值 `#1a1a1c` | 使用 `var(--bg-primary)` 或 `token.colorBgLayout` | 主题切换时不会响应 |
+| 使用 TailwindCSS `dark:` 前缀 | 使用 CSS 变量 `var(--xxx)` | 项目用 `data-theme` 而非 `dark` 类 |
 
 ---
 
@@ -377,6 +381,23 @@ export default function SettingsPage() {
 | 全局 UI 状态（主题/侧边栏） | Zustand | `useAppStore((s) => s.theme)` |
 | 后端持久数据 | Rust SQLite + Command | 通过 `configApi.getAll()` 获取 |
 | 键值持久化（轻量设置） | tauri-plugin-store | `Store.load("settings.json")` |
+
+### 主题系统
+
+项目采用 **CSS 变量 + Ant Design 主题 + data-theme 属性** 三层主题架构：
+
+| 层级 | 文件 | 职责 |
+|------|------|------|
+| CSS 变量 | `src/styles/variables.css` | 设计令牌（颜色/间距/阴影/圆角/字体），通过 `:root[data-theme]` 切换 |
+| Ant Design | `src/theme/antdTheme.ts` | 组件库主题（`darkTheme`/`lightTheme`），与 CSS 变量同步 |
+| 状态管理 | `src/store/app.ts` | 三态切换（dark/light/system），Zustand 管理 |
+| 应用入口 | `src/App.tsx` | `data-theme` 属性写入 + `ConfigProvider` 主题选择 |
+
+**样式选择规则**：
+- Ant Design 组件内部 → 使用 `token.*`（通过 `useToken()`）
+- 自定义组件 → 使用 `var(--xxx)` CSS 变量
+- 布局/间距 → TailwindCSS 原子类
+- 禁止硬编码颜色值，禁止使用 TailwindCSS `dark:` 前缀
 
 ### 路径别名
 

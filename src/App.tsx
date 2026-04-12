@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
-import { ConfigProvider, theme } from "antd";
+import { ConfigProvider } from "antd";
 import zhCN from "antd/locale/zh_CN";
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
 import { useAppStore } from "@/store";
 import { resolveTheme } from "@/store/app";
+import { getAntdTheme } from "@/theme/antdTheme";
 import { AppRouter } from "@/Router";
 
 function App() {
@@ -28,17 +29,13 @@ function App() {
     return () => mql.removeEventListener("change", handler);
   }, [appTheme]);
 
+  // 将 resolved theme 写入 DOM，驱动 CSS 变量切换
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme", resolved);
+  }, [resolved]);
+
   return (
-    <ConfigProvider
-      locale={zhCN}
-      theme={{
-        algorithm:
-          resolved === "dark" ? theme.darkAlgorithm : theme.defaultAlgorithm,
-        token: {
-          borderRadius: 6,
-        },
-      }}
-    >
+    <ConfigProvider locale={zhCN} theme={getAntdTheme(resolved)}>
       <ErrorBoundary>
         <AppRouter />
       </ErrorBoundary>

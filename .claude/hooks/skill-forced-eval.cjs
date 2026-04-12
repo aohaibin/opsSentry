@@ -77,7 +77,8 @@ const instructions = `## 强制技能激活流程（必须执行）
 - json-serialization: JSON/序列化/serde/Serialize/Deserialize/类型转换
 - utils-toolkit: 工具/工具函数/utils/日期/加密/文件/路径/Rust标准库
 - test-development: 测试/test/cargo test/单元测试/集成测试/Mock
-- ui-frontend: React组件/UI/表单/列表/布局/样式/CSS/useState/useEffect
+- theme-system: 主题/theme/暗色/亮色/dark/light/CSS变量/设计令牌/配色/antdTheme/variables.css
+- ui-frontend: React组件/UI/表单/���表/布局/��式/CSS/useState/useEffect
 - store-management: 状态管理/Context/Zustand/React状态/全局状态
 - file-storage: 文件操作/文件读写/fs/对话框/文件选择/保存文件
 - security-permissions: 权限/Capabilities/安全/权限声明/CSP/沙箱

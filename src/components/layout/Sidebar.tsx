@@ -1,5 +1,5 @@
 import { useNavigate, useLocation } from "react-router-dom";
-import { Menu, theme as antdTheme } from "antd";
+import { Menu } from "antd";
 import { Home, Info } from "lucide-react";
 import { useAppStore } from "@/store";
 
@@ -20,16 +20,15 @@ export function Sidebar() {
   const navigate = useNavigate();
   const location = useLocation();
   const collapsed = useAppStore((s) => s.sidebarCollapsed);
-  const { token } = antdTheme.useToken();
 
   return (
     <div className="flex flex-col h-full">
       <div
         className="h-12 flex items-center justify-center font-bold text-base"
         style={{
-          borderBottom: `1px solid ${token.colorBorderSecondary}`,
-          color: token.colorText,
-          background: token.colorBgContainer,
+          borderBottom: `1px solid var(--border)`,
+          color: "var(--text-primary)",
+          background: "var(--bg-secondary)",
         }}
       >
         {collapsed ? "AT" : "Agile Tauri"}

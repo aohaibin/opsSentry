@@ -59,7 +59,7 @@ export function AppLayout() {
         width={220}
         style={{
           background: token.colorBgContainer,
-          borderRight: `1px solid ${token.colorBorderSecondary}`,
+          borderRight: `1px solid var(--border)`,
         }}
       >
         <Sidebar />
@@ -68,12 +68,12 @@ export function AppLayout() {
         <Header
           style={{
             padding: 0,
-            height: 48,
-            lineHeight: "48px",
+            height: "var(--header-height)",
+            lineHeight: "var(--header-height)",
             display: "flex",
             alignItems: "center",
             background: token.colorBgContainer,
-            borderBottom: `1px solid ${token.colorBorderSecondary}`,
+            borderBottom: `1px solid var(--border)`,
           }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: 4, paddingLeft: 16 }}>
