@@ -18,7 +18,12 @@ pub fn run() {
         .plugin(tauri_plugin_store::Builder::default().build())
         .plugin(
             tauri_plugin_log::Builder::default()
-                .level(log::LevelFilter::Info)
+                // 开发环境日志更详细，生产环境只记录 Warn 及以上
+                .level(if cfg!(debug_assertions) {
+                    log::LevelFilter::Info
+                } else {
+                    log::LevelFilter::Warn
+                })
                 .build(),
         )
         .plugin(tauri_plugin_updater::Builder::new().build())
@@ -28,7 +33,15 @@ pub fn run() {
             // 初始化数据库（存放在应用数据目录）
             let data_dir = app.path().app_data_dir()?;
             std::fs::create_dir_all(&data_dir)?;
-            let db_path = data_dir.join("app.db");
+
+            // 开发与生产使用同一 app_data_dir，但用不同文件名隔离数据
+            // 避免开发环境污染生产环境的真实数据（DB / 同名锁文件等）
+            let db_filename = if cfg!(debug_assertions) {
+                "dev-app.db"
+            } else {
+                "app.db"
+            };
+            let db_path = data_dir.join(db_filename);
             let db_path_str = db_path.to_string_lossy().to_string();
 
             let db = database::Database::init(&db_path_str)
@@ -42,6 +55,14 @@ pub fn run() {
             // 初始化系统托盘
             tray::setup_tray(app)?;
             log::info!("系统托盘初始化完成");
+
+            // 开发模式下给窗口标题加 [DEV] 后缀，避免与生产版本混淆
+            #[cfg(debug_assertions)]
+            if let Some(window) = app.get_webview_window("main") {
+                if let Ok(current_title) = window.title() {
+                    let _ = window.set_title(&format!("{} [DEV]", current_title));
+                }
+            }
 
             Ok(())
         })
