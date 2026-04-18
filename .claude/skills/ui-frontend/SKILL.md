@@ -345,6 +345,7 @@ export default function SettingsDrawer({ open, onClose }: SettingsDrawerProps) {
       open={open}
       onClose={onClose}
       destroyOnClose
+      maskClosable={false}
     >
       <Tabs items={tabItems} onChange={handleTabChange} />
     </Drawer>
@@ -397,6 +398,65 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
 
 ---
 
+## 弹窗/面板遮罩关闭交互规范
+
+桌面应用的 Modal/Drawer 要按"用户失去的成本 vs 得到的便利"决定是否允许点击遮罩关闭。
+
+### 三类场景与对应设置
+
+| 类型 | 示例 | `maskClosable` | 理由 |
+|------|------|----------------|------|
+| **编辑/表单/操作类** | 新建/编辑表单、设置、激活码输入、多步操作弹窗 | `false` | 含用户输入，误点遮罩会丢数据 |
+| **纯查看/信息展示类** | 关于/版本信息、只读详情弹窗 | `true`（默认） | 纯浏览，快速关闭体验更好 |
+| **命令浮层类** | 命令面板、搜索、快速选择 | `true`（默认） | VSCode 风格，失焦即关 |
+
+### Ant Design 组件配置
+
+```tsx
+// ✅ 编辑/表单类 Modal：必须 maskClosable={false}
+<Modal
+  open={visible}
+  title="编辑项目"
+  onCancel={onClose}
+  onOk={handleSubmit}
+  maskClosable={false}   // ← 关键
+>
+  <Form>
+    <Form.Item name="name" label="名称"><Input /></Form.Item>
+  </Form>
+</Modal>
+
+// ✅ 纯信息 Modal：保持默认即可
+<Modal open={visible} title="关于" onCancel={onClose}>
+  <div>版本 1.0.0</div>
+</Modal>
+
+// ✅ Drawer 同理（设置 Drawer 包含表单时必须禁用遮罩关闭）
+<Drawer
+  title="设置"
+  open={open}
+  onClose={onClose}
+  maskClosable={false}   // ← 表单类 Drawer 必加
+>
+  <Form onValuesChange={handleValuesChange}>...</Form>
+</Drawer>
+```
+
+> **Ant Design v6 新写法**：`mask={{ closable: false }}` 等价于 `maskClosable={false}`，两者任选其一，**不要同时写**。
+
+### 判断口诀
+
+- **里面有 input/textarea/form 或多步操作** → `maskClosable={false}`
+- **只是查看一段信息、没有输入** → 保持默认 `true`
+- **命令面板/搜索/快速选择** → 保持默认 `true`（VSCode 惯例）
+
+### 配套建议
+
+- 所有含表单的弹窗都应同时支持 **Esc 关闭** 和 **右上角 X 按钮**（Ant Design 默认已提供）
+- 关闭前可弹二次确认提示（有 unsaved 变更时）
+
+---
+
 ## 桌面应用 UI 注意事项
 
 | 注意事项 | 说明 |
@@ -441,3 +501,4 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
 | `` message.error(`加载失败: ${error}`) `` | `message.error(getErrorMessage(error))` + `import { getErrorMessage } from "@/lib/api"` |
 | 设置页用独立路由 | 使用 `Drawer` 从右侧滑入，无需路由切换 |
 | 所有 API/类型/store 写在单文件 | 按模块拆分（`api/config.ts`、`store/settings.ts`、`types/system.ts`） |
+| 表单 Modal/Drawer 允许点击遮罩关闭 | 必须加 `maskClosable={false}`，防止误点丢失输入 |
