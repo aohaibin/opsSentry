@@ -210,6 +210,7 @@ tauri/
 | `collaborating-with-codex` | Codex、协作、多模型、原型、Diff、算法分析、代码审查、codex协同 |
 | `collaborating-with-gemini` | Gemini、协作、多模型、前端原型、UI设计、CSS、样式、gemini协同 |
 | `database-ops` | 数据库、SQLite、SQL、持久化、存储、表、查询、CRUD、数据 |
+| `docs-management` | 文档站点、VitePress、docs 站点、用户手册、更新文档、文档同步、.docs-meta.json、website 目录、文档仓库 |
 | `error-handler` | 异常、错误处理、Error、Result、try-catch、panic、崩溃、错误边界 |
 | `file-storage` | 文件、读写、保存、打开、目录、文件系统、fs、拖放、导入、导出 |
 | `git-workflow` | Git、分支、提交、合并、版本发布 |
