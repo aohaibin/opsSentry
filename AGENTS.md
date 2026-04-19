@@ -224,7 +224,7 @@ tauri/
 | `rust-fundamentals` | Rust、所有权、借用、生命周期、编译错误、borrow、move、lifetime、async、trait |
 | `security-permissions` | 权限、Capabilities、安全、CSP、permission、安全策略、sandbox |
 | `store-management` | 状态管理、state、store、全局状态、共享状态、Zustand、Context、持久化 |
-| `task-tracker` | 任务、进度、待办、TODO、跟踪 |
+| `task-tracker` | 任务、进度、待办、TODO、跟踪、继续任务、恢复上下文、方案讨论、技术调研、记录问题、归档任务、多步骤开发 |
 | `tauri-capabilities` | Capabilities、权限配置、作用域、scope、精细权限、安全配置 |
 | `tauri-commands` | Command、tauri::command、invoke、高级Command、async command、进度、stream |
 | `tauri-events` | 事件、event、emit、listen、推送、实时更新、通知、窗口通信 |
