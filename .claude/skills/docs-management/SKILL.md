@@ -19,7 +19,7 @@ description: |
 
 本技能负责"产品级对外文档站点"的完整生命周期管理：
 
-- **初始化**：从 `templates/docs-template/` 复制骨架，根据主项目信息替换占位符
+- **初始化**：从 `templates/update-docs-template/` 复制骨架，根据主项目信息替换占位符
 - **增量更新**：读取 `.docs-meta.json` 的 `lastSyncCommit`，基于 `git diff` 识别受影响的文档章节
 - **风格对齐**：生成的文档风格与同级目录的 `tauri-docs` / `tauri-cc-docs` / `knowledge-base-docs` 保持一致（VitePress 1.6.3、纯中文、Hero+Features 首页、h2/h3 分层、表格密集）
 
@@ -34,10 +34,10 @@ description: |
 | 元数据位置 | `.docs-meta.json` **放主项目根目录**（不是文档目录），这样 `git log` 能看到同步历史 |
 | 文档位置 | 默认同级独立仓库（`../{project}-docs`），备选本项目内 `./website/` 或用户自定目录 |
 | VitePress 命令 | **只在文档目录内执行**（`cd website && pnpm dev`），不在主项目根暴露 |
-| 禁占 `./docs/` | 主项目 `./docs/` 是内部研发文档目录（如 `development-guide.md`），**不得**占用 |
+| 禁占 `./update-docs/` | 主项目 `./update-docs/` 是内部研发文档目录（如 `development-guide.md`），**不得**占用 |
 | 章节聚合 | 同模块的代码变更聚合成一篇文档，不是"一个文件一篇" |
 | git 操作 | 首次初始化 sibling 时自动 `git init` + 首次 commit；**从不自动 push** |
-| 保留手工改动 | 增量更新只改 `<!-- 本章由 /docs ... -->` 注释标记的段落，其他保留 |
+| 保留手工改动 | 增量更新只改 `<!-- 本章由 /update-docs ... -->` 注释标记的段落，其他保留 |
 
 ---
 
@@ -50,7 +50,7 @@ description: |
 │   ├── [2] 本项目内部    → ./website
 │   └── [3] 自定义路径    → 用户输入
 ├── 读 {project}/package.json 和 src-tauri/tauri.conf.json 获取项目名/描述
-├── 复制 templates/docs-template/ → 目标位置
+├── 复制 templates/update-docs-template/ → 目标位置
 ├── 替换占位符（见下表）
 ├── 分析代码生成首版内容
 └── 写 .docs-meta.json 到主项目根
@@ -70,7 +70,7 @@ description: |
 
 ## 占位符替换表
 
-初始化时从 `templates/docs-template/` 复制后，全局替换以下占位符：
+初始化时从 `templates/update-docs-template/` 复制后，全局替换以下占位符：
 
 | 占位符 | 来源 | 示例 |
 |--------|------|------|
@@ -179,9 +179,9 @@ description: |
    Q5: 站点 URL？                   (默认 https://example.com，可跳过)
 
 3. 复制模板:
-   cp -r templates/docs-template/* <目标路径>/
-   cp templates/docs-template/.gitignore <目标路径>/
-   cp templates/docs-template/.docs-meta.template.json <主项目根>/.docs-meta.json
+   cp -r templates/update-docs-template/* <目标路径>/
+   cp templates/update-docs-template/.gitignore <目标路径>/
+   cp templates/update-docs-template/.docs-meta.template.json <主项目根>/.docs-meta.json
    (注意：docs-meta 放主项目根，不是目标路径)
 
 4. 替换占位符（见上方占位符表）:
@@ -231,7 +231,7 @@ description: |
    确认更新吗？[y/N]
 
 5. 用户确认后逐章节重写受影响段落:
-   - 只改 <!-- 本章由 /docs ... --> 标记的段落
+   - 只改 <!-- 本章由 /update-docs ... --> 标记的段落
    - 手工添加的段落保留
    - 索引表（如 api/commands.md 的 Command 清单）整体重生成
 
@@ -248,7 +248,7 @@ description: |
      git commit -am "..."  # 手动提交
 ```
 
-### 流程 C：全量重建（`/docs full`）
+### 流程 C：全量重建（`/update-docs full`）
 
 ```
 与流程 B 类似，但：
@@ -352,10 +352,10 @@ const users = await userApi.list();
 
 | 错误做法 | 正确做法 | 原因 |
 |---------|---------|------|
-| 占用主项目 `./docs/` 放 VitePress | 用 `./website/` 或同级 `../xxx-docs` | `./docs/` 已被内部研发文档占用 |
+| 占用主项目 `./update-docs/` 放 VitePress | 用 `./website/` 或同级 `../xxx-docs` | `./update-docs/` 已被内部研发文档占用 |
 | 在主项目根 `package.json` 加 `vitepress dev` 脚本 | 让脚本留在文档目录内部 | 避免主项目与文档的依赖混淆 |
 | `.docs-meta.json` 放文档目录里 | 放主项目根目录 | 主项目 git log 才能追踪同步历史 |
-| 增量更新整个覆盖用户手改的段落 | 只改 `<!-- 本章由 /docs ... -->` 标记段 | 保护用户后续补充的内容 |
+| 增量更新整个覆盖用户手改的段落 | 只改 `<!-- 本章由 /update-docs ... -->` 标记段 | 保护用户后续补充的内容 |
 | 一个 Command 一篇文档 | 同模块聚合到一篇 | 避免文档碎片化 |
 | 自动 `git push` 到远程 | 只 `commit`，push 由用户手动 | 推送有风险，避免误推 |
 | 初始化时不询问用户 | 交互式收集项目信息 | 确保占位符替换正确 |
@@ -367,4 +367,4 @@ const users = await userApi.list();
 - `add-skill` — 技能维护流程（本技能本身遵循这些规范）
 - `project-navigator` — 主项目结构导航（映射表的依据）
 - `doc-generation` — 旧技能，生成本地 Markdown API 参考（与本技能**互补不冲突**）
-- `release-publish` — 发版时可以顺便 `/docs` 更新文档
+- `release-publish` — 发版时可以顺便 `/update-docs` 更新文档

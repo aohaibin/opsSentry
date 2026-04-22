@@ -35,12 +35,12 @@ pnpm preview          # 本地预览构建产物
 
 ## 更新文档
 
-本项目文档由 Tauri 框架的 `/docs` 命令 / `docs-management` 技能自动管理。
+本项目文档由 Tauri 框架的 `/update-docs` 命令 / `docs-management` 技能自动管理。
 在主项目（代码仓库）根目录执行：
 
 ```
-/docs                # 检查并增量更新
-/docs full           # 全量重建（覆盖）
+/update-docs                # 检查并增量更新
+/update-docs full           # 全量重建（覆盖）
 ```
 
 框架会读取主项目根目录的 `.docs-meta.json` 追踪同步状态，只更新受代码变更影响的章节。

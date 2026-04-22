@@ -1,4 +1,4 @@
-# /docs - 文档站点管理
+# /update-docs - 文档站点管理
 
 管理 VitePress 文档站点：首次初始化、增量更新、全量重建。
 
@@ -13,12 +13,12 @@
 
 | 输入 | 行为 |
 |------|------|
-| `/docs` | 自动检测：无 `.docs-meta.json` → 初始化；有 → 增量更新 |
-| `/docs init` | 强制进入初始化流程（即使已有 meta） |
-| `/docs update` | 增量更新（等同 `/docs` 在已初始化状态下） |
-| `/docs full` | 全量重建（重新生成所有章节，保留用户手工添加的文件） |
-| `/docs status` | 只读查看：当前文档路径、lastSyncCommit、距今变更文件数 |
-| `/docs diff` | 展示自 lastSyncCommit 以来会影响哪些文档章节（不写文件） |
+| `/update-docs` | 自动检测：无 `.docs-meta.json` → 初始化；有 → 增量更新 |
+| `/update-docs init` | 强制进入初始化流程（即使已有 meta） |
+| `/update-docs update` | 增量更新（等同 `/update-docs` 在已初始化状态下） |
+| `/update-docs full` | 全量重建（重新生成所有章节，保留用户手工添加的文件） |
+| `/update-docs status` | 只读查看：当前文档路径、lastSyncCommit、距今变更文件数 |
+| `/update-docs diff` | 展示自 lastSyncCommit 以来会影响哪些文档章节（不写文件） |
 
 ---
 
@@ -26,11 +26,11 @@
 
 ```
 1. 读主项目根 .docs-meta.json
-   ├─ 不存在 或 /docs init          → 流程 A（初始化）
-   ├─ 存在 且 无参数 或 /docs update → 流程 B（增量）
-   ├─ 存在 且 /docs full             → 流程 C（全量重建）
-   ├─ 存在 且 /docs status           → 流程 D（只读）
-   └─ 存在 且 /docs diff             → 流程 E（预览）
+   ├─ 不存在 或 /update-docs init          → 流程 A（初始化）
+   ├─ 存在 且 无参数 或 /update-docs update → 流程 B（增量）
+   ├─ 存在 且 /update-docs full             → 流程 C（全量重建）
+   ├─ 存在 且 /update-docs status           → 流程 D（只读）
+   └─ 存在 且 /update-docs diff             → 流程 E（预览）
 ```
 
 ---
@@ -69,9 +69,9 @@ Q6. Logo 字母？
 
 ### A.2 复制模板并替换占位符
 
-1. `cp -r templates/docs-template/* <目标路径>/`
-2. `cp templates/docs-template/.gitignore <目标路径>/`
-3. `cp templates/docs-template/.docs-meta.template.json <主项目根>/.docs-meta.json`
+1. `cp -r templates/update-docs-template/* <目标路径>/`
+2. `cp templates/update-docs-template/.gitignore <目标路径>/`
+3. `cp templates/update-docs-template/.docs-meta.template.json <主项目根>/.docs-meta.json`
 4. 对 `<目标路径>` 递归替换所有占位符（见 `docs-management` 技能的占位符表）
 5. 对 `.docs-meta.json` 替换占位符（`INITIAL_COMMIT` = `git rev-parse HEAD`，`INITIAL_TIME` = 当前 UTC）
 
@@ -152,7 +152,7 @@ git diff --name-only <lastSyncCommit>..HEAD
 
 ### B.4 用户确认后
 
-1. 只重写 `<!-- 本章由 /docs ... -->` 标记段落
+1. 只重写 `<!-- 本章由 /update-docs ... -->` 标记段落
 2. 索引表（如 Command 清单）整表重生成
 3. 用户手工添加的段落/文件保留
 4. 追加 `updateHistory` 条目
@@ -210,8 +210,8 @@ git diff --name-only <lastSyncCommit>..HEAD
   - package.json                         (modified)
   ... 还有 9 个
 
-运行 /docs diff 查看影响的文档章节
-运行 /docs update 执行增量更新
+运行 /update-docs diff 查看影响的文档章节
+运行 /update-docs update 执行增量更新
 ```
 
 ---
@@ -227,22 +227,22 @@ git diff --name-only <lastSyncCommit>..HEAD
 | 规则 | 说明 |
 |------|------|
 | **元数据位置** | `.docs-meta.json` 放主项目根，不放文档目录 |
-| **禁占 `./docs/`** | 本项目内部模式用 `./website/`，`./docs/` 留给内部研发文档 |
+| **禁占 `./update-docs/`** | 本项目内部模式用 `./website/`，`./update-docs/` 留给内部研发文档 |
 | **不自动 push** | 只 `git init` + `commit`，push 由用户手动 |
-| **覆盖前保护** | 只改 `<!-- 本章由 /docs ... -->` 标记的段落，用户手改段保留 |
+| **覆盖前保护** | 只改 `<!-- 本章由 /update-docs ... -->` 标记的段落，用户手改段保留 |
 | **聚合章节** | 多文件变更合并到章节级文档，不做"一文件一文档" |
 | **初始化必交互** | 至少询问位置、项目名、主题色 |
-| **apply 前确认** | `/docs update` 展示影响表后必须等用户 `y/N` |
+| **apply 前确认** | `/update-docs update` 展示影响表后必须等用户 `y/N` |
 
 ---
 
 ## 何时用
 
-- 新项目建好后，首次生成对外文档站点 → `/docs`
-- 主项目迭代了一轮，代码变化后同步到文档 → `/docs update`
-- 大版本发布，重写大部分文档 → `/docs full`
-- 想看当前同步状态 → `/docs status`
-- 提交前预览哪些文档会变 → `/docs diff`
+- 新项目建好后，首次生成对外文档站点 → `/update-docs`
+- 主项目迭代了一轮，代码变化后同步到文档 → `/update-docs update`
+- 大版本发布，重写大部分文档 → `/update-docs full`
+- 想看当前同步状态 → `/update-docs status`
+- 提交前预览哪些文档会变 → `/update-docs diff`
 
 ---
 
@@ -250,7 +250,7 @@ git diff --name-only <lastSyncCommit>..HEAD
 
 | 命令 | 关系 |
 |------|------|
-| `/release` | 发版流程中可顺手调用 `/docs update` 同步文档 |
+| `/release` | 发版流程中可顺手调用 `/update-docs update` 同步文档 |
 | `/sync-from-framework` | 同步框架规范，与文档站点无关 |
-| `/dev` | 开发新功能后，建议跟一个 `/docs update` |
+| `/dev` | 开发新功能后，建议跟一个 `/update-docs update` |
 | `/check` | 代码规范检查，与文档站点无关 |
