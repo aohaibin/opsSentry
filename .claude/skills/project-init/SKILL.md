@@ -42,25 +42,24 @@ description: |
 └── 0.4 配置确认汇总
 
 阶段一：创建新项目目录
-├── 1.1 git archive 导出到新目录
-├── 1.2 在新目录初始化 Git
-└── 1.3 清理不需要的文件
+├── 1.1 git archive 导出到新目录（包含所有 git 跟踪文件）
+├── 1.2 在新目录初始化 Git（并关联 upstream）
+└── 1.3 清理并整理模板文件（Cargo.lock / docs / LICENSE / 可选项）
 
-阶段二：代码初始化（全局替换）
-├── 2.1 替换产品名称（Agile Tauri → 新名称）
+阶段二：代码初始化（全局替换 + 框架文档重写）
+├── 2.1 替换产品名称（Agile Tauri → 新名称）+ 重写 README.md
 ├── 2.2 替换应用标识符（com.agilefr.tauri → 新标识符）
 ├── 2.3 替换包名（tauri/tauri_lib → 新包名）
 ├── 2.4 替换作者和描述
 ├── 2.5 配置更新地址和签名
-├── 2.6 更新框架文档中的引用
+├── 2.6 更新框架文档中的引用（CLAUDE.md / AGENTS.md / commands/）
 ├── 2.7 配置唯一开发端口号
 └── 2.8 验证替换结果
 
 阶段三：Git 提交 & 推送
 ├── 3.1 初始提交
 ├── 3.2 创建远程仓库（自动通过 Gitee API / 手动）
-├── 3.3 关联远程仓库并推送
-└── 3.4 推送代码
+└── 3.3 关联远程仓库并推送
 
 阶段四：应用图标（可选）
 ├── 4.1 提示用户准备图标
@@ -258,15 +257,18 @@ git archive HEAD | tar -x -C "$NEW_DIR"
 | `.claude/projects/` | 个人 memory 数据，未跟踪 |
 | `dist/` | 构建产物，未跟踪 |
 
-**自动包含的内容**（已被 git 跟踪）：
+**自动包含的内容**：所有**已被 git 跟踪**的文件（`git ls-files` 能列出的）都会被完整导出，不需要逐项列举。以下是几个值得**额外关注**的项，说明其在后续初始化步骤中的处理方式：
 
-| 保留项 | 原因 |
-|--------|------|
-| `.claude/skills/` | 项目级技能，新项目同样需要 |
-| `.claude/commands/` | 项目级命令 |
-| `.claude/hooks/` | Hook 配置 |
-| `CLAUDE.md` | 项目规范文档 |
-| `.github/workflows/` | CI 配置 |
+| 保留项 | 后续处理 |
+|--------|---------|
+| `.claude/` （除 `projects/` 未跟踪外） | 技能、命令、hook、配置全部保留；Step 2.2 会更新命令模板里的标识符引用 |
+| `.codex/` | Codex 技能镜像，仅用 Claude Code 的项目可在 Step 1.3 中删除 |
+| `CLAUDE.md` / `AGENTS.md` | 项目规范文档，Step 2.2 需替换其中的 `com.agilefr.tauri` |
+| `README.md` | 当前是**框架介绍**，Step 2.1 中需**整体重写**为新项目简介 |
+| `LICENSE` | 模板的 MIT LICENSE，Step 1.3 中按需保留（更新版权人）或删除 |
+| `docs/development-guide.md` | 框架开发指南，**不适合**作为新项目文档，Step 1.3 中删除 |
+| `templates/docs-template/` | VitePress 文档站模板，仅在新项目需要文档站时保留 |
+| `.github/workflows/release.yml` | CI 发布配置，保留（release 仓库通过 Step 2.5 的 endpoints 关联） |
 
 ### Step 1.2：在新目录初始化 Git 并关联模板仓库
 
@@ -299,17 +301,44 @@ fi
 > git cherry-pick <commit-hash>
 > ```
 
-### Step 1.3：清理不需要的文件
+### Step 1.3：清理并整理模板文件
+
+**必做清理**：
 
 ```bash
 cd "$NEW_DIR"
 
-# 删除 Cargo.lock（新包名后需要重新生成）
+# 1. 删除 Cargo.lock（新包名后需要重新生成）
 rm -f src-tauri/Cargo.lock
 
-# 删除模板仓库的 CI 发布配置（如果 release 仓库不同需要重新配置）
-# 注意：.github/workflows/release.yml 保留，但需要在阶段二中更新配置
+# 2. 删除框架开发指南（是框架自身文档，不适合作为新项目文档）
+rm -f docs/development-guide.md
 ```
+
+**LICENSE 处理（二选一）**：
+
+| 方案 | 操作 | 适用场景 |
+|------|------|---------|
+| 方案 A（推荐默认） | 保留 MIT LICENSE，手动更新版权人为 `{新作者}` 和当前年份 | 新项目沿用 MIT 授权 |
+| 方案 B | `rm -f LICENSE` 后按项目需要重新添加 | 新项目使用其他授权策略（Apache-2.0 / 私有等） |
+
+**可选清理**（按新项目实际需要）：
+
+```bash
+# 3. 如果只使用 Claude Code，不使用 Codex，可删除 Codex 镜像
+# rm -rf .codex
+
+# 4. 如果新项目不需要 VitePress 文档站，可删除模板
+# rm -rf templates/docs-template
+
+# 5. 删除 prototype/ 等模板仓库的原型/临时目录（如果存在）
+# 注：git archive 已自动排除未跟踪文件，通常无需处理
+```
+
+**.github/workflows/release.yml 说明**：
+- **保留**，新项目的 CI 发布流程与模板一致
+- Release 仓库地址通过 Step 2.5 的 `updater.endpoints` 字段关联，**不需要**修改 `release.yml` 本身
+- 如果 `release.yml` 内硬编码了 release 仓库名，则在 Step 2.5 中一并替换
 
 ---
 
@@ -353,6 +382,33 @@ rm -f src-tauri/Cargo.lock
 |------|---------|------|
 | `src/components/layout/Sidebar.tsx` | `"AT"` → `"{新缩写}"` | 侧边栏折叠时显示 |
 
+**重写 README.md**（整体替换，而非局部修改）：
+
+模板的 `README.md` 描述的是 Tauri 框架本身，内容不适合作为新项目文档。需**整体重写**为新项目介绍，推荐最小模板：
+
+```markdown
+# {新产品名}
+
+{新描述}
+
+基于 Tauri 2.x 构建的桌面应用。
+
+## 开发
+
+\`\`\`bash
+pnpm install
+pnpm tauri dev
+\`\`\`
+
+## 构建
+
+\`\`\`bash
+pnpm tauri build
+\`\`\`
+```
+
+> **常见错误**：只替换 `README.md` 中的 `Agile Tauri` / `Tauri Desktop Framework` 字样，保留了整段框架介绍。这会让新项目看起来像是框架本身的一个分支。务必**整体重写**。
+
 ### Step 2.2：替换应用标识符
 
 将 `com.agilefr.tauri` → `{新标识符}`
@@ -363,6 +419,7 @@ rm -f src-tauri/Cargo.lock
 |------|---------|------|
 | `src-tauri/tauri.conf.json` | `"identifier": "com.agilefr.tauri"` → `"identifier": "{新标识符}"` | 应用唯一标识 |
 | `CLAUDE.md` | `com.agilefr.tauri` → `{新标识符}` | 文档中的引用 |
+| `AGENTS.md` | `com.agilefr.tauri` → `{新标识符}` | Codex 项目规范（与 CLAUDE.md 对应） |
 | `.claude/commands/progress.md` | `com.agilefr.tauri` → `{新标识符}` | 进度报告模板 |
 | `.claude/commands/start.md` | `com.agilefr.tauri` → `{新标识符}` | 项目介绍模板 |
 
@@ -444,10 +501,13 @@ pnpm tauri signer generate -w ~/.tauri/{新包名}.key
 | 文件 | 需要更新的内容 |
 |------|--------------|
 | `CLAUDE.md` | 应用标识 `com.agilefr.tauri` → 新标识符 |
+| `AGENTS.md` | 应用标识 `com.agilefr.tauri` → 新标识符（Codex 侧项目规范） |
 | `.claude/commands/progress.md` | 应用标识引用 |
 | `.claude/commands/start.md` | 应用标识引用 |
 
-> **注意**：CLAUDE.md 中大量内容是通用的架构文档，只需要替换具体的标识符值，不要改动架构说明。
+> **注意**：CLAUDE.md / AGENTS.md 中大量内容是通用的架构文档，只需要替换具体的标识符值，不要改动架构说明。
+>
+> **已在 Step 1.3 删除**：`docs/development-guide.md`（框架自身的开发指南，不适合作为新项目文档），因此不需要替换其中的引用。
 
 ### Step 2.7：配置唯一开发端口号
 
@@ -749,32 +809,35 @@ git push -u origin master
 
 ---
 
-## 完整替换清单（精确文件 + 位置）
+## 完整替换清单（按文件 + 匹配模式）
+
+> **说明**：不再标注行号——代码演进时行号会漂移。请用**内容匹配**而不是行号定位。
 
 ### 产品名称替换（Agile Tauri → {新产品名}）
 
 ```
-src-tauri/tauri.conf.json:3     → "productName": "{新产品名}"
-src-tauri/tauri.conf.json:15    → "title": "{新产品名}"
-src-tauri/src/tray.rs:18        → .tooltip("{新产品名}")
-index.html:7                    → <title>{新产品名}</title>
-src/components/layout/Sidebar.tsx:34  → "{新产品名}"（展开时）
-src/pages/home/index.tsx:28     → 欢迎语中的产品名
+src-tauri/tauri.conf.json       → "productName": "{新产品名}" 和 "title": "{新产品名}"
+src-tauri/src/tray.rs           → .tooltip("{新产品名}")
+index.html                      → <title>{新产品名}</title>
+src/components/layout/Sidebar.tsx → "{新产品名}"（展开时）
+src/pages/home/index.tsx        → 首页欢迎语中的产品名
+README.md                       → 整体重写（见 Step 2.1）
 ```
 
 ### 产品名缩写替换（AT → {新缩写}）
 
 ```
-src/components/layout/Sidebar.tsx:34  → "{新缩写}"（折叠时）
+src/components/layout/Sidebar.tsx → "{新缩写}"（折叠时）
 ```
 
 ### 应用标识符替换（com.agilefr.tauri → {新标识符}）
 
 ```
-src-tauri/tauri.conf.json:5     → "identifier": "{新标识符}"
-CLAUDE.md:35                    → 应用标识表格
-.claude/commands/progress.md:221 → 应用标识引用
-.claude/commands/start.md:70    → 应用标识引用
+src-tauri/tauri.conf.json       → "identifier": "{新标识符}"
+CLAUDE.md                       → 应用标识表格
+AGENTS.md                       → 应用标识引用（Codex 侧项目规范）
+.claude/commands/progress.md    → 应用标识引用
+.claude/commands/start.md       → 应用标识引用
 ```
 
 ### 包名替换
@@ -783,35 +846,39 @@ CLAUDE.md:35                    → 应用标识表格
 
 ```
 # 先替换长的（tauri_lib → {包名}_lib）
-src-tauri/Cargo.toml:14         → name = "{包名}_lib"
-src-tauri/src/main.rs:5         → {包名}_lib::run()
+src-tauri/Cargo.toml            → name = "{包名}_lib"（[lib] 段）
+src-tauri/src/main.rs           → {包名}_lib::run()
 
 # 再替换短的（仅 [package].name 和 package.json name）
-src-tauri/Cargo.toml:2          → name = "{包名}"
-package.json:2                  → "name": "{包名}"
+src-tauri/Cargo.toml            → name = "{包名}"（[package] 段）
+package.json                    → "name": "{包名}"
 ```
 
 ### 作者和描述替换
 
 ```
-src-tauri/Cargo.toml:4          → description = "{新描述}"
-src-tauri/Cargo.toml:5          → authors = ["{新作者}"]
+src-tauri/Cargo.toml            → description = "{新描述}"、authors = ["{新作者}"]
 ```
 
 ### 更新配置替换
 
 ```
-src-tauri/tauri.conf.json:30    → "endpoints": ["{新更新地址}"]
-src-tauri/tauri.conf.json:31    → "pubkey": "{新公钥}"（或保留占位符）
+src-tauri/tauri.conf.json       → "endpoints": ["{新更新地址}"]、"pubkey": "{新公钥}"
 ```
 
 ### 端口配置替换（1420 → {dev_port}）
 
 ```
-vite.config.ts:21               → port: {dev_port}（开发服务器）
-vite.config.ts:28               → port: {hmr_port}（HMR WebSocket）
-src-tauri/tauri.conf.json:8     → "devUrl": "http://localhost:{dev_port}"
-package.json:8                  → "kill-port {dev_port} & vite"
+vite.config.ts                  → port: {dev_port}（开发服务器）、port: {hmr_port}（HMR）
+src-tauri/tauri.conf.json       → "devUrl": "http://localhost:{dev_port}"
+package.json                    → "kill-port {dev_port} & vite"
+```
+
+### 删除的文件（在 Step 1.3 中完成）
+
+```
+src-tauri/Cargo.lock            — 新包名后自动重新生成
+docs/development-guide.md       — 框架自身的开发指南，不适合作为新项目文档
 ```
 
 ### 不需要替换的文件
@@ -820,8 +887,8 @@ package.json:8                  → "kill-port {dev_port} & vite"
 
 ```
 .claude/skills/*/SKILL.md              — 技能文档中的示例引用
+.codex/skills/*/SKILL.md               — 同上（Codex 镜像）
 src-tauri/Cargo.toml [dependencies]    — tauri = { version = "2" } 是依赖名
-src-tauri/Cargo.lock                   — 已删除，自动重新生成
 ```
 
 ---
