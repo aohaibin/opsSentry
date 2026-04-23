@@ -265,7 +265,7 @@ git archive HEAD | tar -x -C "$NEW_DIR"
 | `.codex/` | Codex 技能镜像，仅用 Claude Code 的项目可在 Step 1.3 中删除 |
 | `CLAUDE.md` / `AGENTS.md` | 项目规范文档，Step 2.2 需替换其中的 `com.agilefr.tauri` |
 | `README.md` | 当前是**框架介绍**，Step 2.1 中需**整体重写**为新项目简介 |
-| `LICENSE` | 模板的 MIT LICENSE，Step 1.3 中按需保留（更新版权人）或删除 |
+| `LICENSE` | 模板的**专有商业许可证**（湛江市麻章区湖光镇若依科技工作室版权），统一覆盖框架和所有衍生项目，**保留不动** |
 | `docs/development-guide.md` | 框架开发指南，**不适合**作为新项目文档，Step 1.3 中删除 |
 | `templates/docs-template/` | VitePress 文档站模板，仅在新项目需要文档站时保留 |
 | `.github/workflows/release.yml` | CI 发布配置，保留（release 仓库通过 Step 2.5 的 endpoints 关联） |
@@ -315,12 +315,16 @@ rm -f src-tauri/Cargo.lock
 rm -f docs/development-guide.md
 ```
 
-**LICENSE 处理（二选一）**：
+**LICENSE 处理**：
 
-| 方案 | 操作 | 适用场景 |
-|------|------|---------|
-| 方案 A（推荐默认） | 保留 MIT LICENSE，手动更新版权人为 `{新作者}` 和当前年份 | 新项目沿用 MIT 授权 |
-| 方案 B | `rm -f LICENSE` 后按项目需要重新添加 | 新项目使用其他授权策略（Apache-2.0 / 私有等） |
+模板 `LICENSE` 是湛江市麻章区湖光镇若依科技工作室的**专有商业许可证**，该许可证的授权主体已经过通用化处理，可统一覆盖框架本身及所有基于框架构建的衍生桌面应用。
+
+| 行为 | 操作 | 说明 |
+|------|------|------|
+| **默认** | **原样保留**，**版权人保持为若依科技工作室**，**不要替换** | 框架与全部衍生项目共用同一份授权条款；即使项目归属于同一体系内的其他作者，也应保持版权声明一致 |
+| 例外 | 若新项目归属第三方（非若依体系），需重新起草独立的 LICENSE | 此时须完全替换 LICENSE 文件内容，而不是简单修改版权人 |
+
+> ⚠️ **重要**：不要把 LICENSE 误认作 "MIT"。它是一份"授权用户 / 最终客户链式授权"的专有商业许可证，详见文件内容。
 
 **可选清理**（按新项目实际需要）：
 
