@@ -55,6 +55,7 @@ description: |
 | State 获取失败 | 未在 Builder 中 `.manage()` 注册 | 检查 Builder 链式调用 |
 | 编译错误 | 所有权/借用/生命周期问题 | 阅读 Rust 编译器错误提示 |
 | 插件功能不可用 | Capabilities 未声明权限 | 检查 `capabilities/default.json` |
+| 批量/高频写入时文件名互相覆盖（用 timestamp+纳秒拼名） | Windows 系统时钟分辨率在极短间隔内可能给出相同值，多次调用拼出相同文件名 | 加进程内 `AtomicU64` 计数器拼到文件名末尾：`{ts}_{nanos}_{seq:06}.{ext}` 作为防冲突兜底 |
 
 ### React 前端常见问题
 
@@ -67,6 +68,10 @@ description: |
 | 样式不生效 | CSS 冲突或选择器错误 | 使用 DevTools Elements 面板 |
 | 页内拖拽光标显示 🚫、onDrop 不触发（antd Tree/react-dnd 等） | Tauri 窗口 `dragDropEnabled` 默认 true，WebView 吞掉 HTML5 dragover/drop | `tauri.conf.json` 窗口配置加 `"dragDropEnabled": false`，重启 dev |
 | 右键菜单 Dropdown（`trigger={['contextMenu']}`）包裹节点后 antd Tree 拖不动 | rc-trigger ref 转发 + mousedown 拦截破坏原生 drag 绑定 | 改用 Tree 级 `onRightClick` + 全局定位 Dropdown（幻影锚点） |
+| AntD Modal 编辑/克隆时表单全空（新建正常） | `destroyOnClose` + 在 `open=false` 时 `setFieldsValue`；此时 Form.Item 尚未挂载到 form 实例，赋值丢失 | 用 `key={formKey}` + `initialValues={pendingValues}` 让 Form 每次打开重挂载吃 initialValues，不依赖 setFieldsValue 时序 |
+| VitePress 首页自由 md 内容被夹在中间、外部 CSS 怎么写都改不动 | `index.md` 手写了 `<div class="vp-doc" style="max-width: 960px; ...">` 包裹；inline style 优先级最高，外部选择器 + !important 都压不过 | 直接删掉 `index.md` 里手写的 wrapper，让 VitePress 默认 `.vp-doc.container` 自动处理（和 Hero/Features 宽度对齐） |
+| `@tanstack/react-virtual` 列表一条也不渲染 | 滚动容器只设 `maxHeight` 没给 `height`，又叠了 `contain: strict`（含 `contain: size`），浏览器把容器计算成 0 高度 → virtualizer 算不出可见行 | 去掉 `contain: strict` 或换成 `contain: content`（= layout paint style，不含 size），也可以直接给明确的 `height` |
+| AntD `<Sider>` 的 `style={{display:'flex'}}` 无效、子元素还是纵向堆叠 | AntD Sider 内部把 children 包了一层 `.ant-layout-sider-children` 默认 block 布局，Sider 上的 flex 作用在 aside 外层，不传递到 children | 在 Sider 内包一层自己的 flex `<div style={{display:'flex',height:'100%'}}>` 再放 children |
 
 ### IPC 通信常见问题
 
@@ -75,6 +80,15 @@ description: |
 | invoke 超时 | Rust 侧阻塞主线程 | 改用 async Command |
 | 参数传递失败 | 参数类型不匹配 (camelCase vs snake_case) | 检查前后端参数名映射 |
 | 返回值为空 | Rust 函数签名返回 `()` | 确认返回 `Result<T, String>` |
+
+### 开发环境 / 本地脚本常见问题
+
+| 症状 | 可能原因 | 排查方法 |
+|------|---------|---------|
+| `curl http://localhost:xxxx/` 返回 502 但服务明明在跑 | 本机设置了 http_proxy/https_proxy，curl 把 localhost 请求也走代理去外网 | 加 `--noproxy '*'`（或 `NO_PROXY=localhost,127.0.0.1`）；Node fetch 同理，用 `{ proxy: false }` |
+| Node.js 脚本 `fs.readFileSync('/tmp/xx.json')` 在 Windows 报 `ENOENT E:\tmp\xx.json` | Node 在 Windows 下把 Unix 路径 `/tmp` 解析成当前盘根 `E:\tmp`（不存在） | 用 `os.tmpdir()` 或放在项目内的相对路径，别硬写 `/tmp` |
+| `pnpm dev` 输出了 `Port 5173 in use, trying 5174`，后续自动化脚本 curl 5173 永远 404 | 上一次 dev 进程未退，Vite 自动换端口 | 读 dev 日志确认实际端口；或 `npx kill-port 5173` 后重启 |
+| Windows 下 `bash -c "set VAR=val && cmd"` 或 `$env:VAR='val'; cmd` 没生效 | Claude Code 的 Bash 跑在 Git Bash (MSYS2)，用 bash 语法 `export VAR=val && cmd`，不是 CMD/PowerShell | 统一 `export VAR=val && cmd`，或在子进程里用 env: `{}` 传 |
 
 ---
 

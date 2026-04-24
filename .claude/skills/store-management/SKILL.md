@@ -341,3 +341,4 @@ async function handleThemeToggle() {
 | 过度使用全局状态 | 优先 useState,必要时才升级 |
 | Mutex 不处理 PoisonError | 使用 `.map_err()` 处理 |
 | 不序列化就存 store | 确保数据可 JSON 序列化 |
+| setter 里塞副作用（「同值翻转」「写完自动刷新」等） | setter 纯存值；副作用放调用处。否则从其他路径（URL 同步 / 事件）触发 setXxx 时会意外触发副作用导致状态漂移（典型：点菜单同路由触发 set → 副作用折叠面板） |

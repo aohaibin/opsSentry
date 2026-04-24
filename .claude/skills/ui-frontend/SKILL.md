@@ -502,3 +502,4 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
 | 设置页用独立路由 | 使用 `Drawer` 从右侧滑入，无需路由切换 |
 | 所有 API/类型/store 写在单文件 | 按模块拆分（`api/config.ts`、`store/settings.ts`、`types/system.ts`） |
 | 表单 Modal/Drawer 允许点击遮罩关闭 | 必须加 `maskClosable={false}`，防止误点丢失输入 |
+| `<iframe src={convertFileSrc(abs)}>` 预览本地 PDF/HTML，内嵌在 Modal | 部分老 WebView2 / 严格 CSP 下 iframe 加载 asset: 协议被拦成「已阻止此内容」；各机器行为不一 | Modal title 右侧固定加一个「用系统应用打开」小按钮调 `openPath(abs)`，作为跨环境兜底；不要依赖 iframe 的 onerror（拦截不会触发） |
