@@ -28,3 +28,16 @@ src-tauri/keys/
 
 # Release config (contains local paths)
 .claude/release-config.json
+
+# ============================================================================
+# 自动追加 (sync_to_skills_local 修复)
+# 部署产出 / 凭据 / 密钥不入 git
+# ============================================================================
+output/
+.vault/
+*.vault
+*.encrypted
+secrets.json
+credentials.json
+*.pem
+*.key
