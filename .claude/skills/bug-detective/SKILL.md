@@ -89,6 +89,8 @@ description: |
 | Node.js 脚本 `fs.readFileSync('/tmp/xx.json')` 在 Windows 报 `ENOENT E:\tmp\xx.json` | Node 在 Windows 下把 Unix 路径 `/tmp` 解析成当前盘根 `E:\tmp`（不存在） | 用 `os.tmpdir()` 或放在项目内的相对路径，别硬写 `/tmp` |
 | `pnpm dev` 输出了 `Port 5173 in use, trying 5174`，后续自动化脚本 curl 5173 永远 404 | 上一次 dev 进程未退，Vite 自动换端口 | 读 dev 日志确认实际端口；或 `npx kill-port 5173` 后重启 |
 | Windows 下 `bash -c "set VAR=val && cmd"` 或 `$env:VAR='val'; cmd` 没生效 | Claude Code 的 Bash 跑在 Git Bash (MSYS2)，用 bash 语法 `export VAR=val && cmd`，不是 CMD/PowerShell | 统一 `export VAR=val && cmd`，或在子进程里用 env: `{}` 传 |
+| Android APK 每个新版本都被系统拦截「与已安装应用签名不同」，必须先卸载旧版才能升级 | CI workflow 没配 `ANDROID_KEYSTORE_BASE64` secret，gradle 用 runner 临时生成的 `debug.keystore` 签名，每次 build 签名都不同 | 本地一次性生成稳定 release keystore + 4 个 secret 注入 CI；workflow 加 `if: env.HAS_KEYSTORE == 'true'` 防 step 静默 skip；用 `apksigner verify --print-certs` 比对 SHA-256 指纹后再发布。详见 `release-publish` skill 移动端章节 |
+| 移动端「检查更新」永远报「已是最新版本」，但下载页确实有新版 | `parseSemver` 没剥 `mobile-` 前缀，`mobile-vX.Y.Z` 经 `replace(/^v/, "")` 不变（以 m 开头）→ 正则不匹配 → 返回 null → `compareSemver` 视为同版本 | 解析前先 `s.replace(/^mobile-/, "").replace(/^v/, "")`；老用户必须从下载页手动拉一次新版才能恢复 |
 
 ---
 

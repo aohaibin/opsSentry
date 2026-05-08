@@ -170,6 +170,26 @@ pnpm tauri signer generate -w src-tauri/keys/tauri-updater.key
 git remote add github https://github.com/<用户名>/<项目名>.git
 ```
 
+#### 5.1 多 CI 仓库 fallback（应对私有仓 Actions 配额耗尽）
+
+> GitHub Actions 对私有仓有每月免费分钟数（macOS×10 倍消耗最快）。月底容易耗尽，CI 直接 3-5 秒失败。
+> **建议**：源码同时配置主/备两个 GitHub remote（不同账号），主仓配额用尽时切到备仓继续发版。
+
+```bash
+# 主仓（默认）
+git remote add github   https://github.com/<account-a>/<repo>.git
+# 备仓（额度耗尽时切换，可用 SSH 避开 HTTPS credential helper 多账号冲突）
+git remote add github2  git@github.com:<account-b>/<repo>.git
+```
+
+**关键约束**：
+
+- 两个仓库需各自配置完整的 GitHub Secrets（签名私钥、可选 Android keystore 等），secret **不能跨仓共享**
+- 发版时 `git push <remote> <tag>`，**Tag 只推到选定的 remote**，避免两边同时触发 CI 浪费额度
+- 不同账号的 PAT 分别保存为 `~/.gh_token_<account>`，发版前根据 remote 选择对应 token
+- workflow 文件需同步到两个 remote（任何一边修改后用 `git push <other>` 同步代码）
+- 步骤 3 推 tag 前必须**询问用户**用哪个 CI remote，并把选择记录下来供步骤 4 的 `CI_OWNER_REPO` 变量使用
+
 ### 6. 克隆 Release 仓库到本地
 
 ```bash
@@ -289,9 +309,12 @@ git tag "v$VERSION"
 git push <github_remote> "v$VERSION"
 ```
 
-### 步骤 4：等待 CI 构建完成
+### 步骤 4：自动监听 CI + 自动下载产物（Claude 全自动，无需用户介入）
 
-根据 `platforms` 配置输出对应平台的文件清单。
+> **演化背景**：早期流程让用户在浏览器手动下载所有 CI 产物，再 `AskUserQuestion` 询问目录。
+> 实操中用户经常下漏文件、下到默认目录被多项目混在一起、下到一半浏览器中断。
+> 现升级为 **Claude 自己用 git credential helper 拿 token → API 轮询 CI → 用 asset id 下载到独立子目录**。
+> 用户全程不操作浏览器；仅在自动流程崩掉时（步骤 4.5）才回退到手动下载。
 
 **各平台对应的 CI 产物**：
 
@@ -302,7 +325,127 @@ git push <github_remote> "v$VERSION"
 | macOS Intel | 3 个 | `_x64.dmg` + `_x64.app.tar.gz` + `_x64.app.tar.gz.sig` |
 | Linux | 3 个 | `.AppImage` + `.AppImage.sig` + `.deb` |
 
-使用 AskUserQuestion 询问：**文件下载到了哪个目录？**
+#### 4.1 拿 GitHub Token（git credential helper）
+
+```bash
+TOKEN=$(printf "protocol=https\nhost=github.com\n" | git credential fill 2>/dev/null \
+        | grep "^password=" | cut -d= -f2)
+if [ -z "$TOKEN" ] || [ ${#TOKEN} -lt 20 ]; then
+  echo "❌ 拿不到 token，请确认 git config 里 credential.helper = manager 并已存过 GitHub 密码"
+  exit 1
+fi
+echo "✅ token 长度 ${#TOKEN}（已隐藏内容）"
+```
+
+> 不要用 `gh auth login` —— 项目环境通常已经用 OS Credential Manager 存好了，`git credential fill` 一句话拿到，零配置。
+> **fine-grained PAT 必须有 `Contents: Read and write` + `Actions: Read`**（CI 创建的是 draft release，仅 `Contents: Read` 看不到也下载不了）。
+
+#### 4.2 监听 CI 进度（每 30s 轮询）
+
+```bash
+TAG="v$VERSION"
+CI_OWNER_REPO="<owner>/<repo>"   # 按用户选择的 CI remote 替换
+
+while true; do
+  STATUS_LINE=$(curl -s -H "Authorization: Bearer $TOKEN" -H "Accept: application/vnd.github+json" \
+    "https://api.github.com/repos/$CI_OWNER_REPO/actions/runs?per_page=10" \
+    | node -e "
+      const d=JSON.parse(require('fs').readFileSync(0,'utf8'));
+      const r=(d.workflow_runs||[]).find(x=>x.head_branch==='$TAG');
+      if(!r){console.log('not_found null'); process.exit(0);}
+      console.log(r.status, r.conclusion);
+    ")
+  STATUS="${STATUS_LINE%% *}"
+  CONCLUSION="${STATUS_LINE##* }"
+  echo "[$(date +%H:%M:%S)] status=$STATUS conclusion=$CONCLUSION"
+  if [ "$STATUS" = "completed" ]; then
+    [ "$CONCLUSION" = "success" ] && { echo "✅ CI 成功"; break; }
+    echo "❌ CI 失败 conclusion=$CONCLUSION"; exit 1
+  fi
+  sleep 30
+done
+```
+
+#### 4.3 列出 release 的所有 asset
+
+```bash
+ASSETS_JSON=$(curl -s -H "Authorization: Bearer $TOKEN" -H "Accept: application/vnd.github+json" \
+  "https://api.github.com/repos/$CI_OWNER_REPO/releases?per_page=10")
+
+echo "$ASSETS_JSON" | node -e "
+const d = JSON.parse(require('fs').readFileSync(0, 'utf8'));
+const r = d.find(x => x.tag_name === 'v$VERSION');
+if (!r) { console.error('没找到 v$VERSION release'); process.exit(1); }
+console.log('id:', r.id, 'draft:', r.draft, 'name:', r.name);
+r.assets.forEach(a => console.log(a.id, a.size.toString().padStart(10), a.name));
+"
+```
+
+> CI 创建的是 **draft release**（`draft: true`），普通浏览器 URL 看不到，必须用 asset id + token + `Accept: application/octet-stream` 调 API 下载。
+
+#### 4.4 自动下载到独立子目录（避免与其他项目混）
+
+```bash
+# 一个版本一个目录，旧版本残留 .sig 不会污染本次（v3.0.7 踩过坑：下载目录混入其他项目 .sig，cat 通配符拼接出非法 base64）
+DOWNLOAD_DIR="D:/download/<app-slug>-v$VERSION"
+mkdir -p "$DOWNLOAD_DIR" && cd "$DOWNLOAD_DIR"
+
+echo "$ASSETS_JSON" | node -e "
+const d = JSON.parse(require('fs').readFileSync(0, 'utf8'));
+const r = d.find(x => x.tag_name === 'v$VERSION');
+r.assets
+  .filter(a => a.name.startsWith('<AppName>_'))   // 用产物前缀过滤，避免误下其他 release
+  .forEach(a => console.log(a.id + '|' + a.name));
+" | while IFS='|' read -r ID NAME; do
+  echo "→ $NAME"
+  curl -sL -H "Authorization: Bearer $TOKEN" -H "Accept: application/octet-stream" \
+    "https://api.github.com/repos/$CI_OWNER_REPO/releases/assets/$ID" \
+    -o "$NAME"
+done
+
+ls -lh "$DOWNLOAD_DIR/"
+```
+
+> **产物前缀过滤**（`<AppName>_`）是防御性的：万一同 tag 误推了其他文件（如桌面 + 移动同 tag），这里也只下载本流程需要的产物。
+
+#### 4.5 备用：自动下载失败时回退手动
+
+如果 token 过期 / API 限流 / 网络问题导致自动下载失败，**才**询问用户：
+
+> 「自动下载失败，你能手动从浏览器下载到哪个目录？」
+
+用户提供目录后跳到步骤 4.6 复用同一套预检逻辑。
+
+#### 4.6 强制预检（自动 / 手动下载都跑）
+
+> 自动下载用独立子目录已经隔离，理论上不会污染。但仍要跑预检——以防 GitHub API 偶发返回不全 / curl 中途网断只下了一半。
+
+```bash
+VERSION="x.y.z"
+EXPECTED_COUNT=12   # 按 platforms 配置调整：Windows+macOS+Linux = 12; 仅 Windows+macOS = 8；移动 APK+AAB = 2
+
+COUNT=$(ls "$DOWNLOAD_DIR"/<AppName>_* 2>/dev/null | wc -l)
+if [ "$COUNT" -ne "$EXPECTED_COUNT" ]; then
+  echo "❌ 产物数量异常: 实际 $COUNT 预期 $EXPECTED_COUNT"
+  echo "   缺失 = CI 还没构建完 / 部分文件下载失败"
+  echo "   过多 = 上一版本 .sig 没清掉(签名读取会被污染)"
+  exit 1
+fi
+
+# 进一步：每种 .sig 必须正好 1 份（防止跨版本污染导致 cat 拼接非法 base64）
+for pattern in "<AppName>_*x64-setup.exe.sig" "<AppName>_*aarch64.app.tar.gz.sig" \
+               "<AppName>_*x64.app.tar.gz.sig" "<AppName>_*amd64.AppImage.sig"; do
+  c=$(ls "$DOWNLOAD_DIR"/$pattern 2>/dev/null | wc -l)
+  if [ "$c" -ne 1 ]; then
+    echo "❌ 模式 $pattern 匹配到 $c 个文件(应正好 1 个)"
+    ls "$DOWNLOAD_DIR"/$pattern 2>/dev/null
+    exit 1
+  fi
+done
+echo "✅ 预检通过"
+```
+
+**预检失败处置**：缺失 → 等 CI 完成后重新下载缺的；过多 → 删上一版本残留 / 删其他项目文件；强烈建议**用独立子目录**（如 `D:/download/<app-slug>-v$VERSION/`）天然隔离。
 
 ### 步骤 5：处理下载的产物 + 更新 README（Claude 自动执行）
 
@@ -604,6 +747,120 @@ rclone copy ./test.txt r2:<bucket>/<pathPrefix>/test/ --progress
 
 ---
 
+## 移动端 Android 发布要点
+
+> 以下针对 `mobile-tauri` 子项目（Tauri 2.x Android target）。Android 与桌面端发布完全解耦，但有几个 Android 特有的坑必须提前防住。
+
+### 1. Release keystore 必须在首次发版前生成并配置
+
+**症状**：用户每次升级 APK 都被系统拦截「与已安装应用签名不同」，必须先卸载旧版才能装新版。
+
+**根因**：CI workflow 没配 `ANDROID_KEYSTORE_BASE64` secret 时，gradle 会用 GitHub runner 临时生成的 `debug.keystore` 签名 → **每次构建签名都不同** → 每个版本对系统而言都是「另一个 app」。
+
+**正确做法**（首次发版前一次性配置）：
+
+```bash
+# 1. 本地生成稳定 release keystore（验证期 100 年，密码随机生成 22 字符）
+KEYSTORE_PWD=$(openssl rand -base64 24 | tr -d '+/=' | head -c 22)
+keytool -genkeypair -v \
+  -keystore <app>-release.keystore \
+  -alias <app> -keyalg RSA -keysize 4096 -validity 36500 \
+  -storepass "$KEYSTORE_PWD" -keypass "$KEYSTORE_PWD" \
+  -dname "CN=<App Name>, O=<Org>, C=CN"
+
+# 2. 转 base64（注入 GitHub Secret）
+base64 -w0 <app>-release.keystore > keystore.b64
+
+# 3. 在每个 CI 仓库 Settings → Secrets 配置 4 个 secret：
+#    ANDROID_KEYSTORE_BASE64    = <keystore.b64 内容>
+#    ANDROID_KEYSTORE_PASSWORD  = $KEYSTORE_PWD
+#    ANDROID_KEY_ALIAS          = <app>
+#    ANDROID_KEY_PASSWORD       = $KEYSTORE_PWD
+```
+
+**workflow 配置**（在 release-android job 里）：
+
+```yaml
+- name: Setup release keystore
+  if: env.HAS_KEYSTORE == 'true'
+  env:
+    HAS_KEYSTORE: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
+  run: |
+    echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > release.keystore
+    # 把密钥注入 gradle.properties 或 signing config
+```
+
+> **多 CI 仓库 fallback 注意**：每个 CI 仓库都要独立配置 4 个 secret。secret 不跨仓共享，否则备仓 build 时 `if: env.HAS_KEYSTORE == 'true'` 判断为 false，step 被 skip，又退回 debug 签名（CI 显示绿色但产物用错签名，最容易被忽略的失败模式）。
+
+> **keystore 备份**：keystore 文件 + 密码必须异地备份（云盘 + 离线 U 盘）。**丢了无法找回**，会迫使所有用户卸载重装。
+
+### 2. 发布前用 apksigner 验证签名（防止 build skipped 静默退化）
+
+**症状**：CI 显示绿色但产物用的是临时 debug 签名（step 13 被 skip 了不抛错）。
+
+**做法**：发布前对每个 APK 做一次签名指纹比对（与 keystore 期望指纹一致才推 R2）：
+
+```bash
+# 期望指纹（一次性记录到 keystore 配置文件）
+EXPECTED=$(keytool -list -v -keystore release.keystore -storepass "$PWD" \
+  -alias "$ALIAS" | grep "SHA256:" | awk -F'SHA256:' '{print $2}' | tr -d ' ')
+
+# 验证下载的 APK
+ACTUAL=$("$ANDROID_SDK/build-tools/<ver>/apksigner" verify --print-certs <apk> \
+  | grep "Signer #1 certificate SHA-256 digest:" | awk '{print $NF}')
+
+[ "$ACTUAL" = "$EXPECTED" ] || { echo "❌ 签名不匹配，禁止发布"; exit 1; }
+```
+
+### 3. mobile- 前缀拼接陷阱（双重 mobile 404）
+
+Android 发版常用 tag 格式 `mobile-vX.Y.Z`（与桌面 `vX.Y.Z` 区分）。模板/脚本里如果直接把整个 tag 拼到文件名后面，会得到 `<App>-mobile-mobile-v0.3.4.apk` 这种双 mobile 路径 → R2/Gitee 404。
+
+**正确做法**：先剥前缀再拼：
+
+```bash
+# bash
+VER="mobile-v0.3.4"
+FILE_VER="${VER#mobile-}"   # → v0.3.4
+APK="<App>-mobile-${FILE_VER}.apk"
+```
+
+```typescript
+// TS / JS
+const fileVer = ver.replace(/^mobile-/, "");
+const apk = `<App>-mobile-${fileVer}.apk`;
+```
+
+**同源陷阱**：移动端 `parseSemver` 也常忘记剥 `mobile-` 前缀，导致 `mobile-v0.3.2` 经过 `replace(/^v/, "")` 不变 → 正则不匹配 → `compareSemver` 视为同版本 → 检查更新永远报「已是最新」。
+
+```typescript
+// ❌ 错的
+function parseSemver(s: string) {
+  const m = s.replace(/^v/, "").match(/^(\d+)\.(\d+)\.(\d+)/);
+  // mobile-v0.3.2 不会被匹配
+}
+
+// ✅ 对的：先剥 mobile- 再剥 v
+function parseSemver(s: string) {
+  const cleaned = s.replace(/^mobile-/, "").replace(/^v/, "");
+  return cleaned.match(/^(\d+)\.(\d+)\.(\d+)/);
+}
+```
+
+### 4. Android versionCode 必须严格递增
+
+`versionName` 是字符串可重复，但 `versionCode` 是整数，**比已安装版本大才允许覆盖安装**。常用约定：
+
+```kotlin
+// gen/android/app/build.gradle.kts
+versionCode = X * 10000 + Y * 100 + Z   // v0.3.6 → 306
+versionName = "0.3.6"
+```
+
+回退版本号（如 0.3.6 → 0.3.5）时 versionCode 必须仍递增（如 305 → 307），否则用户装不上。
+
+---
+
 ## 常见问题排查
 
 ### 应用内更新问题
@@ -637,6 +894,8 @@ rclone copy ./test.txt r2:<bucket>/<pathPrefix>/test/ --progress
 | macOS updater 产物缺失 | `--bundles dmg` 不生成 updater 产物 | **必须用 `--bundles app,dmg`** |
 | Linux 编译 unused import 警告 | `#[cfg(target_os = "windows")]` 下的 import 在 Linux 不使用 | 将 import 也放在 `#[cfg()]` 块内 |
 | CI 推送 Gitee 超时 | GitHub Actions（美国）推送到 Gitee（中国）太慢 | **已改为本地推送**，不再由 CI 推送 |
+| GitHub API 用 PAT 拿 release 返回 404 / 看不到刚 build 的 release | CI 创建的是 `draft: true` release，fine-grained PAT 仅有 `Contents: Read` 看不到 draft | PAT 权限升级为 `Contents: Read and write` + `Actions: Read`；下载 asset 时也必须用 `Authorization: Bearer <token>` + `Accept: application/octet-stream` 调 API（普通浏览器 URL 无法下载 draft asset） |
+| 私有仓 CI 推 tag 后 3-5 秒就失败，无任何 step 输出 | GitHub Actions 私有仓每月免费分钟数耗尽（macOS 10 倍倍率最容易超） | 切到备用 CI 仓库（见步骤 5.1 多 CI 仓库 fallback）；下月 1 号自动重置 |
 
 ---
 
