@@ -2,6 +2,7 @@ mod commands;
 mod database;
 mod error;
 mod models;
+mod remote;
 mod services;
 pub mod shared;
 mod state;

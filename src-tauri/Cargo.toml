@@ -31,6 +31,12 @@ chrono = { version = "0.4", features = ["serde"] }
 tauri-plugin-updater = "2"
 tauri-plugin-process = "2"
 
+# ─── 远程访问网关（移动端伴侣） ─────────────
+# 详见 src/remote/ 模块和 .claude/skills/remote-gateway/skill.md
+axum = { version = "0.7", features = ["ws", "multipart"] }
+tower-http = { version = "0.5", features = ["cors"] }
+tokio = { version = "1", features = ["full"] }
+
 # ─── 编译优化 ─────────────────────────────
 
 # 开发模式：依赖包使用 O2 优化（加速运行，不影响本地代码编译速度）
