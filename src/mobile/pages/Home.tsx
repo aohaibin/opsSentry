@@ -8,6 +8,17 @@ function Home() {
     <div className="mobile-home">
       <h1>移动端伴侣</h1>
       <p>骨架已就绪。</p>
+      <p className="mobile-home-tip">
+        💡 开发界面前建议先用{" "}
+        <a
+          href="https://ai-workstation.ruoyi.plus/"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          AI 工作站
+        </a>{" "}
+        设计原型图，再映射到 <code>src/mobile/pages/</code>。
+      </p>
       <ul>
         <li>桌面端起 axum 远程网关：见 <code>src-tauri/src/remote/</code></li>
         <li>移动端走 fetch / WebSocket：见 <code>src/mobile/lib/api.ts</code> + <code>ws.ts</code></li>

@@ -57,3 +57,21 @@ html, body, #root {
   border-radius: 4px;
   font-size: 13px;
 }
+
+.mobile-home-tip {
+  margin: 12px 0 16px;
+  padding: 10px 12px;
+  border-left: 3px solid var(--m-accent);
+  background: color-mix(in srgb, var(--m-accent) 8%, transparent);
+  border-radius: 4px;
+}
+
+.mobile-home-tip a {
+  color: var(--m-accent);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.mobile-home-tip a:hover {
+  text-decoration: underline;
+}
