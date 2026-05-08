@@ -141,3 +141,6 @@ try {
 | 不区分前端/后端/IPC 问题 | 先确定问题在哪个层，再深入排查 |
 | 不检查 Capabilities | 插件功能不可用时首先检查权限声明 |
 | 只在一个平台测试 | 跨平台问题需在所有目标平台验证 |
+| 在中文路径下编译 Tauri Mobile (Android) | `mobile-tauri/.cargo/config.toml` 设 `target-dir = "C:/cargo-target/<project>"` 强制移到 ASCII 目录（NDK ld.lld 不识别中文） |
+| Mobile 子项目 vite build 报 `Rollup failed to resolve "@/..."` | re-export 链中**不要用 `@/` 别名**，改成相对路径；vite/rollup 在 CI 对 re-export 链的别名解析特别敏感 |
+| 桌面应用内嵌 frpc/easytier 等隧道二进制被杀软误报为木马 | 改为**引导用户自配反向代理**（应用只绑定本地端口） |

@@ -922,3 +922,96 @@ pnpm tauri build 2>&1
 # 建议后台运行：run_in_background: true
 # 构建成功标志：输出末尾出现 `Finished 1 updater signature at:`
 ```
+
+---
+
+## 双线发布（桌面 + 移动）
+
+> 适用项目：基于本框架开发了移动端伴侣（见 `mobile-app-architecture` skill）。
+> 桌面单端项目可忽略本章。
+
+### 总览：CI 分流（方案 B）
+
+```
+桌面端（v*.*.*）             移动端（mobile-v*.*.*）
+   ↓ 推 v3.x.x tag                ↓ 推 mobile-v0.x.x tag
+release.yml: release job       release.yml: release-android job
+   ↓                                   ↓
+仓库 releases/vX.Y.Z/            仓库 releases-mobile/mobile-vX.Y.Z/
++ 同步 versions.json            + 同步 mobile-versions.json
+```
+
+> **桌面 / 移动版本号独立**，可以分别迭代。桌面端不需要 APK 包就能发版；移动端不需要等桌面端构建完成。
+> 文档站下载页同时展示两条版本线，分别是"桌面应用"和"移动伴侣"两个区块。
+
+### 版本号同步清单
+
+桌面端（保持原有 N 处）+ 移动端 4 处：
+
+| 文件 | 字段 |
+|------|------|
+| `mobile-tauri/src-tauri/tauri.conf.json` | `"version": "x.y.z"` |
+| `mobile-tauri/src-tauri/Cargo.toml` | `version = "x.y.z"` |
+| `mobile-tauri/package.json` | `"version": "x.y.z"` |
+| `mobile-tauri/src-tauri/gen/android/app/build.gradle.kts` | `versionName = "x.y.z"`、**`versionCode` 必须严格递增** |
+
+> **🔴 关键**：移动端版本号与桌面端**独立**。桌面 v3.5.0 时移动端可能还在 v0.2.1，互不影响。
+> versionCode 推荐公式：`major*10000 + minor*100 + patch`（0.3.6 → 306）。
+
+### CI 分流写法
+
+```yaml
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+      - 'mobile-v*.*.*'
+
+jobs:
+  release:
+    if: ${{ !startsWith(github.ref_name, 'mobile-') }}   # ← 桌面 job 跳过 mobile-* tag
+    # 桌面构建 (windows-latest + macos-latest)...
+
+  release-android:
+    if: ${{ startsWith(github.ref_name, 'mobile-') }}    # ← 移动 job 只在 mobile-* tag 上跑
+    # Android 构建...
+```
+
+桌面端推 `v3.x.x` tag 只触发 `release` job，移动端推 `mobile-v0.x.x` tag 只触发 `release-android` job，互不干扰。
+
+### 移动端发布特殊点
+
+| 项 | 桌面 | 移动 |
+|----|------|------|
+| update.json | 生成 | **不生成**（Android 侧载分发不支持 Tauri updater 静默更新） |
+| 产物 | NSIS / MSI / DMG / AppImage | APK / AAB |
+| 用户安装 | 自动更新 | 手动下载侧载 |
+| versionCode | — | **必须严格递增**（同号或更小 Android 拒绝覆盖安装） |
+
+### 完整流程（移动端 mobile-v*.*.*）
+
+```
+本地：bump 4 处版本号 → commit → 打 mobile-v$VER tag → push tag
+   ↓
+CI 自动：tauri android build → 上传 APK / AAB 产物
+   ↓
+本地：下载产物 → 上传到对应 CDN/存储桶（与桌面端隔离的子目录）
+       + 复制到 release 仓库 releases-mobile/
+       + 更新 mobile-versions.json
+       + 更新 .last-release-mobile.json（触发文档站重建）
+```
+
+### `<APP_NAME>_` 前缀过滤
+
+发布产物文件名加项目自定义前缀（如 `<APP_NAME>_`），CI 复制脚本按前缀过滤，
+避免桌面 release 不小心混入移动产物（同 tag 下载错文件）。
+
+### 桌面发版前必须看 mobile-tauri/ 状态
+
+mobile-tauri/ 有独立 `.gitignore` 但与主仓共用 `src/mobile/` 和 `src-tauri/`。桌面发版前
+必须 `cd mobile-tauri && git status -s` 检查，避免遗漏未提交改动。
+
+### 相关 skill
+
+- `mobile-app-architecture` — 移动端架构选型与目录骨架
+- `tauri-mobile-android` — Android 打包专项（NDK / versionCode / 签名）

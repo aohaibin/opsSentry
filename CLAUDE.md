@@ -55,6 +55,7 @@
 | **错误处理** | thiserror + CommandError 结构化错误（Rust）+ ErrorBoundary（React） |
 | **安全模型** | Capabilities 细粒度权限声明 |
 | **应用标识** | `com.agilefr.tauri` |
+| **可选移动端** | PWA-first（独立 SPA + axum 远程网关）/ 可加 Tauri Mobile 壳，详见下方"可选：移动端伴侣架构" |
 
 ### 双进程架构
 
@@ -78,6 +79,56 @@
 │  └──────────────────┘                └──────────────────┘
 └───────────────────────────────────────────────────────┘
 ```
+
+### 可选：移动端伴侣架构（PWA-first）
+
+桌面端可作为"远程网关"对外服务移动端伴侣。两条可选路线：
+
+| 路线 | 形态 | 适用场景 |
+|------|------|---------|
+| **PWA-first** | 移动端是纯浏览器 SPA，访问桌面端起的 axum HTTP/WS 服务 | 推荐默认；零安装、跨平台、上线快 |
+| **Tauri Mobile 壳** | 在 PWA 之上再打包一层 Tauri Android/iOS 容器 | 需要原生能力（推送、生物识别、Intent 拦截） |
+
+```
+┌──────────────────────────────────────────────────┐
+│  桌面端 (PC)                                      │
+│  ┌──────────────┐  IPC  ┌──────────────────┐    │
+│  │  WebView     │◄─────►│  Rust Core       │    │
+│  │  (PC SPA)    │       │  + axum 远程网关 │    │
+│  └──────────────┘       │   (端口可配)     │    │
+│                         └────────┬─────────┘    │
+└────────────────────────────────HTTP/WS──────────┘
+                                  ↓
+                  ┌───────────────────────────┐
+                  │  移动端伴侣（手机/平板）   │
+                  │  浏览器加载 dist-mobile   │
+                  │  或 Tauri Mobile webview  │
+                  └───────────────────────────┘
+```
+
+#### 关键目录
+
+| 目录/文件 | 用途 | 仅 PWA | + Tauri Mobile |
+|----------|------|:------:|:--------------:|
+| `src/mobile/` | 移动端独立 React SPA（独立入口/路由/store） | ✅ | ✅ |
+| `vite.mobile.config.ts` | 独立 vite 配置，`base: "./"` 兼容多托管 | ✅ | ✅ |
+| `dist-mobile/` | 构建产物（`pnpm mobile:build`） | ✅ | ✅ |
+| `src-tauri/src/remote/` | 桌面端 axum 远程网关（auth + handlers） | ✅ | ✅ |
+| `mobile-tauri/` | 独立 Tauri Mobile 子项目（极简 webview 容器） | — | ✅ |
+
+#### 设计哲学
+
+- **业务逻辑全在桌面端**：移动端只是 webview / SPA，所有数据通过 HTTP / WebSocket 拉取。Tauri Mobile 壳的 `lib.rs` 只注册 `log/os/opener`，**不写业务 Command**。
+- **构建产物复用**：`mobile-tauri/src-tauri/tauri.conf.json` 的 `frontendDist: "../../dist-mobile"`，PWA 和原生壳共用一份前端产物。
+- **版本号独立**：移动端有独立 tag（`mobile-v*.*.*`），桌面端推 `v*.*.*`，CI 分流互不阻塞。
+- **不内嵌网络隧道**：`frpc` / `easytier` 等二进制在国内多家杀软中被误报为木马。**改为引导用户自配反向代理**，桌面端只负责绑定本地端口。
+
+#### 相关 skill
+
+- `mobile-app-architecture` — 整体方案选型 + 双 vite 构建 + 目录骨架
+- `remote-gateway` — axum 远程网关骨架 + Token 鉴权 + 失败追踪
+- `tauri-mobile-android` — Android 打包专项（NDK 中文路径、`.cargo/config.toml` 强制 ASCII target-dir、minSdkVersion、versionCode 严格递增）
+- `release-publish` 中的"双线发布（桌面 + 移动）"章节
 
 ### 后端三层架构
 
