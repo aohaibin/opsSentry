@@ -10,7 +10,9 @@
     "preview": "vite preview",
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
-    "tauri:build": "tauri build"
+    "tauri:build": "tauri build",
+    "mobile:dev": "kill-port 1520 & vite --config vite.mobile.config.ts",
+    "mobile:build": "vite --config vite.mobile.config.ts build"
   },
   "dependencies": {
     "@ant-design/icons": "^6.1.0",

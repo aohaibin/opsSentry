@@ -9,8 +9,18 @@ lerna-debug.log*
 
 node_modules
 dist
+dist-mobile
 dist-ssr
 *.local
+
+# Tauri Mobile (Android 打包产物 + 签名密钥)
+mobile-tauri/src-tauri/target/
+mobile-tauri/src-tauri/gen/android/app/build/
+mobile-tauri/src-tauri/gen/android/.gradle/
+mobile-tauri/src-tauri/gen/android/local.properties
+mobile-tauri/keystore.properties
+mobile-tauri/*.keystore
+mobile-tauri/*.jks
 
 # Editor directories and files
 .vscode/*
