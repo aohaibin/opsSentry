@@ -854,3 +854,18 @@ cd src-tauri && cargo test
 - [ ] **已确认 Capabilities** — 使用的插件 API 都已在 capabilities 中声明
 - [ ] **错误处理正确** — Rust 用 `AppError`/`Result<T, String>`，前端用 `try-catch`
 - [ ] **不违反禁止项** — 检查上方禁止表格
+
+---
+
+## 会话启动加载经验（2026-04 经验闭环）
+
+Codex 启动时，`.codex/hooks/session-start.cjs` 会自动加载 `.claude/docs/experience/{date}/*-exp-summary.md` 历史经验摘要到上下文，避免每次会话从零摸索。
+
+**Tauri** 项目重点沉淀方向：
+- Rust 侧 `unwrap()`/`expect()` 踩坑与 `Result<T, CommandError>` 错误返回约定
+- Tauri IPC（`invoke` / `#[tauri::command]`）参数序列化、字段命名一致性
+- Capabilities 权限模型（Tauri 2.x deny-all 默认、`tauri.conf.json` + `capabilities/*.json` 同步）
+- WebView 与 Rust 通信：`State<T>` 并发安全、`emit_all` 事件、长任务避免阻塞 main thread
+- 跨平台打包与签名（macOS notarize / Windows code signing / Linux AppImage）
+
+使用 `/exp` 命令在会话末尾触发经验沉淀。

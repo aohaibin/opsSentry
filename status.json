@@ -47,5 +47,12 @@
     "created_at": "2026-03-20",
     "last_push": "2026-03-20",
     "initialized": true
+  },
+  "experience_loop": {
+    "exp_sediment_skill": true,
+    "exp_command_skill": true,
+    "session_start_hook": true,
+    "experience_dir_created": true,
+    "claude_md_loader_section": true
   }
 }

@@ -45,7 +45,11 @@ if (isRecoverySession) {
 // 检测是否是斜杠命令
 const isSlashCommand = /^\/[^\/\s]+$/.test(prompt.split(/\s/)[0]);
 
-if (isSlashCommand) {
+// 规则 2：斜杠命令已被 Claude Code 展开成命令文档注入（含 <command-name> 标签）
+// 例如 /codex:status、/codex:review 等插件命令展开后会带 <command-name>/codex:xxx</command-name>
+const isExpandedCommand = /<command-name>/.test(prompt);
+
+if (isSlashCommand || isExpandedCommand) {
   process.exit(0);
 }
 
