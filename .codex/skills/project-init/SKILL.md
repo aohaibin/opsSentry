@@ -344,6 +344,384 @@ rm -f docs/development-guide.md
 - Release 仓库地址通过 Step 2.5 的 `updater.endpoints` 字段关联，**不需要**修改 `release.yml` 本身
 - 如果 `release.yml` 内硬编码了 release 仓库名，则在 Step 2.5 中一并替换
 
+### Step 1.4：剪切需求文档和原型图到新项目 ★
+
+> **关键步骤**：用户在模板仓库做完头脑风暴 + 用 AI 工作站设计原型图后，这些资产应当**剪切**（move，不是复制）到新项目，让模板仓库回到干净基线状态，便于下次启动新项目。
+
+#### 1.4.1 扫描模板仓库的潜在资产目录
+
+按优先级扫描以下目录，**任何非空目录都需处理**：
+
+```bash
+TEMPLATE_DIR="$(pwd)"   # 上一步已 cd 到 NEW_DIR，需要回到模板仓库扫描
+# 注意：以下操作的对象是【模板仓库】，不是新项目目录
+
+ASSET_DIRS=(
+  "prototype"               # AI 工作站默认输出原型图目录
+  "docs/原型"               # 中文路径变体
+  "docs/prototype"          # 英文路径变体
+  "docs/requirements"       # 需求文档（英文）
+  "docs/需求"               # 需求文档（中文）
+  "docs/设计"               # 设计稿（中文）
+  "docs/design"             # 设计稿（英文）
+  ".claude/docs/brainstorm" # 头脑风暴会话沉淀
+)
+
+# 扫描非空目录
+for d in "${ASSET_DIRS[@]}"; do
+  if [ -d "$TEMPLATE_DIR/$d" ] && [ -n "$(ls -A "$TEMPLATE_DIR/$d" 2>/dev/null)" ]; then
+    echo "发现非空资产目录：$d"
+  fi
+done
+```
+
+#### 1.4.2 询问用户确认剪切
+
+```
+检测到模板仓库存在以下设计资产：
+
+  ✅ prototype/                  3 个文件 (商品列表.html / 订单详情.html / 个人中心.html)
+  ✅ docs/requirements/          2 个文件 (PRD-v1.0.md / 用户故事.md)
+  ⚠️  docs/原型/                1 个文件 (架构图.png)
+
+是否将这些资产**剪切**（move）到新项目 mall_admin？
+
+  操作后：
+  - 资产将出现在新项目对应位置（docs/requirements/ 与 prototype/）
+  - 模板仓库恢复为空目录（保留目录结构，便于下次复用）
+  - 新项目首次提交会包含这些资产
+
+  推荐：是（让新项目带着完整设计文档启动）
+
+  选项：
+    Y - 全部剪切（默认）
+    N - 不剪切，资产保留在模板仓库
+    P - 仅剪切原型（prototype/ docs/原型/ docs/design/）
+    R - 仅剪切需求（docs/requirements/ docs/需求/）
+
+请选择：
+```
+
+#### 1.4.3 执行剪切（默认 Y）
+
+```bash
+# 在新项目目录创建对应目录
+NEW_DIR="..."    # Step 1.1 创建的新项目目录
+
+# 通用剪切函数
+move_assets() {
+  local src="$TEMPLATE_DIR/$1"
+  local dst="$NEW_DIR/$1"
+
+  if [ ! -d "$src" ] || [ -z "$(ls -A "$src" 2>/dev/null)" ]; then
+    return  # 源为空，跳过
+  fi
+
+  mkdir -p "$dst"
+  # 把 src 下所有可见 + 隐藏文件移到 dst
+  (shopt -s dotglob nullglob; mv "$src"/* "$dst"/ 2>/dev/null)
+  echo "✓ 剪切 $1（$src → $dst）"
+
+  # 源目录保留（空目录，便于下次复用）
+}
+
+# 默认全部剪切（用户选 Y）
+for d in "${ASSET_DIRS[@]}"; do
+  move_assets "$d"
+done
+```
+
+#### 1.4.4 在新项目中标记资产来源（可选）
+
+```bash
+# 在新项目 docs/requirements/ 创建简短 README，说明这些资产从哪来
+cat > "$NEW_DIR/docs/requirements/README.md" << 'EOF'
+# 需求与设计资产
+
+本目录的需求文档 / 原型图来自项目初始化时从模板仓库剪切。
+
+## 资产清单
+（init skill 自动维护此清单 - 可手动整理）
+
+- `PRD-v1.0.md` - 产品需求文档 v1.0
+- `用户故事.md` - 用户故事拆解
+
+## 后续维护
+- 新需求 → 本目录新建 PRD-v{n}.md
+- 设计稿 / 原型 → ../../prototype/ 或 ../design/
+- 不要重新引用模板仓库（它已被清空，且会随上游同步更新）
+EOF
+```
+
+#### 1.4.5 git 状态检查
+
+```bash
+# 模板仓库（注意此时本地有文件移动但未提交）：
+cd "$TEMPLATE_DIR"
+git status --short
+# 应该显示这些资产目录的删除 D，但因为这些资产**通常未被 git 跟踪**
+#（它们是用户在模板仓库里临时创建的设计稿），所以多半 git status 是干净的
+
+# 如果发现资产已被 git 跟踪（小概率），用户需要决定：
+#   a. 在模板仓库 git rm + commit（彻底删除）
+#   b. 用 .gitignore 忽略未来同名文件
+# 提醒用户但不自动操作（避免误删用户的真实跟踪文件）
+```
+
+#### 1.4.6 验证剪切结果
+
+```bash
+echo ""
+echo "剪切完成。结果："
+echo ""
+for d in "${ASSET_DIRS[@]}"; do
+  src_count=$(ls -1 "$TEMPLATE_DIR/$d" 2>/dev/null | wc -l)
+  dst_count=$(ls -1 "$NEW_DIR/$d" 2>/dev/null | wc -l)
+  echo "  $d: 模板剩余 $src_count 个，新项目获得 $dst_count 个"
+done
+```
+
+#### 反模式
+
+| ❌ | ✅ |
+|---|----|
+| 用 `cp` 而非 `mv` | 必须**剪切**（让模板回归干净基线） |
+| 默默执行不询问用户 | 必须列出资产清单 + 询问 Y/N/P/R |
+| 删除模板的空目录结构 | 保留空目录，便于下次复用 |
+| 强行覆盖新项目已有同名资产 | 检查 + 询问（如果新项目意外已有同名文件） |
+| 把 `.claude/skills/` 当资产剪切 | 严禁——技能必须留在模板 |
+
+---
+
+## 阶段 1.5：AI 协作体系增强（subproject 模式，v1.2.1）
+
+> **新增于 2026-05-20**：从 agile-qt 框架反向同步 4 个 subproject 治理特性，五端（Tauri / Android / iOS / HarmonyOS / agile-qt）统一。
+>
+> **目的**：明确"框架经验 vs 项目经验"边界，让新项目既能享用框架本体的只读体系，又能写自己的可变约束 / 专属技能。
+
+---
+
+### Step 1.5.A：写入 `.claude/exp.config.json`（subproject 模式标记）
+
+在新项目根目录的 `.claude/` 下创建：
+
+```bash
+cat > "$NEW_DIR/.claude/exp.config.json" <<EOF
+{
+  "mode": "subproject",
+  "frameworkRepo": "https://gitcode.com/zhuawashi/tauri",
+  "frameworkName": "tauri",
+  "subprojectName": "{产品名}",
+  "createdAt": "$(date +%Y-%m-%d)",
+  "experienceLoop": {
+    "frameworkReadOnly": [
+      ".claude/skills/",
+      ".claude/commands/",
+      ".claude/hooks/",
+      ".codex/",
+      "CLAUDE.md",
+      "AGENTS.md"
+    ],
+    "subprojectWritable": [
+      ".claude/PROJECT.md",
+      ".claude/project-skills/",
+      ".claude/docs/experience/"
+    ],
+    "feedbackChannel": ".claude/docs/experience/feedback-to-framework.md"
+  }
+}
+EOF
+```
+
+**字段说明**：
+
+| 字段 | 含义 |
+|------|------|
+| `mode` | 永远是 `subproject`（区别于框架本体的 `framework`） |
+| `frameworkRepo` | 上游框架仓库（用于 `cmd-framework-sync` skill 拉取更新） |
+| `subprojectName` | 子项目名（= 产品名） |
+| `frameworkReadOnly` | 这些路径跟随框架同步，**禁止子项目本地修改** |
+| `subprojectWritable` | 这些路径子项目可自由读写，**不会被 framework-sync 覆盖** |
+
+---
+
+### Step 1.5.B：写入 `.claude/PROJECT.md`（项目专属约束）
+
+新项目的 `.claude/PROJECT.md` 是与 `CLAUDE.md` 互补的"可写副本"：
+
+```bash
+cat > "$NEW_DIR/.claude/PROJECT.md" <<EOF
+# {产品名} - 项目专属约束（PROJECT.md）
+
+> 本文件与框架本体的 \`CLAUDE.md\`（只读副本）互补。
+>
+> - \`CLAUDE.md\` = 框架通用规约（跟随 framework-sync 更新，禁止本地修改）
+> - \`PROJECT.md\` = 项目专属约束（可写，与框架规则冲突时**优先生效**）
+
+---
+
+## 1. 项目背景
+
+（在这里写本项目的业务背景、核心场景、用户画像。）
+
+## 2. 项目专属技术栈差异
+
+如果本项目相比框架默认栈做了调整，在此声明：
+
+| 维度 | 框架默认 | 本项目 | 原因 |
+|------|---------|--------|------|
+| 例：UI 库 | shadcn/ui | Radix UI 原生 | （写原因） |
+
+## 3. 项目专属禁令
+
+| # | 禁止 | 原因 / 替代方案 |
+|---|------|---------------|
+| 1 | 例：禁止 invoke 同步 Rust 命令 > 50ms | 改 spawn async + event |
+
+## 4. 项目专属命名 / 文件结构
+
+（如有偏离框架默认的约定，在此声明。）
+
+## 5. 项目专属经验
+
+会话中沉淀的"只对本项目有用，不值得反哺给框架"的经验写在这里。
+
+> 真正通用、可反哺到框架的经验请写到 \`.claude/docs/experience/feedback-to-framework.md\`。
+
+EOF
+```
+
+---
+
+### Step 1.5.C：创建 `.claude/project-skills/` 目录
+
+项目专属技能存放点（与框架本体 `.claude/skills/` 区分）：
+
+```bash
+mkdir -p "$NEW_DIR/.claude/project-skills"
+cat > "$NEW_DIR/.claude/project-skills/README.md" <<EOF
+# 项目专属技能目录（project-skills）
+
+> 本目录与 \`.claude/skills/\` 互补：
+>
+> - \`.claude/skills/\` = 框架本体技能（只读，跟随 framework-sync 更新）
+> - \`.claude/project-skills/\` = 项目专属技能（可写，不参与框架同步）
+
+## 何时往这里加技能？
+
+- 这个技能**只对本项目有用**（如：与某个特定后端 API 强耦合的领域模型生成器）
+- 这个技能**包含敏感信息或商业逻辑**，不应反哺给框架
+
+## 何时往 \`.claude/skills/\` 加技能？
+
+- ❌ 不允许直接改框架本体 skills 目录
+- ✅ 想给框架加技能 → 先在 \`project-skills/\` 试用，验证通用后通过 \`add-skill\` skill + PR 反哺到框架
+
+## 技能格式
+
+与 \`.claude/skills/\` 完全一致：每个技能一个目录，含 \`SKILL.md\`（YAML frontmatter + 内容）。
+
+Claude Code 会**同时**扫描两个目录，project-skills 中的技能会自动可用。
+EOF
+```
+
+---
+
+### Step 1.5.D：创建 `.claude/docs/experience/feedback-to-framework.md`
+
+反哺候选汇集池：
+
+```bash
+mkdir -p "$NEW_DIR/.claude/docs/experience"
+cat > "$NEW_DIR/.claude/docs/experience/feedback-to-framework.md" <<EOF
+# 反哺到 tauri 框架的经验候选
+
+> 本文件用于**收集**那些"在本项目踩到的坑 / 验证过的优化方案"，**评估通用性后**反哺到上游框架（\`https://gitcode.com/zhuawashi/tauri\`）。
+
+---
+
+## 写入规则
+
+每条候选包含 6 个字段：
+
+1. **场景** — 一句话描述
+2. **现象** — 触发条件 / 错误日志 / 坏味道
+3. **根因** — 为什么
+4. **解决** — 怎么改（贴代码片段，**先脱敏**）
+5. **通用性评分** — ⭐⭐⭐⭐⭐（5 星 = 所有 Tauri 项目都会遇到，1 星 = 仅本项目）
+6. **建议反哺位置** — 框架里哪个 skill / CLAUDE.md 章节
+
+---
+
+## 反哺工作流
+
+1. 子项目里随时往本文档追加候选
+2. 累积到 5+ 条 → 用 \`cmd-framework-sync\` skill 的反哺子命令
+3. 自动生成框架仓库的 PR（脱敏后）
+4. 框架 owner review → merge → 下次 \`framework-sync\` 拉回所有子项目
+
+---
+
+## 候选清单
+
+### 候选 #1：（场景）
+
+- **场景**：
+- **现象**：
+- **根因**：
+- **解决**：
+- **通用性评分**：
+- **建议反哺位置**：
+
+EOF
+```
+
+---
+
+### Step 1.5.E：在子项目 CLAUDE.md 顶部加 PROJECT.md 加载提示
+
+子项目的 `CLAUDE.md`（从框架复制来的副本）顶部插入一段，提示读 PROJECT.md：
+
+```bash
+# 检查是否已加载提示（避免重复插入）
+if ! grep -q "PROJECT.md（项目专属约束）" "$NEW_DIR/CLAUDE.md"; then
+  # 用 Python 在 "# CLAUDE.md" 第一行后插入
+  python -c "
+import io
+p = r'$NEW_DIR/CLAUDE.md'
+with open(p, 'r', encoding='utf-8') as f:
+    lines = f.readlines()
+insert_at = next((i+1 for i, l in enumerate(lines) if l.startswith('# CLAUDE.md')), 1)
+snippet = '''
+> 🔴 **子项目模式提示**：本项目是基于 [tauri 框架](https://gitcode.com/zhuawashi/tauri) 创建的子项目。
+>
+> - 本文件（CLAUDE.md）= 框架只读副本，不要直接改
+> - 项目专属约束请写到 \`\`.claude/PROJECT.md\`\`（项目专属约束）
+> - 项目专属技能请放到 \`\`.claude/project-skills/\`\`
+> - 反哺到框架的候选请写到 \`\`.claude/docs/experience/feedback-to-framework.md\`\`
+
+'''
+lines.insert(insert_at, snippet)
+with open(p, 'w', encoding='utf-8') as f:
+    f.writelines(lines)
+"
+fi
+```
+
+---
+
+### Step 1.5 完整执行清单
+
+| # | 操作 | 产出 |
+|---|------|------|
+| 1.5.A | 写 exp.config.json | `.claude/exp.config.json` |
+| 1.5.B | 写 PROJECT.md | `.claude/PROJECT.md` |
+| 1.5.C | 建 project-skills/ + README | `.claude/project-skills/README.md` |
+| 1.5.D | 建 feedback-to-framework.md | `.claude/docs/experience/feedback-to-framework.md` |
+| 1.5.E | CLAUDE.md 顶部加提示 | 子项目 CLAUDE.md 已注入 subproject 提示 |
+
+> **关键边界**：完成 Step 1.5 之后，子项目就有了完整的"框架经验 / 项目经验 / 反哺候选"三层边界，会话中沉淀的任何经验都有明确去处。
+
 ---
 
 ## 阶段二：代码初始化（在新目录中执行）
@@ -810,6 +1188,106 @@ git push -u origin master
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
+
+### Step 5.2：输出"复制即用"的开发提示词 ★
+
+> **目的**：用户切换到新项目后，需要立即让 Claude Code 加载完整上下文开始开发。本步骤生成一段**可直接复制到新项目 Claude Code 输入框**的提示词。
+
+#### 5.2.1 检测新项目中已剪切的资产
+
+```bash
+HAS_PROTOTYPE=$([ -n "$(ls -A "$NEW_DIR/prototype" 2>/dev/null)" ] && echo "yes" || echo "no")
+HAS_REQUIREMENTS=$([ -n "$(ls -A "$NEW_DIR/docs/requirements" 2>/dev/null)" ] && echo "yes" || echo "no")
+HAS_DESIGN=$([ -n "$(ls -A "$NEW_DIR/docs/design" 2>/dev/null)" ] && echo "yes" || echo "no")
+```
+
+#### 5.2.2 生成提示词模板
+
+向用户展示（边框 + 提示一键复制）：
+
+````
+━━━━━━━━━━ 复制以下提示词到新项目 Claude Code ━━━━━━━━━━
+
+我刚基于 Tauri 模板创建了新项目「{新产品名}」（{应用标识符}），
+已经准备好以下设计资产：
+
+{IF HAS_REQUIREMENTS}
+- `docs/requirements/` — 产品需求文档（PRD / 用户故事 / 接口约定）
+{ENDIF}
+{IF HAS_PROTOTYPE}
+- `prototype/` — UI 原型图（HTML / 截图，由 AI 工作站生成）
+{ENDIF}
+{IF HAS_DESIGN}
+- `docs/design/` — 架构 / 设计稿
+{ENDIF}
+
+请按以下步骤启动开发：
+
+1. **加载经验**
+   读取 `.claude/docs/experience/` 下最近的摘要文件（如果存在）
+
+2. **理解项目**
+   - 读 `CLAUDE.md` 了解项目核心规范（包名/标识符/Rust 命名/Tauri command）
+   - 读 `docs/requirements/PRD-v1.0.md` 或同等 PRD 文档了解业务目标
+   - 浏览 `prototype/` 下的 HTML 原型，建立 UI 心理模型
+
+3. **拆解第一个 milestone**
+   基于 PRD 列出本周需要实现的 5 个核心 feature，按依赖顺序排序：
+   - 哪些是基础数据模型（Rust struct + SQLite migration）
+   - 哪些是 Tauri command 接口（前后端契约）
+   - 哪些是前端页面 / 组件
+
+4. **先做的第一件事**
+   建议按 `prototype/{原型文件名}` 实现首页，包括：
+   - 路由配置
+   - 主要组件骨架
+   - 与 Rust command 的契约（mock 数据先跑通）
+
+5. **遵循的关键规范**
+   - 项目标识符：{应用标识符}（不要再用 com.agilefr.tauri）
+   - 包名：{包名}（不要再用 tauri / tauri_lib）
+   - Rust 文件用 snake_case，组件用 PascalCase，路径用 kebab-case
+   - 所有跨进程交互走 Tauri command（不要直接 spawn 系统进程）
+   - 状态管理用 Zustand + 持久化（不要全局 React Context）
+
+6. **开发节奏**
+   - 每完成一个 feature 立即 `git commit`（小步快走）
+   - 周末用 `/exp` 沉淀本周经验
+   - 遇到 Bug 先用 `bug-detective` skill 排查
+
+现在请开始第 1 步，并告诉我你看到了什么 / 计划怎么做。
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+````
+
+#### 5.2.3 把提示词同时保存到新项目
+
+```bash
+# 保存到 .claude/docs/init-prompt.md，便于用户随时再用
+mkdir -p "$NEW_DIR/.claude/docs"
+cat > "$NEW_DIR/.claude/docs/init-prompt.md" << 'EOF'
+# 初始化提示词（项目首次开发用）
+
+{上面的提示词内容}
+
+## 使用方式
+- 首次在新项目打开 Claude Code 时复制粘贴
+- 后续可作为"上下文重置"使用（让 AI 重新理解项目）
+EOF
+
+echo ""
+echo "已保存到：$NEW_DIR/.claude/docs/init-prompt.md"
+echo "下次再用直接：cat .claude/docs/init-prompt.md | xclip"
+```
+
+#### 反模式
+
+| ❌ | ✅ |
+|---|----|
+| 让用户自己写第一条提示词（信息不全） | 自动生成完整上下文提示词 |
+| 提示词没引用具体文件 | 必须列具体路径（`docs/requirements/PRD-v1.0.md`） |
+| 提示词没有动作（"了解一下"） | 必须含明确步骤 1-6 + "现在请开始第 1 步" |
+| 不保存提示词 | 写入 `.claude/docs/init-prompt.md` 可重复使用 |
 
 ---
 
