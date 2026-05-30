@@ -68,7 +68,8 @@ if (toolName === 'Bash') {
     { pattern: /:(){ :|:& };:/, reason: 'Fork \u70b8\u5f39' },
     // Tauri/Rust 特有的危险操作
     { pattern: /cargo\s+publish(?!\s+--dry-run)(\s|$)/i, reason: '\u53d1\u5e03 crate \u5230 crates.io\uff08\u4e0d\u53ef\u64a4\u56de\uff09' },
-    { pattern: /tauri\s+signer\s+generate/i, reason: '\u91cd\u65b0\u751f\u6210\u7b7e\u540d\u5bc6\u94a5\u4f1a\u8986\u76d6\u73b0\u6709\u5bc6\u94a5' },
+    // \u6ce8: `tauri signer generate` \u4e0d\u518d\u76f4\u63a5\u963b\u6b62\uff08\u9879\u76ee\u521d\u59cb\u5316\u7b49\u6d41\u7a0b\u9700\u8981\u751f\u6210\u7b7e\u540d\u5bc6\u94a5\uff09\uff0c
+    // \u6539\u4e3a\u4e0b\u65b9 warningPatterns \u4ec5\u63d0\u9192"\u4f1a\u8986\u76d6\u73b0\u6709\u5bc6\u94a5"\u3002
   ];
 
   for (const { pattern, reason } of dangerousPatterns) {
@@ -92,6 +93,7 @@ if (toolName === 'Bash') {
     // Git 操作
     { pattern: /git\s+push\s+--force/, warning: 'Force push \u53ef\u80fd\u8986\u76d6\u4ed6\u4eba\u4ee3\u7801' },
     // Tauri/Rust 特有警告
+    { pattern: /tauri\s+signer\s+generate/i, warning: '`tauri signer generate` \u4f1a\u751f\u6210\u7b7e\u540d\u5bc6\u94a5\uff1b\u82e5\u5df2\u5b58\u5728\u5bc6\u94a5\u8bf7\u786e\u8ba4\u4e0d\u4f1a\u8bef\u8986\u76d6\uff08\u9879\u76ee\u521d\u59cb\u5316\u9996\u6b21\u751f\u6210\u53ef\u5ffd\u7565\uff09' },
     { pattern: /cargo\s+clean\b/, warning: '`cargo clean` \u4f1a\u5220\u9664\u6574\u4e2a target \u76ee\u5f55\uff0c\u91cd\u65b0\u7f16\u8bd1\u53ef\u80fd\u8017\u65f6\u8f83\u957f' },
     { pattern: /rm\s+(-rf?\s+)?.*src-tauri\/target/, warning: '\u5220\u9664 Rust \u7f16\u8bd1\u7f13\u5b58\uff0c\u91cd\u65b0\u7f16\u8bd1\u53ef\u80fd\u8017\u65f6\u8f83\u957f' },
     { pattern: /cargo\s+update\b/, warning: '`cargo update` \u53ef\u80fd\u5347\u7ea7\u4f9d\u8d56\u5f15\u5165\u4e0d\u517c\u5bb9\u53d8\u66f4\uff0c\u5efa\u8bae\u5148\u67e5\u770b Cargo.lock \u5dee\u5f02' },
