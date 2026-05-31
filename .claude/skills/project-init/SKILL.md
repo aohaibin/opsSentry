@@ -16,15 +16,22 @@ description: |
 
 ## 🔴 全局强制规则（最高优先级）
 
-> **仓库可见性：必须私有**
+> **仓库可见性：源码私有，更新端点仓库公开（唯一例外）**
 >
-> 本技能创建的**所有** Git 仓库（项目主仓库、release 仓库等），无论平台（Gitee / GitHub / GitCode），
-> 都**必须**创建为**私有仓库**（`private: true`），**绝对禁止**创建为公开仓库。
->
+> **① 源码 / 主仓库**：无论平台（Gitee / GitHub / GitCode），都**必须**创建为**私有仓库**
+> （`private: true`），**绝对禁止**公开。
 > - 即使用户未指定可见性，默认也必须私有
 > - API 调用中 `private: true` 必须硬编码，不可省略、不可通过变量覆盖
-> - 如果用户明确要求公开，需先提示风险并得到用户的二次确认（明确的"确认公开"回复）后才能改为 `false`
 > - 该规则继承自全局 CLAUDE.md 的"仓库创建规范"章节
+>
+> **② release / updater 端点仓库**：**必须公开**（`private: false`）。
+> - **技术硬约束**：Tauri updater 是用**明文 HTTP GET**（无 token、无认证）去拉 `update.json` 的 raw 地址。
+>   端点仓库若是私有，Gitee / GitHub raw 地址需要认证 → updater 拿不到 → 应用永远"检查不到更新"。
+> - **为什么这是安全的例外**：release 仓库**只含安装包 + update.json + 更新公钥**，
+>   不含任何源码、不含签名私钥（公钥本就设计为可公开）。公开它不泄露任何敏感资产。
+> - 这是全局"仓库一律私有"铁律的**唯一已知例外**，因技术必要性而存在，与 release-publish 技能保持一致。
+> - 替代方案：若启用 Cloudflare R2（`r2.enabled`），主更新端点走 R2 公开桶，
+>   则 Gitee/GitHub release 仓库仅作备源/存档，可视情况私有（但备源 raw 仍会 404，不推荐）。
 
 ## 概述
 
@@ -157,22 +164,24 @@ git pull origin master
 
 ### Step 0.3：收集发布配置
 
-> 🔴 **仓库可见性强制规则**：所有新建仓库**必须**创建为**私有仓库**（`private: true`），
-> 绝对禁止创建为公开仓库。该规则继承自全局 CLAUDE.md 的"仓库创建规范"，适用于 Gitee / GitHub / GitCode 等所有平台。
-> 即使用户未指定可见性，也默认私有。
+> 🔴 **仓库可见性强制规则**：
+> - **源码 / 主仓库**：**必须私有**（`private: true`），绝对禁止公开。继承自全局 CLAUDE.md。
+> - **release / updater 端点仓库**：**必须公开**（`private: false`）。Tauri updater 用明文 HTTP 拉 raw 地址，
+>   私有则应用永远检查不到更新；该仓库只含安装包 + update.json + 公钥，公开不泄露敏感资产（详见顶部"全局强制规则"）。
 
 **必须询问用户**：
 
 ```
 请选择 Git 仓库方式：
-1. 自动创建 Gitee 仓库（默认私有，需要 Gitee Token）
+1. 自动创建 Gitee 仓库（源码仓库默认私有，需要 Gitee Token）
 2. 提供已有的仓库地址（Gitee/GitHub）
 3. 稍后手动创建
 
-⚠️ 所有新建仓库将强制创建为「私有仓库」，不支持公开可见。
+⚠️ 源码 / 主仓库强制「私有」，不支持公开可见。
 
 更新服务配置（用于应用自动更新）：
-1. 提供 release 仓库地址（如 https://gitee.com/user/myapp-release，也必须私有）
+1. 提供 release 仓库地址（如 https://gitee.com/user/myapp-release）
+   ⚠️ release 仓库必须「公开」，否则应用自动更新拉不到 update.json
 2. 稍后配置（更新功能暂不可用）
 ```
 
@@ -204,7 +213,7 @@ git pull origin master
   新目录：{模板仓库同级}/mall_admin
   开发端口：{dev_port}（HMR: {hmr_port}）
   Git 仓库：https://gitee.com/user/mall_admin.git  [私有 🔒]
-  Release 仓库：https://gitee.com/user/mall_admin-release.git  [私有 🔒]
+  Release 仓库：https://gitee.com/user/mall_admin-release.git  [公开 🌐 更新端点需匿名可读]
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -1013,9 +1022,12 @@ https.get('https://gitee.com/api/v5/user?access_token=$TOKEN', res => {
 > **重要**：必须使用 Node.js 发送请求，不要用 curl！
 > Git Bash 的 curl 处理中文编码有问题，会导致仓库描述变成乱码。
 >
-> 🔴 **强制私有仓库**：`private` 字段必须硬编码为 `true`，**绝对禁止**创建为 `false`（公开仓库）。
-> 即使用户未明确要求，默认也必须是私有。该规则遵循全局 CLAUDE.md 的"仓库创建规范"。
-> 如果用户明确要求公开，需要先二次确认风险，并在对话中得到明确"是，确认公开"的回复后才能改为 `false`。
+> 🔴 **强制私有仓库（仅限源码 / 主仓库）**：本段创建的是**源码主仓库**，`private` 字段必须硬编码为 `true`，
+> **绝对禁止**创建为 `false`（公开仓库）。即使用户未明确要求，默认也必须是私有。该规则遵循全局 CLAUDE.md 的"仓库创建规范"。
+> 如果用户明确要求公开源码仓库，需要先二次确认风险，并在对话中得到明确"是，确认公开"的回复后才能改为 `false`。
+>
+> ⚠️ **例外：若用此段去创建 release / updater 端点仓库（`<项目名>-release`），必须改 `private: false`（公开）**——
+> 否则 Tauri updater 拉不到 update.json，自动更新失效。详见顶部"全局强制规则 ②"。
 
 ```javascript
 // 使用 Node.js 调用 Gitee API 创建仓库
@@ -1449,15 +1461,17 @@ git cherry-pick <commit-hash>
 
 与 ruoyi-plus-uniapp 不同，本框架的 SQLite 数据库由 `database/schema.rs` 中的迁移逻辑在首次启动时**自动创建**，无需手动导入 SQL 文件。
 
-### 8. 🔴 仓库必须私有（强制规则）
+### 8. 🔴 仓库可见性（源码私有，更新端点仓库公开）
 
-- **所有**新建仓库（项目主仓库 + release 仓库）一律创建为**私有**，无论 Gitee / GitHub / GitCode
-- Gitee API 请求体中 `private: true` 必须硬编码，禁止省略、禁止通过变量传入可能为 `false` 的值
-- 即使用户未指定可见性，默认也按私有处理
-- 如果用户明确要求公开，执行前必须：
-  1. 向用户说明公开仓库的风险（源码、签名配置、业务逻辑暴露）
-  2. 得到用户明确的二次确认（如"我确认要创建公开仓库"）后，才能将 `private` 改为 `false`
-- release 仓库（用于分发安装包和 update.json）**强烈建议保持私有**，避免安装包/签名公钥暴露
+- **源码 / 主仓库**：一律创建为**私有**，无论 Gitee / GitHub / GitCode
+  - Gitee API 请求体中 `private: true` 必须硬编码，禁止省略、禁止通过变量传入可能为 `false` 的值
+  - 即使用户未指定可见性，默认也按私有处理
+  - 如果用户明确要求把源码仓库公开，执行前必须：① 说明风险（源码、配置、业务逻辑暴露）② 得到明确二次确认（如"我确认要创建公开仓库"）后才能改 `private: false`
+- **release / updater 端点仓库**：**必须公开**（`private: false`），这是全局"仓库一律私有"铁律的**唯一例外**
+  - **原因**：Tauri updater 用明文 HTTP GET（无认证）拉 `update.json` 的 raw 地址，私有仓库 raw 需认证 → 应用永远"检查不到更新"
+  - **安全性**：release 仓库只含安装包 + update.json + 更新**公钥**，**不含源码、不含签名私钥**，公开不泄露任何敏感资产
+  - ⚠️ 早期版本曾写"release 仓库强烈建议保持私有"，**那是错的**——会直接导致自动更新失效，已纠正
+  - 若启用 R2（`r2.enabled`），主端点走 R2 公开桶，Gitee/GitHub release 仓库作备源，仍建议公开以保证 fallback 可用
 
 ### 9. Gitee Token 管理
 

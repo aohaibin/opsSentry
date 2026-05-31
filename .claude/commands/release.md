@@ -130,6 +130,9 @@ CI 已触发，请等待构建完成。
 3. 读取 `.sig` 文件生成 `update.json`（**仅包含已配置平台**）
    - **如果 r2.enabled**：生成 R2 版 + Gitee 版 + GitHub 版（3 个版本）
    - **如果 r2 未启用**：生成 Gitee 版 + GitHub 版（2 个版本）
+   - **🔴 必须用 shell 变量注入签名**（见技能 release-publish 步骤 5「3a~3f」的 `generate_update_json()` 函数）
+   - **🚫 禁止手动粘贴 base64 签名**（400+ 字符极易出错，一个字符差异即导致签名验证失败，所有用户更新报 `signature verification failed`）
+   - **生成后必须验证**：对比 update.json 中的签名与原始 `.sig` 文件是否完全一致（步骤 3f 自动比对）
 4. **如果 r2.enabled**：上传 R2 版 update.json 到 R2（`rclone copyto` → `<rcloneRemote>:<bucket>/<pathPrefix>/update.json`）
 5. **如果 r2.enabled**：更新 R2 上的 `versions.json`（下载当前版本列表 → 在数组头部插入新版本 → 上传回 R2）。文档站下载页依赖此文件获取版本列表。
 6. 更新两个 release 仓库的 README.md（下载链接 + 版本历史 + 项目结构树，**仅包含已配置的平台**）
@@ -167,7 +170,14 @@ CI 已触发，请等待构建完成。
 16. **Claude 生成 update.json**：读取 `.sig` 文件内容写入 update.json（仅包含已配置平台）。如果 r2.enabled，生成 3 个版本（R2 版 + Gitee 版 + GitHub 版）；否则生成 2 个版本（Gitee 版 + GitHub 版）
 17. **Claude 推送 release 仓库**：复制产物 + update.json 后本地推送到 Gitee/GitHub
 
+### 🔴 签名注入（防错规则，整个发布最易炸的一步）
+18. **必须用 shell 变量注入签名**：先 `WIN_SIG=$(cat <AppName>_*x64-setup.exe.sig | tr -d '\r\n')`，再用**双引号 heredoc** `<< JSONEOF`（无单引号）通过 `$WIN_SIG` 注入
+19. **禁止手动粘贴 base64 签名**：400+ 字符极易出错，一个字符差异即导致 `signature verification failed`，所有用户自动更新失效
+20. **必须用 `<AppName>_` 前缀过滤 .sig**：禁止 `cat *x64-setup.exe.sig` 纯后缀通配符（会把同目录其他项目的 sig 拼进来 → 非法 base64 "Invalid symbol 61"）；强烈建议下载用独立子目录隔离
+21. **生成后必须验证**：① `=` 字符数 ≤ 2 ② node 真 base64 解码 ③ 比对 update.json 内签名与 `.sig` 一致，任一不过立即中止
+22. **统一生成函数**：所有版本（R2/Gitee/GitHub）必须用同一个 `generate_update_json()` 函数生成，只传不同的 BASE_URL，确保签名/结构完全一致
+
 ### R2 CDN（可选）
-18. **R2 为可选功能**：通过 `release-config.json` 的 `r2.enabled` 字段控制，未配置时回退到 Gitee 主源模式
-19. **R2 上传使用 rclone**：`rclone copy` 上传产物，`rclone copyto` 上传 update.json
-20. **R2 启用后分发策略**：R2 CDN 为主源，Gitee 为备源，GitHub 为存档
+23. **R2 为可选功能**：通过 `release-config.json` 的 `r2.enabled` 字段控制，未配置时回退到 Gitee 主源模式
+24. **R2 上传使用 rclone**：`rclone copy` 上传产物，`rclone copyto` 上传 update.json
+25. **R2 启用后分发策略**：R2 CDN 为主源，Gitee 为备源，GitHub 为存档

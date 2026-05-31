@@ -488,24 +488,133 @@ for DIR in "$GITEE_DIR" "$GITHUB_DIR"; do
 done
 
 # ========== 3. 读取签名文件，生成 update.json（仅包含已配置平台） ==========
-# 如果 r2.enabled：生成 R2 版（URL 指向 R2 CDN）+ Gitee 版 + GitHub 版（3 个版本）
-# 如果 r2 未启用：生成 Gitee 版 + GitHub 版（2 个版本）
 #
-# R2 版 URL 基准: ${R2_PUBLIC_URL}/${R2_PREFIX}/releases/v${VERSION}
-# Gitee 版 URL 基准: https://gitee.com/<用户名>/<项目名>-release/raw/master/releases/vx.y.z
-# GitHub 版 URL 基准: https://github.com/<用户名>/<项目名>-release/raw/master/releases/vx.y.z
+# 🔴🔴🔴 这是整个发布最易出错、出错后果最严重的一步 🔴🔴🔴
+# 签名（.sig 内容）错一个字符 → 所有用户自动更新报 "signature verification failed"。
+# 必须严格遵守下面的 4 条注入规则，禁止任何形式的手动粘贴 base64 签名。
+#
+# 签名注入规则（违反会导致自动更新签名验证失败）：
+#   1. 必须先用 shell 变量读取 .sig 文件内容（tr -d '\r\n' 去掉 Windows 换行）
+#   2. 所有版本（R2/Gitee/GitHub）的 update.json 都必须用**双引号 heredoc**（<< JSONEOF，不带单引号），
+#      通过 $VAR 注入签名 —— 这样 shell 自动替换变量，无需人工接触签名内容
+#   3. 🚫 绝对禁止：单引号 heredoc（<< 'JSONEOF'）后手动粘贴签名（400+ 字符，一个字符差异即失败）
+#   4. 生成后必须验证：对比 update.json 内签名与原始 .sig 文件完全一致
 
-# ========== 4. [可选] 上传 R2 版 update.json（如果 r2.enabled） ==========
+# --- 3a. 读取各平台签名（仅读 platforms 配置含有的平台）---
+# 🔴 必须用 <AppName>_ 前缀过滤,不能用 *x64-setup.exe.sig 这种纯后缀通配符!
+# 踩坑实录: cat *x64-setup.exe.sig 会把同目录下其他项目的 .sig 一起 cat 出来,
+# 拼接成 800+ 字符的非法 base64,Tauri updater 报 "Invalid symbol 61, offset 426"。
+# 强烈建议下载用独立子目录(步骤 4.4 的 D:/download/<app-slug>-v$VERSION/)天然隔离。
+WIN_SIG=$(cat "$DOWNLOAD_DIR"/<AppName>_*x64-setup.exe.sig 2>/dev/null | tr -d '\r\n')      # windows
+MAC_ARM_SIG=$(cat "$DOWNLOAD_DIR"/<AppName>_*aarch64.app.tar.gz.sig 2>/dev/null | tr -d '\r\n') # macos arm
+MAC_X64_SIG=$(cat "$DOWNLOAD_DIR"/<AppName>_*x64.app.tar.gz.sig 2>/dev/null | tr -d '\r\n')  # macos intel
+LINUX_SIG=$(cat "$DOWNLOAD_DIR"/<AppName>_*amd64.AppImage.sig 2>/dev/null | tr -d '\r\n')    # linux
+
+# --- 3b. 防御性校验①: 每个签名 = 字符数 ≤ 2（只有末尾的 base64 padding）---
+# 超过 2 个 = 说明 cat 拼接了多个文件或签名格式异常,立即中止。
+# 只校验 platforms 配置含有的平台(未配置平台的变量为空,跳过)。
+for var_name in WIN_SIG MAC_ARM_SIG MAC_X64_SIG LINUX_SIG; do
+  sig_value=$(eval echo "\${$var_name}")
+  [ -z "$sig_value" ] && continue
+  eq_count=$(echo -n "$sig_value" | tr -cd '=' | wc -c)
+  if [ "$eq_count" -gt 2 ]; then
+    echo "❌ $var_name 含 $eq_count 个 = 字符(应 ≤ 2),可能 cat 了多个 sig 文件"
+    echo "   下载目录是否混入其他项目的 .sig? 自查: ls $DOWNLOAD_DIR/*.sig"
+    exit 1
+  fi
+done
+
+# --- 3c. 防御性校验②: node 真实 base64 解码（终极兜底，唯一可靠验证）---
+# 即使 = 字符通过,也可能含其他非法字符(空格/中文/控制字符)。base64 真解码 + 重编码比对才可靠。
+for var_name in WIN_SIG MAC_ARM_SIG MAC_X64_SIG LINUX_SIG; do
+  sig_value=$(eval echo "\${$var_name}")
+  [ -z "$sig_value" ] && continue
+  SIG="$sig_value" node -e "
+    try {
+      const buf = Buffer.from(process.env.SIG, 'base64');
+      if (buf.toString('base64') !== process.env.SIG.trim()) {
+        console.error('❌ 签名含非 base64 字符或格式异常 (re-encode mismatch)'); process.exit(1);
+      }
+      // Tauri ed25519 签名 + metadata,总长一般 200-800 字节
+      if (buf.length < 200 || buf.length > 800) {
+        console.error('❌ 签名解码后字节数异常:', buf.length, '(预期 200-800)'); process.exit(1);
+      }
+    } catch (e) { console.error('❌ base64 解码失败:', e.message); process.exit(1); }
+  " || { echo "签名变量 $var_name 验证失败"; exit 1; }
+done
+echo "✅ 所有签名 base64 解码验证通过"
+
+# --- 3d. 用 node 安全转义"更新说明"作为 notes（多行用 \n,禁止直接字符串拼接）---
+RELEASE_NOTES="<本次发布说明，与步骤 1 询问用户时一致，可多行用 \n 分隔>"
+NOTES_JSON=$(NOTES="$RELEASE_NOTES" node -e "process.stdout.write(JSON.stringify(process.env.NOTES))")
+
+# --- 3e. 统一生成函数：3 个版本只传不同 BASE_URL，确保签名/结构完全一致 ---
+# 🔴 platforms 配置不含某平台时,删除函数内对应的 "<target>": {...} 块。
+generate_update_json() {
+  local BASE_URL="$1"
+  local OUTPUT="$2"
+  cat > "$OUTPUT" << JSONEOF
+{
+  "version": "$VERSION",
+  "notes": $NOTES_JSON,
+  "pub_date": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+  "platforms": {
+    "windows-x86_64": {
+      "url": "$BASE_URL/<AppName>_${VERSION}_x64-setup.exe",
+      "signature": "$WIN_SIG"
+    },
+    "darwin-aarch64": {
+      "url": "$BASE_URL/<AppName>_aarch64.app.tar.gz",
+      "signature": "$MAC_ARM_SIG"
+    },
+    "darwin-x86_64": {
+      "url": "$BASE_URL/<AppName>_x64.app.tar.gz",
+      "signature": "$MAC_X64_SIG"
+    },
+    "linux-x86_64": {
+      "url": "$BASE_URL/<AppName>_${VERSION}_amd64.AppImage",
+      "signature": "$LINUX_SIG"
+    }
+  }
+}
+JSONEOF
+}
+
+# URL 基准（仅生成 platforms 含有的；R2 仅 r2.enabled 时）
+GITEE_BASE="https://gitee.com/<用户名>/<项目名>-release/raw/master/releases/v${VERSION}"
+GITHUB_BASE="https://github.com/<用户名>/<项目名>-release/raw/master/releases/v${VERSION}"
+generate_update_json "$GITEE_BASE"  "$GITEE_DIR/update.json"
+generate_update_json "$GITHUB_BASE" "$GITHUB_DIR/update.json"
 if [ "$R2_ENABLED" = "true" ]; then
-  # 生成 R2 版 update.json（URL 指向 R2 CDN），写入临时文件后上传
+  R2_UPDATE_BASE="${R2_PUBLIC_URL}/${R2_PREFIX}/releases/v${VERSION}"
+  generate_update_json "$R2_UPDATE_BASE" "/tmp/update-r2.json"
+fi
+
+# --- 3f. 🔴 生成后强制验证签名一致性（防止写入错误，必须执行）---
+TARGETS="$GITEE_DIR/update.json $GITHUB_DIR/update.json"
+[ "$R2_ENABLED" = "true" ] && TARGETS="$TARGETS /tmp/update-r2.json"
+for f in $TARGETS; do
+  SIG_IN_JSON=$(node -e "const d=JSON.parse(require('fs').readFileSync('$f','utf8')); console.log(d.platforms['windows-x86_64'].signature)" | tr -d '\r\n')
+  if [ "$SIG_IN_JSON" != "$WIN_SIG" ]; then
+    echo "❌ 签名不匹配: $f"; exit 1
+  fi
+done
+echo "✅ 所有 update.json 签名一致性验证通过"
+
+# ========== 4. [可选] 上传 R2 版 update.json + versions.json（如果 r2.enabled） ==========
+if [ "$R2_ENABLED" = "true" ]; then
   $RCLONE copyto /tmp/update-r2.json ${RCLONE_REMOTE}:${R2_BUCKET}/${R2_PREFIX}/update.json --progress
 
   # ========== 4b. [可选] 更新 R2 版本列表（文档站下载页依赖此文件） ==========
-  # 下载当前 versions.json → 在数组头部插入新版本 → 上传回 R2
-  # versions.json 格式: {"versions": ["v2.8.2", "v2.8.1", ...]}
-  # 如果文档站使用 R2 versions.json 获取版本列表，则需要维护此文件
+  # versions.json 格式: {"versions": ["v2.8.2", "v2.8.1", ...]}（新版本插数组头部）
   curl -s "${R2_PUBLIC_URL}/${R2_PREFIX}/versions.json" -o /tmp/versions.json 2>/dev/null || echo '{"versions":[]}' > /tmp/versions.json
-  # 在 versions 数组头部插入 "v${VERSION}"
+  node -e "
+    const fs=require('fs'); const p='/tmp/versions.json';
+    let d; try{ d=JSON.parse(fs.readFileSync(p,'utf8')); }catch(e){ d={versions:[]}; }
+    d.versions = d.versions || [];
+    if(!d.versions.includes('v$VERSION')) d.versions.unshift('v$VERSION');
+    fs.writeFileSync(p, JSON.stringify(d,null,2));
+  "
   $RCLONE copyto /tmp/versions.json ${RCLONE_REMOTE}:${R2_BUCKET}/${R2_PREFIX}/versions.json --progress
 fi
 
@@ -593,6 +702,34 @@ git pull --rebase origin master
 git push origin master
 ```
 
+### 步骤 6.5：触发文档站重建（可选，仅文档站消费 R2 versions.json 时）
+
+> **何时需要**：项目有 VitePress 文档站，且下载页（`DownloadSection.vue` 之类）在**构建时**
+> 从 R2 拉 `versions.json` 嵌入静态快照。此时仅更新 R2 的 versions.json 还不够——
+> 文档站是上次构建的旧快照，必须重新构建才能拿到新版本列表。
+> **纯桌面 + 无文档站 / 文档站运行时直接 fetch R2 的项目可跳过本步。**
+
+```bash
+# 写一个版本标记文件制造真实 diff（比空 commit 更稳，能确实触发 Pages 重建）
+# 文件放文档站源码仓库的 docs/public/ 下，构建时一并发布但不影响页面
+cat > docs/public/.last-release.json << JSONEOF
+{
+  "version": "v$VERSION",
+  "released_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+}
+JSONEOF
+
+git add docs/public/.last-release.json
+git commit -m "chore: 同步 v$VERSION 发布（触发下载页快照重建）
+
+Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>"
+git push origin master   # 推到文档站托管分支（Gitee Pages / GitHub Pages / Cloudflare Pages）
+```
+
+> 推送后托管平台自动重新构建文档站，下载页在构建期重新拉取 R2 `versions.json`，
+> 新版本作为快照嵌入。**移动端**对应 `docs/public/.last-release-mobile.json`（与桌面平级，
+> 写移动端版本号，消费 `mobile-versions.json`），见下方"双线发布"章节。
+
 ### 步骤 7：完成报告
 
 ```markdown
@@ -607,6 +744,7 @@ git push origin master
 | R2 CDN | 产物 + update.json 已上传（如果 r2.enabled，否则显示"未启用"） |
 | Release 仓库（Gitee） | 产物 + update.json 已推送 |
 | Release 仓库（GitHub） | 产物 + update.json 已推送 |
+| 文档站下载页 | 已推送 .last-release.json 触发重建（如有文档站，否则显示"无"） |
 | 应用内自动更新 | R2 主 + Gitee 备，双端点已生效（如果 r2.enabled）/ Gitee 端点已生效（如果 r2 未启用） |
 ```
 
@@ -870,6 +1008,8 @@ versionName = "0.3.6"
 | 应用检查不到更新 | release 仓库是私有的 | 将仓库设为公开，否则 raw 地址需认证 |
 | 应用检查不到更新 | update.json 中版本号 <= 当前版本 | 确保 update.json 的 version 大于已安装版本 |
 | 签名验证失败 | 公钥不匹配 | 确保 `tauri.conf.json` 中的 pubkey 与签名使用的私钥配对 |
+| 签名验证失败 | update.json 中签名内容与 `.sig` 文件不一致 | **禁止手动粘贴签名**，必须用 shell 变量注入（步骤 5「3a~3f」的 `generate_update_json()`），生成后比对一致性 |
+| 签名报 "Invalid symbol 61, offset 4xx" | `cat *.sig` 通配符把多个项目的 .sig 拼成非法 base64 | 用 `<AppName>_` 前缀过滤 .sig；下载用独立子目录隔离（步骤 4.4） |
 
 ### R2 CDN 问题（r2.enabled 时）
 

@@ -73,14 +73,21 @@ pnpm tauri build --debug
       "timestampUrl": "",
       "wix": null,
       "nsis": {
-        "displayLanguageSelector": true,
-        "languages": ["SimpChinese", "English"],
+        "displayLanguageSelector": false,
+        "languages": ["SimpChinese"],
         "installerIcon": "icons/icon.ico"
       }
     }
   }
 }
 ```
+
+> **🔴 安装界面强制中文**（本框架默认）：
+> - `"languages": ["SimpChinese"]` —— **只列中文**，保证任何系统（含英文 Windows）安装界面都是中文。
+>   若列了 `["SimpChinese", "English"]`，`displayLanguageSelector:false` 时 NSIS 会**按系统语言自动选**，
+>   英文系统就变英文了，无法保证中文。需要中文兜底就只留 SimpChinese。
+> - `"displayLanguageSelector": false` —— 关掉安装首屏的语言选择弹窗，直接进中文界面。
+> - 需要同时支持英文（让用户自己选）时，才改回 `["SimpChinese", "English"]` + `displayLanguageSelector: true`（中文为默认项）。
 
 ### macOS 配置
 
