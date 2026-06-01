@@ -206,6 +206,12 @@ pub fn setup_tray(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>> {
 }
 ```
 
+### 开发 / 生产环境托盘图标区分（橙色角标）
+
+开发时常和正式安装版同时驻留托盘，图标长一样分不清点的是哪个实例。框架内置方案（见 `src-tauri/src/tray.rs` 的 `add_dev_badge`）：**仅 `cfg!(debug_assertions)`** 给托盘图标右下角叠一个橙色小圆点 + tooltip 加 `[DEV]`，正式版用原图。直接改图标 RGBA 像素绘制，不必单独维护 dev 图标资源；正式打包零开销。
+
+> 调整：角标大小/位置在 `add_dev_badge` 里改 `r`（半径=短边×0.18）和 `cx/cy`（默认右下角内缩 1px，若图标右下已有占用可挪右上）。
+
 ---
 
 ## 常见错误
@@ -217,3 +223,4 @@ pub fn setup_tray(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>> {
 | 关闭窗口不清理资源 | 监听 close-requested 事件清理 |
 | 不处理窗口创建失败 | 窗口可能已存在，需 catch 错误 |
 | 页内 antd Tree/react-dnd 拖拽无反应、光标 🚫 | 窗口配置设 `dragDropEnabled: false`，重启 dev server |
+| dev 实例和正式安装版托盘图标分不清 | `cfg!(debug_assertions)` 时 `add_dev_badge` 叠橙色角标 + tooltip 加 `[DEV]` |
