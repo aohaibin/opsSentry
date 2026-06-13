@@ -16,15 +16,22 @@ description: |
 
 ## 🔴 全局强制规则（最高优先级）
 
-> **仓库可见性：必须私有**
+> **仓库可见性：源码私有，更新端点仓库公开（唯一例外）**
 >
-> 本技能创建的**所有** Git 仓库（项目主仓库、release 仓库等），无论平台（Gitee / GitHub / GitCode），
-> 都**必须**创建为**私有仓库**（`private: true`），**绝对禁止**创建为公开仓库。
->
+> **① 源码 / 主仓库**：无论平台（Gitee / GitHub / GitCode），都**必须**创建为**私有仓库**
+> （`private: true`），**绝对禁止**公开。
 > - 即使用户未指定可见性，默认也必须私有
 > - API 调用中 `private: true` 必须硬编码，不可省略、不可通过变量覆盖
-> - 如果用户明确要求公开，需先提示风险并得到用户的二次确认（明确的"确认公开"回复）后才能改为 `false`
 > - 该规则继承自全局 CLAUDE.md 的"仓库创建规范"章节
+>
+> **② release / updater 端点仓库**：**必须公开**（`private: false`）。
+> - **技术硬约束**：Tauri updater 是用**明文 HTTP GET**（无 token、无认证）去拉 `update.json` 的 raw 地址。
+>   端点仓库若是私有，Gitee / GitHub raw 地址需要认证 → updater 拿不到 → 应用永远"检查不到更新"。
+> - **为什么这是安全的例外**：release 仓库**只含安装包 + update.json + 更新公钥**，
+>   不含任何源码、不含签名私钥（公钥本就设计为可公开）。公开它不泄露任何敏感资产。
+> - 这是全局"仓库一律私有"铁律的**唯一已知例外**，因技术必要性而存在，与 release-publish 技能保持一致。
+> - 替代方案：若启用 Cloudflare R2（`r2.enabled`），主更新端点走 R2 公开桶，
+>   则 Gitee/GitHub release 仓库仅作备源/存档，可视情况私有（但备源 raw 仍会 404，不推荐）。
 
 ## 概述
 
@@ -157,22 +164,24 @@ git pull origin master
 
 ### Step 0.3：收集发布配置
 
-> 🔴 **仓库可见性强制规则**：所有新建仓库**必须**创建为**私有仓库**（`private: true`），
-> 绝对禁止创建为公开仓库。该规则继承自全局 CLAUDE.md 的"仓库创建规范"，适用于 Gitee / GitHub / GitCode 等所有平台。
-> 即使用户未指定可见性，也默认私有。
+> 🔴 **仓库可见性强制规则**：
+> - **源码 / 主仓库**：**必须私有**（`private: true`），绝对禁止公开。继承自全局 CLAUDE.md。
+> - **release / updater 端点仓库**：**必须公开**（`private: false`）。Tauri updater 用明文 HTTP 拉 raw 地址，
+>   私有则应用永远检查不到更新；该仓库只含安装包 + update.json + 公钥，公开不泄露敏感资产（详见顶部"全局强制规则"）。
 
 **必须询问用户**：
 
 ```
 请选择 Git 仓库方式：
-1. 自动创建 Gitee 仓库（默认私有，需要 Gitee Token）
+1. 自动创建 Gitee 仓库（源码仓库默认私有，需要 Gitee Token）
 2. 提供已有的仓库地址（Gitee/GitHub）
 3. 稍后手动创建
 
-⚠️ 所有新建仓库将强制创建为「私有仓库」，不支持公开可见。
+⚠️ 源码 / 主仓库强制「私有」，不支持公开可见。
 
 更新服务配置（用于应用自动更新）：
-1. 提供 release 仓库地址（如 https://gitee.com/user/myapp-release，也必须私有）
+1. 提供 release 仓库地址（如 https://gitee.com/user/myapp-release）
+   ⚠️ release 仓库必须「公开」，否则应用自动更新拉不到 update.json
 2. 稍后配置（更新功能暂不可用）
 ```
 
@@ -204,7 +213,7 @@ git pull origin master
   新目录：{模板仓库同级}/mall_admin
   开发端口：{dev_port}（HMR: {hmr_port}）
   Git 仓库：https://gitee.com/user/mall_admin.git  [私有 🔒]
-  Release 仓库：https://gitee.com/user/mall_admin-release.git  [私有 🔒]
+  Release 仓库：https://gitee.com/user/mall_admin-release.git  [公开 🌐 更新端点需匿名可读]
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -364,6 +373,7 @@ ASSET_DIRS=(
   "docs/需求"               # 需求文档（中文）
   "docs/设计"               # 设计稿（中文）
   "docs/design"             # 设计稿（英文）
+  "docs/brand"              # 品牌资产（logo，由工作站 logo-studio 出，兼作 app 图标源）
   ".claude/docs/brainstorm" # 头脑风暴会话沉淀
 )
 
@@ -1013,9 +1023,12 @@ https.get('https://gitee.com/api/v5/user?access_token=$TOKEN', res => {
 > **重要**：必须使用 Node.js 发送请求，不要用 curl！
 > Git Bash 的 curl 处理中文编码有问题，会导致仓库描述变成乱码。
 >
-> 🔴 **强制私有仓库**：`private` 字段必须硬编码为 `true`，**绝对禁止**创建为 `false`（公开仓库）。
-> 即使用户未明确要求，默认也必须是私有。该规则遵循全局 CLAUDE.md 的"仓库创建规范"。
-> 如果用户明确要求公开，需要先二次确认风险，并在对话中得到明确"是，确认公开"的回复后才能改为 `false`。
+> 🔴 **强制私有仓库（仅限源码 / 主仓库）**：本段创建的是**源码主仓库**，`private` 字段必须硬编码为 `true`，
+> **绝对禁止**创建为 `false`（公开仓库）。即使用户未明确要求，默认也必须是私有。该规则遵循全局 CLAUDE.md 的"仓库创建规范"。
+> 如果用户明确要求公开源码仓库，需要先二次确认风险，并在对话中得到明确"是，确认公开"的回复后才能改为 `false`。
+>
+> ⚠️ **例外：若用此段去创建 release / updater 端点仓库（`<项目名>-release`），必须改 `private: false`（公开）**——
+> 否则 Tauri updater 拉不到 update.json，自动更新失效。详见顶部"全局强制规则 ②"。
 
 ```javascript
 // 使用 Node.js 调用 Gitee API 创建仓库
@@ -1125,7 +1138,24 @@ git push -u origin master
 
 ## 阶段四：应用图标（可选）
 
-### Step 4.1：提示用户准备图标
+### Step 4.0：自动应用品牌 Logo 为图标（若 /kickoff 已出 Logo）★
+
+如果 `docs/brand/` 下有 `/kickoff` 阶段二剪切进来的 Logo 主图，**直接拿它生成应用图标**，无需用户再准备：
+
+```bash
+cd "$NEW_DIR"
+LOGO=$(ls docs/brand/logo-1024.png docs/brand/logo*.png 2>/dev/null | head -1)
+if [ -n "$LOGO" ]; then
+  pnpm tauri icon "$LOGO"   # 自动生成 src-tauri/icons/ 全尺寸（ico/icns/png）
+  echo "✓ 已用品牌 Logo 生成应用图标：$LOGO"
+else
+  echo "未发现 docs/brand/ 下的 Logo，转 Step 4.1 手动准备"
+fi
+```
+
+仅当 `docs/brand/` 无 Logo 时，才走下面的 Step 4.1 手动流程。
+
+### Step 4.1：提示用户准备图标（仅在无品牌 Logo 时）
 
 ```
 应用图标配置（可稍后处理）：
@@ -1189,9 +1219,9 @@ git push -u origin master
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 
-### Step 5.2：输出"复制即用"的开发提示词 ★
+### Step 5.2：输出"复制即用"的自主循环起飞指令 ★
 
-> **目的**：用户切换到新项目后，需要立即让 Claude Code 加载完整上下文开始开发。本步骤生成一段**可直接复制到新项目 Claude Code 输入框**的提示词。
+> **目的**：用户切换到新项目后，一句话即可让 Claude Code 进入自主连续开发。本步骤输出 `/loop /dev-loop` 起飞指令——配合已剪切进来的需求+原型，新项目无需再手写开发提示词。
 
 #### 5.2.1 检测新项目中已剪切的资产
 
@@ -1208,54 +1238,7 @@ HAS_DESIGN=$([ -n "$(ls -A "$NEW_DIR/docs/design" 2>/dev/null)" ] && echo "yes" 
 ````
 ━━━━━━━━━━ 复制以下提示词到新项目 Claude Code ━━━━━━━━━━
 
-我刚基于 Tauri 模板创建了新项目「{新产品名}」（{应用标识符}），
-已经准备好以下设计资产：
-
-{IF HAS_REQUIREMENTS}
-- `docs/requirements/` — 产品需求文档（PRD / 用户故事 / 接口约定）
-{ENDIF}
-{IF HAS_PROTOTYPE}
-- `prototype/` — UI 原型图（HTML / 截图，由 AI 工作站生成）
-{ENDIF}
-{IF HAS_DESIGN}
-- `docs/design/` — 架构 / 设计稿
-{ENDIF}
-
-请按以下步骤启动开发：
-
-1. **加载经验**
-   读取 `.claude/docs/experience/` 下最近的摘要文件（如果存在）
-
-2. **理解项目**
-   - 读 `CLAUDE.md` 了解项目核心规范（包名/标识符/Rust 命名/Tauri command）
-   - 读 `docs/requirements/PRD-v1.0.md` 或同等 PRD 文档了解业务目标
-   - 浏览 `prototype/` 下的 HTML 原型，建立 UI 心理模型
-
-3. **拆解第一个 milestone**
-   基于 PRD 列出本周需要实现的 5 个核心 feature，按依赖顺序排序：
-   - 哪些是基础数据模型（Rust struct + SQLite migration）
-   - 哪些是 Tauri command 接口（前后端契约）
-   - 哪些是前端页面 / 组件
-
-4. **先做的第一件事**
-   建议按 `prototype/{原型文件名}` 实现首页，包括：
-   - 路由配置
-   - 主要组件骨架
-   - 与 Rust command 的契约（mock 数据先跑通）
-
-5. **遵循的关键规范**
-   - 项目标识符：{应用标识符}（不要再用 com.agilefr.tauri）
-   - 包名：{包名}（不要再用 tauri / tauri_lib）
-   - Rust 文件用 snake_case，组件用 PascalCase，路径用 kebab-case
-   - 所有跨进程交互走 Tauri command（不要直接 spawn 系统进程）
-   - 状态管理用 Zustand + 持久化（不要全局 React Context）
-
-6. **开发节奏**
-   - 每完成一个 feature 立即 `git commit`（小步快走）
-   - 周末用 `/exp` 沉淀本周经验
-   - 遇到 Bug 先用 `bug-detective` skill 排查
-
-现在请开始第 1 步，并告诉我你看到了什么 / 计划怎么做。
+/loop /dev-loop
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ````
@@ -1284,10 +1267,12 @@ echo "下次再用直接：cat .claude/docs/init-prompt.md | xclip"
 
 | ❌ | ✅ |
 |---|----|
-| 让用户自己写第一条提示词（信息不全） | 自动生成完整上下文提示词 |
-| 提示词没引用具体文件 | 必须列具体路径（`docs/requirements/PRD-v1.0.md`） |
-| 提示词没有动作（"了解一下"） | 必须含明确步骤 1-6 + "现在请开始第 1 步" |
-| 不保存提示词 | 写入 `.claude/docs/init-prompt.md` 可重复使用 |
+| 让用户切过去还得手写一长串开发提示词 | 直接给 `/loop /dev-loop` 一句起飞 |
+| 吐手动 step 1-6 让 AI"先了解一下" | 交给 `dev-loop` 标准每轮 SOP 自主推进 |
+| 新项目没继承 `dev-loop` 命令就让它跑 | 确认 `.claude/commands/dev-loop.md` 已随骨架继承（缺则补） |
+| 不保存起飞指令 | 写入 `.claude/docs/init-prompt.md` 备用 |
+
+> **生成后向用户简要解释**（无需复制）：新项目已带 `/dev-loop`（随框架骨架继承）+ 已就位的 `docs/requirements/`（需求）和 `prototype/`（原型）；`/loop /dev-loop` = 自主连续开发，每轮 读真相源 → 选下一个未勾 `[ ]` 任务 → 实现 → 验证门（`npx tsc --noEmit` / `cargo check`，UI 任务额外走「原型保真截图闭环」）→ 打勾 → 最小提交，直到任务台账全做完才停。**第 0 轮**会先按需求+原型自动拆出有序任务台账（`docs/tasks/active/BUILD-PLAN.md`）。
 
 ---
 
@@ -1449,15 +1434,17 @@ git cherry-pick <commit-hash>
 
 与 ruoyi-plus-uniapp 不同，本框架的 SQLite 数据库由 `database/schema.rs` 中的迁移逻辑在首次启动时**自动创建**，无需手动导入 SQL 文件。
 
-### 8. 🔴 仓库必须私有（强制规则）
+### 8. 🔴 仓库可见性（源码私有，更新端点仓库公开）
 
-- **所有**新建仓库（项目主仓库 + release 仓库）一律创建为**私有**，无论 Gitee / GitHub / GitCode
-- Gitee API 请求体中 `private: true` 必须硬编码，禁止省略、禁止通过变量传入可能为 `false` 的值
-- 即使用户未指定可见性，默认也按私有处理
-- 如果用户明确要求公开，执行前必须：
-  1. 向用户说明公开仓库的风险（源码、签名配置、业务逻辑暴露）
-  2. 得到用户明确的二次确认（如"我确认要创建公开仓库"）后，才能将 `private` 改为 `false`
-- release 仓库（用于分发安装包和 update.json）**强烈建议保持私有**，避免安装包/签名公钥暴露
+- **源码 / 主仓库**：一律创建为**私有**，无论 Gitee / GitHub / GitCode
+  - Gitee API 请求体中 `private: true` 必须硬编码，禁止省略、禁止通过变量传入可能为 `false` 的值
+  - 即使用户未指定可见性，默认也按私有处理
+  - 如果用户明确要求把源码仓库公开，执行前必须：① 说明风险（源码、配置、业务逻辑暴露）② 得到明确二次确认（如"我确认要创建公开仓库"）后才能改 `private: false`
+- **release / updater 端点仓库**：**必须公开**（`private: false`），这是全局"仓库一律私有"铁律的**唯一例外**
+  - **原因**：Tauri updater 用明文 HTTP GET（无认证）拉 `update.json` 的 raw 地址，私有仓库 raw 需认证 → 应用永远"检查不到更新"
+  - **安全性**：release 仓库只含安装包 + update.json + 更新**公钥**，**不含源码、不含签名私钥**，公开不泄露任何敏感资产
+  - ⚠️ 早期版本曾写"release 仓库强烈建议保持私有"，**那是错的**——会直接导致自动更新失效，已纠正
+  - 若启用 R2（`r2.enabled`），主端点走 R2 公开桶，Gitee/GitHub release 仓库作备源，仍建议公开以保证 fallback 可用
 
 ### 9. Gitee Token 管理
 

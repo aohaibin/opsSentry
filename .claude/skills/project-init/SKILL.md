@@ -373,6 +373,7 @@ ASSET_DIRS=(
   "docs/需求"               # 需求文档（中文）
   "docs/设计"               # 设计稿（中文）
   "docs/design"             # 设计稿（英文）
+  "docs/brand"              # 品牌资产（logo，由工作站 logo-studio 出，兼作 app 图标源）
   ".claude/docs/brainstorm" # 头脑风暴会话沉淀
 )
 
@@ -1137,7 +1138,24 @@ git push -u origin master
 
 ## 阶段四：应用图标（可选）
 
-### Step 4.1：提示用户准备图标
+### Step 4.0：自动应用品牌 Logo 为图标（若 /kickoff 已出 Logo）★
+
+如果 `docs/brand/` 下有 `/kickoff` 阶段二剪切进来的 Logo 主图，**直接拿它生成应用图标**，无需用户再准备：
+
+```bash
+cd "$NEW_DIR"
+LOGO=$(ls docs/brand/logo-1024.png docs/brand/logo*.png 2>/dev/null | head -1)
+if [ -n "$LOGO" ]; then
+  pnpm tauri icon "$LOGO"   # 自动生成 src-tauri/icons/ 全尺寸（ico/icns/png）
+  echo "✓ 已用品牌 Logo 生成应用图标：$LOGO"
+else
+  echo "未发现 docs/brand/ 下的 Logo，转 Step 4.1 手动准备"
+fi
+```
+
+仅当 `docs/brand/` 无 Logo 时，才走下面的 Step 4.1 手动流程。
+
+### Step 4.1：提示用户准备图标（仅在无品牌 Logo 时）
 
 ```
 应用图标配置（可稍后处理）：
@@ -1201,9 +1219,9 @@ git push -u origin master
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 
-### Step 5.2：输出"复制即用"的开发提示词 ★
+### Step 5.2：输出"复制即用"的自主循环起飞指令 ★
 
-> **目的**：用户切换到新项目后，需要立即让 Claude Code 加载完整上下文开始开发。本步骤生成一段**可直接复制到新项目 Claude Code 输入框**的提示词。
+> **目的**：用户切换到新项目后，一句话即可让 Claude Code 进入自主连续开发。本步骤输出 `/loop /dev-loop` 起飞指令——配合已剪切进来的需求+原型，新项目无需再手写开发提示词。
 
 #### 5.2.1 检测新项目中已剪切的资产
 
@@ -1220,54 +1238,7 @@ HAS_DESIGN=$([ -n "$(ls -A "$NEW_DIR/docs/design" 2>/dev/null)" ] && echo "yes" 
 ````
 ━━━━━━━━━━ 复制以下提示词到新项目 Claude Code ━━━━━━━━━━
 
-我刚基于 Tauri 模板创建了新项目「{新产品名}」（{应用标识符}），
-已经准备好以下设计资产：
-
-{IF HAS_REQUIREMENTS}
-- `docs/requirements/` — 产品需求文档（PRD / 用户故事 / 接口约定）
-{ENDIF}
-{IF HAS_PROTOTYPE}
-- `prototype/` — UI 原型图（HTML / 截图，由 AI 工作站生成）
-{ENDIF}
-{IF HAS_DESIGN}
-- `docs/design/` — 架构 / 设计稿
-{ENDIF}
-
-请按以下步骤启动开发：
-
-1. **加载经验**
-   读取 `.claude/docs/experience/` 下最近的摘要文件（如果存在）
-
-2. **理解项目**
-   - 读 `CLAUDE.md` 了解项目核心规范（包名/标识符/Rust 命名/Tauri command）
-   - 读 `docs/requirements/PRD-v1.0.md` 或同等 PRD 文档了解业务目标
-   - 浏览 `prototype/` 下的 HTML 原型，建立 UI 心理模型
-
-3. **拆解第一个 milestone**
-   基于 PRD 列出本周需要实现的 5 个核心 feature，按依赖顺序排序：
-   - 哪些是基础数据模型（Rust struct + SQLite migration）
-   - 哪些是 Tauri command 接口（前后端契约）
-   - 哪些是前端页面 / 组件
-
-4. **先做的第一件事**
-   建议按 `prototype/{原型文件名}` 实现首页，包括：
-   - 路由配置
-   - 主要组件骨架
-   - 与 Rust command 的契约（mock 数据先跑通）
-
-5. **遵循的关键规范**
-   - 项目标识符：{应用标识符}（不要再用 com.agilefr.tauri）
-   - 包名：{包名}（不要再用 tauri / tauri_lib）
-   - Rust 文件用 snake_case，组件用 PascalCase，路径用 kebab-case
-   - 所有跨进程交互走 Tauri command（不要直接 spawn 系统进程）
-   - 状态管理用 Zustand + 持久化（不要全局 React Context）
-
-6. **开发节奏**
-   - 每完成一个 feature 立即 `git commit`（小步快走）
-   - 周末用 `/exp` 沉淀本周经验
-   - 遇到 Bug 先用 `bug-detective` skill 排查
-
-现在请开始第 1 步，并告诉我你看到了什么 / 计划怎么做。
+/loop /dev-loop
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ````
@@ -1296,10 +1267,12 @@ echo "下次再用直接：cat .claude/docs/init-prompt.md | xclip"
 
 | ❌ | ✅ |
 |---|----|
-| 让用户自己写第一条提示词（信息不全） | 自动生成完整上下文提示词 |
-| 提示词没引用具体文件 | 必须列具体路径（`docs/requirements/PRD-v1.0.md`） |
-| 提示词没有动作（"了解一下"） | 必须含明确步骤 1-6 + "现在请开始第 1 步" |
-| 不保存提示词 | 写入 `.claude/docs/init-prompt.md` 可重复使用 |
+| 让用户切过去还得手写一长串开发提示词 | 直接给 `/loop /dev-loop` 一句起飞 |
+| 吐手动 step 1-6 让 AI"先了解一下" | 交给 `dev-loop` 标准每轮 SOP 自主推进 |
+| 新项目没继承 `dev-loop` 命令就让它跑 | 确认 `.claude/commands/dev-loop.md` 已随骨架继承（缺则补） |
+| 不保存起飞指令 | 写入 `.claude/docs/init-prompt.md` 备用 |
+
+> **生成后向用户简要解释**（无需复制）：新项目已带 `/dev-loop`（随框架骨架继承）+ 已就位的 `docs/requirements/`（需求）和 `prototype/`（原型）；`/loop /dev-loop` = 自主连续开发，每轮 读真相源 → 选下一个未勾 `[ ]` 任务 → 实现 → 验证门（`npx tsc --noEmit` / `cargo check`，UI 任务额外走「原型保真截图闭环」）→ 打勾 → 最小提交，直到任务台账全做完才停。**第 0 轮**会先按需求+原型自动拆出有序任务台账（`docs/tasks/active/BUILD-PLAN.md`）。
 
 ---
 
