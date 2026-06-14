@@ -80,6 +80,68 @@ GitHub Actions 在美国服务器运行，推送二进制产物到 Gitee（中�
 
 ---
 
+## 🔴 发布架构选型（首发必读）
+
+> 上面的"三级分发策略"是**老路线**（公开 release 仓 + Gitee raw 端点 + rclone）。
+> 实战（cup_watch 首发）证明：当本机装了 **Sigil 凭据保险库**时，有一条**更省事、更安全、零公开仓**的路线，应作为**默认首选**。
+> 两条路线都要支持——**没装 Sigil 时用 B 路线的等价命令**，流程与产物完全一致。
+
+### 路线 A（推荐）：R2-only 分发 + 全私有仓 + Sigil 注入
+
+```
+CI(私有源码仓) 构建 .exe + .sig → GitHub draft release(私有，仅 token 可读)
+        ↓  Sigil github_download_release_asset（带 token 下私有 draft，AI 不碰 token 明文）
+本地拿到 .exe + .sig
+        ↓  Sigil r2_object_upload(bucket=downloads, key=<prefix>/releases/vX/...)
+R2 downloads/<prefix>/... + update.json   ← 公开 r2.dev，用户下载 + 自动更新都走这
+```
+
+- **下载源 + 自动更新端点 = R2 唯一**（`pub-….r2.dev`，公开、零流量费、无 CORS 问题）。
+- **GitHub / Gitee 仓全部保持私有** —— 只做源码 + CI + 可选存档，**不对外服务**。
+- **不需要"把 release 仓改公开"**（Sigil 的 `repo_update` 也明确禁止设公开，别再往那撞）。
+- tauri.conf 的 `endpoints` 只留 R2 一个（删掉需要公开仓的 Gitee raw 端点）。
+
+### 路线 B：不装 / 不用 Sigil 时的等价做法
+
+Sigil 只是"凭据注入器"。没有它时，每一步都有等价的本地命令（`gh` CLI + 系统 git credential + rclone）：
+
+| 步骤 | 路线 A（Sigil） | 路线 B（无 Sigil 等价） |
+|------|----------------|----------------------|
+| 建源码 / release 仓 | `mcp__sigil__github_repo_create(private:true)` | `gh repo create <owner>/<repo> --private` |
+| 推源码 / tag | `mcp__sigil__git_push` | `git push <remote> <branch>` / `git push <remote> vX.Y.Z`（系统 credential helper 注入） |
+| 启用 Actions | `mcp__sigil__github_actions_enable` | `gh api -X PUT repos/<owner>/<repo>/actions/permissions -F enabled=true` |
+| 配签名 Secret | `github_repo_secret_set(value_credential_name=…)`（需先把私钥导入金库） | **`gh secret set TAURI_SIGNING_PRIVATE_KEY --repo <owner>/<repo> < src-tauri/keys/tauri-updater.key`** ← 无 Sigil 更直接，**建议默认就用它**（见第 3 节） |
+| 下私有 draft 产物 | `mcp__sigil__github_download_release_asset` | `gh release download vX.Y.Z --repo <owner>/<repo> --dir <dir>`（draft 也能下，gh 自带 token） |
+| 上传 R2 | `mcp__sigil__r2_object_upload(bucket=downloads,key=…)` | `rclone copyto <file> r2:downloads/<prefix>/…`（rclone remote 须能写 `downloads` 桶） |
+| 监听 CI | `mcp__sigil__github_run_get` | `gh run list --repo <owner>/<repo>` / `gh run watch` |
+
+> **检测**：本会话能 `ToolSearch` 到 `mcp__sigil__*` → 走 A；查不到 → 自动走 B，不报错不卡流程。
+> 两条路线产出完全一致（同样的 R2 对象 + update.json），只是"谁来注入凭据"不同。
+
+### 🔴 R2 桶真相（写死，别再每次重新摸索）
+
+cup_watch 首发在这上面烧了约 10 轮反复误判。**事实固定如下，直接照用**：
+
+- 真实**桶名 = `downloads`**（一个桶，全项目共用）；`reeve` / `cupwatch` / `sigil` 等是**桶内前缀**，不是独立桶。
+- 公开域名（形如 `https://pub-xxxxx.r2.dev`）是 **`downloads` 桶**的共享域名，**所有项目共用、不用改**；对象 URL = `<publicUrl>/<prefix>/...`。
+- 这把 R2 access key 是 **scoped key**：**不能 ListBuckets、不能建桶**（`rclone lsd r2:` 报 403 / `mkdir` 静默失败）。所以**别用 rclone 去"自省桶结构"或"建桶"**——会把你带进沟里。
+- **首选**：用 Sigil `r2_object_upload(bucket=downloads, key=<prefix>/...)` 一传即通（它知道 default_bucket）。
+- 无 Sigil 时 rclone 正确写法是 `r2:downloads/<prefix>/...`（**第一段必须是桶名 `downloads`**；写成 `r2:<prefix>/...` 会报 `NoSuchBucket`）。
+- 新项目只需选一个**前缀**（如 `myapp`），**无需在 Cloudflare 控制台建任何东西**。
+
+### 🔴 首发踩坑速查（血泪，cup_watch v0.1.0 实录）
+
+| 坑（现象） | 真因 | 正解 |
+|-----------|------|------|
+| R2 反复 `NoSuchBucket` / `403` / 误判"reeve 是桶" | scoped key 不能列/建桶；桶名其实是 `downloads`、项目是前缀 | 见上「R2 桶真相」：用 Sigil 传，或 rclone 写 `r2:downloads/<prefix>/` |
+| 卡在"要把 release 仓改公开"，Sigil 拒绝 | 老架构靠公开仓 raw；撞"仓库必须私有"红线 | 走路线 A：**R2-only + 全私有**，根本不需要改公开 |
+| 签名 Secret 卡"私钥要先导入 Sigil 金库" | `github_repo_secret_set` 需 `value_credential_name` | 用 **`gh secret set … < keyfile`**：文件→gh 加密→GitHub，零明文进对话、无需导金库 |
+| tag 推了但 **0 个 workflow run** | 新建私有仓 **Actions 默认禁用** | 推 tag **前**先 `github_actions_enable`（或 `gh api … permissions -F enabled=true`） |
+| 启用 Actions 后**老 tag 不触发**，又不能手动 dispatch | 启用不回溯已推 tag；workflow 没声明 `workflow_dispatch` | 删远端 tag 重推；workflow 模板**加 `workflow_dispatch`**（见 CI 章节）以后可手动重触发 |
+| CI **3-5 秒 failure、无 step、日志 0.00 MB** | 私有仓 Actions **免费分钟耗尽** | 切备用账号（见「多 CI 仓库 fallback」），整套：建仓+remote+**独立 secret**+启用 Actions+推 |
+
+---
+
 ## 首次发布前的准备工作
 
 > **首次使用发布功能时，必须先完成以下配置。后续发布跳过此节。**
@@ -119,6 +181,19 @@ pnpm tauri signer generate -w src-tauri/keys/tauri-updater.key
 |-------------|-----|------|
 | `TAURI_SIGNING_PRIVATE_KEY` | `src-tauri/keys/tauri-updater.key` 文件的完整内容 | 更新签名私钥 |
 | `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` | 空字符串（留空即可） | 私钥密码（无密码） |
+
+**🔴 推荐设法（零明文进对话，AI 不碰私钥）—— 用 `gh` 从文件管道灌**：
+
+```bash
+# 私钥走 文件 → gh libsodium 加密 → GitHub，全程不打印、不进对话记录
+gh secret set TAURI_SIGNING_PRIVATE_KEY --repo <owner>/<repo> < src-tauri/keys/tauri-updater.key
+gh secret set TAURI_SIGNING_PRIVATE_KEY_PASSWORD --repo <owner>/<repo> --body ""   # 空密码（也可省略，workflow 引用缺失 secret 自动为空）
+```
+
+> - 这是**首选**，无需把私钥导入任何金库；**装不装 Sigil 都用它**。
+> - Sigil 的 `github_repo_secret_set` 也能设，但要私钥**先导入金库**（`value_credential_name`），多一步；
+>   用 `value`（明文）则会让私钥进对话记录 → 🔴 禁止。
+> - 多 CI 仓库 fallback 时，**每个仓都要单独 `gh secret set`**（secret 不跨仓共享，漏配则备仓退回无签名/debug 签名）。
 
 > **注意**：不再需要 `RELEASE_REPO_TOKEN`、`GITEE_USERNAME`、`GITEE_TOKEN`，
 > 因为 CI 不再推送到 release 仓库，推送由本地完成。
@@ -771,6 +846,19 @@ git tag v0.2.0
 git push <github_remote> v0.2.0
 ```
 
+> **🔴 新建私有仓首次发版**：GitHub 默认**禁用**新私有仓的 Actions，tag 推上去也**不触发**（0 个 run，workflow 不被注册）。
+> 推 tag **前**必须先启用：`mcp__sigil__github_actions_enable`，或无 Sigil 时 `gh api -X PUT repos/<owner>/<repo>/actions/permissions -F enabled=true`。
+> 启用 Actions **不会回溯**已推的 tag —— 若启用前已推过 tag，需**删远端 tag 重推**才会触发（`git push <remote> :refs/tags/vX.Y.Z` 删 → 重打 → 重推）。
+>
+> **建议 workflow 同时声明 `workflow_dispatch`**，便于手动重触发，免去每次"删 tag 重推"：
+> ```yaml
+> on:
+>   push:
+>     tags: ['v*.*.*']
+>   workflow_dispatch: {}   # 允许在 Actions 页 / gh CLI 手动触发
+> ```
+> 手动触发：`gh workflow run release.yml --repo <owner>/<repo> --ref <tag 或分支>`。
+
 ### 构建矩阵（按 platforms 配置）
 
 | 平台 | Runner | Bundle 参数 | Updater 产物 | 安装包产物 | platforms 值 |
@@ -805,7 +893,7 @@ pnpm tauri signer generate -w src-tauri/keys/tauri-updater.key
 
 **重新生成后必须：**
 1. 更新 `tauri.conf.json` 中的 `pubkey`（读取 `.key.pub` 文件内容）
-2. 更新 GitHub Secrets 中的 `TAURI_SIGNING_PRIVATE_KEY`（读取 `.key` 文件内容）
+2. 更新 GitHub Secrets 中的 `TAURI_SIGNING_PRIVATE_KEY`：**`gh secret set TAURI_SIGNING_PRIVATE_KEY --repo <owner>/<repo> < src-tauri/keys/tauri-updater.key`**（从文件管道灌，私钥不进对话）；多 CI 仓库每个都要重设
 3. 重新构建并发布（旧版本的签名将不可用，但不影响已安装用户）
 
 ### 安全提醒
@@ -865,6 +953,9 @@ rclone copy ./test.txt r2:<bucket>/<pathPrefix>/test/ --progress
 ```
 
 > rclone 配置文件位于 `~/.config/rclone/rclone.conf`。
+
+> **⚠️ scoped key 限制**：本套环境这把 R2 key 只能读写 `downloads` 桶、**不能 ListBuckets / 建桶**（`rclone lsd r2:` 报 403、`mkdir` 静默失败）。
+> 别用它自省桶结构或建桶；上传路径**固定**为 `r2:downloads/<pathPrefix>/...`（第一段必须是桶名 `downloads`）。详见上方「发布架构选型 → R2 桶真相」。装了 Sigil 则直接用 `r2_object_upload(bucket=downloads, key=<pathPrefix>/...)` 更省心。
 
 ### Tauri updater 端点配置（R2 启用时）
 
@@ -1005,7 +1096,7 @@ versionName = "0.3.6"
 
 | 问题 | 原因 | 解决方案 |
 |------|------|---------|
-| 应用检查不到更新 | release 仓库是私有的 | 将仓库设为公开，否则 raw 地址需认证 |
+| 应用检查不到更新 | 用 Gitee/GitHub raw 端点但 release 仓是私有的 | **首选改用 R2-only 端点**（公开 r2.dev，无需任何仓库公开，见「发布架构选型 路线 A」）；若坚持用 raw 端点则该 release 仓须公开 |
 | 应用检查不到更新 | update.json 中版本号 <= 当前版本 | 确保 update.json 的 version 大于已安装版本 |
 | 签名验证失败 | 公钥不匹配 | 确保 `tauri.conf.json` 中的 pubkey 与签名使用的私钥配对 |
 | 签名验证失败 | update.json 中签名内容与 `.sig` 文件不一致 | **禁止手动粘贴签名**，必须用 shell 变量注入（步骤 5「3a~3f」的 `generate_update_json()`），生成后比对一致性 |
@@ -1035,7 +1126,8 @@ versionName = "0.3.6"
 | Linux 编译 unused import 警告 | `#[cfg(target_os = "windows")]` 下的 import 在 Linux 不使用 | 将 import 也放在 `#[cfg()]` 块内 |
 | CI 推送 Gitee 超时 | GitHub Actions（美国）推送到 Gitee（中国）太慢 | **已改为本地推送**，不再由 CI 推送 |
 | GitHub API 用 PAT 拿 release 返回 404 / 看不到刚 build 的 release | CI 创建的是 `draft: true` release，fine-grained PAT 仅有 `Contents: Read` 看不到 draft | PAT 权限升级为 `Contents: Read and write` + `Actions: Read`；下载 asset 时也必须用 `Authorization: Bearer <token>` + `Accept: application/octet-stream` 调 API（普通浏览器 URL 无法下载 draft asset） |
-| 私有仓 CI 推 tag 后 3-5 秒就失败，无任何 step 输出 | GitHub Actions 私有仓每月免费分钟数耗尽（macOS 10 倍倍率最容易超） | 切到备用 CI 仓库（见步骤 5.1 多 CI 仓库 fallback）；下月 1 号自动重置 |
+| 私有仓 CI 推 tag 后 3-5 秒就失败，无任何 step 输出（日志 0.00MB） | GitHub Actions 私有仓每月免费分钟数耗尽（macOS 10 倍倍率最容易超） | 切到备用 CI 仓库（见步骤 5.1 多 CI 仓库 fallback）；切账号整套 = 建仓+加 remote+**独立配 secret**+启用 Actions+推 master 与 tag；下月 1 号自动重置 |
+| 推 tag 后 **0 个 workflow run**（CI 根本没触发，与上面"3-5 秒失败"不同） | 新建私有仓 Actions **默认禁用**，workflow 未注册 | 先 `github_actions_enable` / `gh api … permissions -F enabled=true` 启用；启用**不回溯**已推 tag → 删远端 tag 重推；workflow 加 `workflow_dispatch` 备用 |
 
 ---
 
