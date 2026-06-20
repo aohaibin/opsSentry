@@ -346,6 +346,8 @@ claude --worktree feature-x
 
 ## 🔴 绝对禁止的写法
 
+> ⚠️ Shell：别 `cd <子目录> && <命令>`——Bash 会话 cwd 持久，会让 Claude Code statusline 项目名飘到子目录。用 `cargo --manifest-path` / `git -C` / `pnpm --dir` / `npm --prefix`。
+
 ### Rust 后端
 
 | 错误做法 | 正确做法 | 原因 |
@@ -371,6 +373,7 @@ claude --worktree feature-x
 | 裸写 `invoke()` 调用 | 封装到 `src/lib/api/` 中统一管理 | 便于维护和类型安全 |
 | 硬编码颜色值 `#1a1a1c` | 使用 `var(--bg-primary)` 或 `token.colorBgLayout` | 主题切换时不会响应 |
 | 使用 TailwindCSS `dark:` 前缀 | 使用 CSS 变量 `var(--xxx)` | 项目用 `data-theme` 而非 `dark` 类 |
+| 用 Emoji 字符当界面图标（`💡✅🔴⚠️`） | 用 `@ant-design/icons`（主）或 `lucide-react`（补充）的矢量图标组件 | 仅限 **UI 渲染层 / 用户可见界面**；emoji 跨平台字形不一、无法换肤/调色、不可控大小。文档、注释、日志、commit message 不受此限 |
 
 ---
 
@@ -673,13 +676,13 @@ pnpm build
 npx tsc --noEmit
 
 # Rust 代码检查
-cd src-tauri && cargo clippy
+cargo clippy --manifest-path src-tauri/Cargo.toml
 
 # Rust 编译检查
-cd src-tauri && cargo check
+cargo check --manifest-path src-tauri/Cargo.toml
 
 # Rust 测试
-cd src-tauri && cargo test
+cargo test --manifest-path src-tauri/Cargo.toml
 ```
 
 ### 开发服务器

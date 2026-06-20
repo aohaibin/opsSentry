@@ -3,13 +3,16 @@
 // 这是骨架，业务页面请在 src/mobile/pages/ 下新增并在 MobileApp.tsx 注册路由。
 // 整体架构详见 .claude/skills/mobile-app-architecture/skill.md。
 
+import { Lightbulb } from "lucide-react";
+
 function Home() {
   return (
     <div className="mobile-home">
       <h1>移动端伴侣</h1>
       <p>骨架已就绪。</p>
       <p className="mobile-home-tip">
-        💡 开发界面前建议先用{" "}
+        <Lightbulb size={16} style={{ verticalAlign: "-2px", marginRight: 4 }} />
+        开发界面前建议先用{" "}
         <a
           href="https://ai-workstation.ruoyi.plus/"
           target="_blank"

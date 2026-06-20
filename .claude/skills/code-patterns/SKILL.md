@@ -581,7 +581,19 @@ const { token } = antdTheme.useToken();
 
 // ❌ 内联样式写布局（应用 TailwindCSS）
 <div style={{ display: "flex", padding: "16px", gap: "8px" }}>
+
+// ❌ 用 Emoji 当界面图标（跨平台字形不一、无法换肤/调色/控大小）
+<span>💡 提示</span>
+<button>✅ 保存</button>
+
+// ✅ 用矢量图标组件：@ant-design/icons（主）或 lucide-react（补充）
+import { Lightbulb } from "lucide-react";
+import { CheckOutlined } from "@ant-design/icons";
+<span><Lightbulb size={16} /> 提示</span>
+<Button icon={<CheckOutlined />}>保存</Button>
 ```
+
+> **图标铁律**：UI 渲染层一律用矢量图标组件，禁止 emoji 字符充当界面图标/按钮符号/状态标识。仅文档、注释、日志、commit message 可用 emoji。
 
 ---
 
@@ -599,6 +611,7 @@ const { token } = antdTheme.useToken();
 | 混用多种状态管理方案 | 统一使用 Zustand |
 | 不使用 TailwindCSS | 优先使用 TailwindCSS 工具类 |
 | 前端路径不使用 `@/` 别名 | 统一使用 `@/` 别名 |
+| 用 Emoji 字符当界面图标（`💡✅🔴`） | 用 `@ant-design/icons` / `lucide-react` 矢量图标组件（仅限 UI，文档/注释/日志不限） |
 
 ---
 
@@ -623,3 +636,4 @@ const { token } = antdTheme.useToken();
 - [ ] Store 按职责拆分（`store/app.ts` 等）+ Re-export Hub
 - [ ] 样式优先使用 TailwindCSS
 - [ ] 路径使用 `@/` 别名
+- [ ] 界面图标用矢量图标组件（`@ant-design/icons` / `lucide-react`），不用 emoji 字符
