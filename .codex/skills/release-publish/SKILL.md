@@ -110,7 +110,7 @@ Sigil 只是"凭据注入器"。没有它时，每一步都有等价的本地命
 | 建源码 / release 仓 | `mcp__sigil__github_repo_create(private:true)` | `gh repo create <owner>/<repo> --private` |
 | 推源码 / tag | `mcp__sigil__git_push` | `git push <remote> <branch>` / `git push <remote> vX.Y.Z`（系统 credential helper 注入） |
 | 启用 Actions | `mcp__sigil__github_actions_enable` | `gh api -X PUT repos/<owner>/<repo>/actions/permissions -F enabled=true` |
-| 配签名 Secret | `github_repo_secret_set(value_credential_name=…)`（需先把私钥导入金库） | **`gh secret set TAURI_SIGNING_PRIVATE_KEY --repo <owner>/<repo> < src-tauri/keys/tauri-updater.key`** ← 无 Sigil 更直接，**建议默认就用它**（见第 3 节） |
+| 配签名 Secret | **`github_repo_secret_set(secret_name=TAURI_SIGNING_PRIVATE_KEY, value_from_file=src-tauri/keys/tauri-updater.key)`** ← Sigil 自己读 .key 注入、私钥不进对话也免导金库，**用此参数会弹一次桌面端确认**（旧的 value_credential_name 路径仍可用，但需先把私钥导入金库，已不推荐） | **`gh secret set TAURI_SIGNING_PRIVATE_KEY --repo <owner>/<repo> < src-tauri/keys/tauri-updater.key`** ← 无 Sigil 时用它（见第 3 节） |
 | 下私有 draft 产物 | `mcp__sigil__github_download_release_asset` | `gh release download vX.Y.Z --repo <owner>/<repo> --dir <dir>`（draft 也能下，gh 自带 token） |
 | 上传 R2 | `mcp__sigil__r2_object_upload(bucket=downloads,key=…)` | `rclone copyto <file> r2:downloads/<prefix>/…`（rclone remote 须能写 `downloads` 桶） |
 | 监听 CI | `mcp__sigil__github_run_get` | `gh run list --repo <owner>/<repo>` / `gh run watch` |
@@ -135,7 +135,7 @@ cup_watch 首发在这上面烧了约 10 轮反复误判。**事实固定如下�
 |-----------|------|------|
 | R2 反复 `NoSuchBucket` / `403` / 误判"reeve 是桶" | scoped key 不能列/建桶；桶名其实是 `downloads`、项目是前缀 | 见上「R2 桶真相」：用 Sigil 传，或 rclone 写 `r2:downloads/<prefix>/` |
 | 卡在"要把 release 仓改公开"，Sigil 拒绝 | 老架构靠公开仓 raw；撞"仓库必须私有"红线 | 走路线 A：**R2-only + 全私有**，根本不需要改公开 |
-| 签名 Secret 卡"私钥要先导入 Sigil 金库" | `github_repo_secret_set` 需 `value_credential_name` | 用 **`gh secret set … < keyfile`**：文件→gh 加密→GitHub，零明文进对话、无需导金库 |
+| 签名 Secret 配置 | 私钥不能进对话（红线），又不想手动导金库 | **首选** `github_repo_secret_set(value_from_file=src-tauri/keys/tauri-updater.key)`：Sigil 自读私钥注入、免导金库、弹一次确认；无 Sigil 时用 `gh secret set < keyfile` |
 | tag 推了但 **0 个 workflow run** | 新建私有仓 **Actions 默认禁用** | 推 tag **前**先 `github_actions_enable`（或 `gh api … permissions -F enabled=true`） |
 | 启用 Actions 后**老 tag 不触发**，又不能手动 dispatch | 启用不回溯已推 tag；workflow 没声明 `workflow_dispatch` | 删远端 tag 重推；workflow 模板**加 `workflow_dispatch`**（见 CI 章节）以后可手动重触发 |
 | CI **3-5 秒 failure、无 step、日志 0.00 MB** | 私有仓 Actions **免费分钟耗尽** | 切备用账号（见「多 CI 仓库 fallback」），整套：建仓+remote+**独立 secret**+启用 Actions+推 |
@@ -191,7 +191,7 @@ gh secret set TAURI_SIGNING_PRIVATE_KEY_PASSWORD --repo <owner>/<repo> --body ""
 ```
 
 > - 这是**首选**，无需把私钥导入任何金库；**装不装 Sigil 都用它**。
-> - Sigil 的 `github_repo_secret_set` 也能设，但要私钥**先导入金库**（`value_credential_name`），多一步；
+> - Sigil 的 `github_repo_secret_set` 用 `value_from_file=src-tauri/keys/tauri-updater.key` 直接设最省事（Sigil 自读私钥、免导金库、弹一次确认）；旧的 `value_credential_name` 需先把私钥导入金库，已不推荐；
 >   用 `value`（明文）则会让私钥进对话记录 → 🔴 禁止。
 > - 多 CI 仓库 fallback 时，**每个仓都要单独 `gh secret set`**（secret 不跨仓共享，漏配则备仓退回无签名/debug 签名）。
 
