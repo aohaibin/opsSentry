@@ -138,7 +138,7 @@ cup_watch 首发在这上面烧了约 10 轮反复误判。**事实固定如下�
 | 签名 Secret 配置 | 私钥不能进对话（红线），又不想手动导金库 | **首选** `github_repo_secret_set(value_from_file=src-tauri/keys/tauri-updater.key)`：Sigil 自读私钥注入、免导金库、弹一次确认；无 Sigil 时用 `gh secret set < keyfile` |
 | tag 推了但 **0 个 workflow run** | 新建私有仓 **Actions 默认禁用** | 推 tag **前**先 `github_actions_enable`（或 `gh api … permissions -F enabled=true`） |
 | 启用 Actions 后**老 tag 不触发**，又不能手动 dispatch | 启用不回溯已推 tag；workflow 没声明 `workflow_dispatch` | 删远端 tag 重推；workflow 模板**加 `workflow_dispatch`**（见 CI 章节）以后可手动重触发 |
-| CI **3-5 秒 failure、无 step、日志 0.00 MB** | 私有仓 Actions **免费分钟耗尽** | 切备用账号（见「多 CI 仓库 fallback」），整套：建仓+remote+**独立 secret**+启用 Actions+推 |
+| CI 秒级 failure：**所有 job 都 failure 但无任何失败 step**（job 没分到 runner，实测非「无 job」而是有 job 空跑） | 私有仓 Actions **免费分钟耗尽** | 切备用账号（见「多 CI 仓库 fallback」），整套：建仓+remote+**独立 secret**+启用 Actions+推。Sigil 的 `github_run_jobs` 会自动标 `quota_exhausted_suspect=true` 并就地提示换号（`github_billing_actions` 判不出：免费号耗尽不计费、净费用停在 | CI **3-5 秒 failure、无 step、日志 0.00 MB** | 私有仓 Actions **免费分钟耗尽** | 切备用账号（见「多 CI 仓库 fallback」），整套：建仓+remote+**独立 secret**+启用 Actions+推 |） |
 
 ---
 
