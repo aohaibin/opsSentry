@@ -55,6 +55,7 @@
 | `.claude/skills/**/SKILL.md` | 文件级 | skill 文档 |
 | `.claude/commands/*.md` | 文件级 | 指令文档 |
 | `.claude/skills/*/` 新目录 | 整目录 | 新增 skill 整体 |
+| `CLAUDE.md` 锚定通用段落 | **锚点段落级** | 仅同步「可同步锚点清单」内的框架通用小节（见 §CLAUDE.md 锚点段落同步），项目定制段绝不碰 |
 | `src-tauri/tauri.conf.json` 特定字段 | **字段级** | `app.windows[0].dragDropEnabled` / `app.security.csp` 等通用字段 |
 | `src-tauri/capabilities/*.json` | **条目级 add** | 只建议 add 权限条目，不覆盖整体 |
 | `package.json` 基础设施 devDeps | 条目级 | 不同步业务 deps |
@@ -70,6 +71,22 @@
 - `src-tauri/src/commands/**` / `src-tauri/src/services/**` / `src-tauri/src/database/**` / `src-tauri/src/models/**`（业务代码）
 - `package.json` / `Cargo.toml` 的业务依赖（HTTP client、AI SDK、特定协议库等）
 - `.git/**`、`node_modules/**`、`target/**`、`dist/**`
+- `CLAUDE.md` 的项目定制小节：架构表 / 目录结构 / 依赖清单 / 术语约定 / `应用标识`(identifier) 等含项目特定信息的段落——只有「可同步锚点清单」内的通用小节才动
+
+### CLAUDE.md 锚点段落同步（段落级）
+
+CLAUDE.md 整体高度项目定制（架构表、依赖表、业务说明各项目不同），**绝不整文件同步**。只对「可同步锚点清单」内的**框架通用小节**做段落级 2-way diff：
+
+**可同步锚点清单**（保守起步，只列确认与项目无关、跨项目一致的小节；新增须逐条确认无项目特定信息）：
+- `### 开发服务器` —— 已做到端口无关（以 `src-tauri/tauri.conf.json` 的 `devUrl` 为准，段内不含裸端口）
+
+**同步规则**：
+1. 用小节标题作锚点，从该 `##`/`###` 标题匹配到下一个同级或更高级标题前，作为一个「段落块」
+2. 对锚点块做 2-way diff：框架块 vs 子项目块内容不同 → 报 ⚠️ 差异（待确认，同 C 类）；子项目缺该锚点 → 报 ✅ 新增
+3. **纳入锚点清单的前提**：该小节必须端口 / 名称 / 标识无关、不含任何项目特定信息（否则会把框架的值覆盖进子项目）
+4. 项目特定小节（架构 / 目录 / 依赖 / 术语 / `identifier` 等）永不进锚点清单
+
+> 为什么锚点白名单而非整文件：CLAUDE.md 是每个子项目定制的「项目宪法」，整文件同步会覆盖业务定制；但像「开发服务器」这种纯框架规范段，此前因不在同步链而长期各自分叉（甚至残留错误端口）。锚点段落级同步正好补这个洞。
 
 ---
 
