@@ -56,6 +56,7 @@ description: |
 | 编译错误 | 所有权/借用/生命周期问题 | 阅读 Rust 编译器错误提示 |
 | 插件功能不可用 | Capabilities 未声明权限 | 检查 `capabilities/default.json` |
 | 批量/高频写入时文件名互相覆盖（用 timestamp+纳秒拼名） | Windows 系统时钟分辨率在极短间隔内可能给出相同值，多次调用拼出相同文件名 | 加进程内 `AtomicU64` 计数器拼到文件名末尾：`{ts}_{nanos}_{seq:06}.{ext}` 作为防冲突兜底 |
+| 对外 MCP 端点起不来 / 所有 MCP 工具调用报「端点未就绪」/ connected·no-tools | 主 App 写 `mcp-rpc.json`/`endpoint.json` 后用 `icacls /inheritance:r /grant:r <裸用户名>:F` 收敛权限，在「机名 == 用户名」机器上裸名被 icacls 解析成机器账户，`/inheritance:r` 删继承后当前用户反被锁出文件 → App 写不进 / sidecar 读不了端点文件 | 改按 SID 授权 `*<SID>:F`（`whoami /user /fo csv /nh` 取 SID）；取不到 SID 则不删继承降级。详见 `security-permissions` skill「运行时敏感文件权限收敛」 |
 
 ### React 前端常见问题
 
@@ -144,3 +145,4 @@ try {
 | 在中文路径下编译 Tauri Mobile (Android) | `mobile-tauri/.cargo/config.toml` 设 `target-dir = "C:/cargo-target/<project>"` 强制移到 ASCII 目录（NDK ld.lld 不识别中文） |
 | Mobile 子项目 vite build 报 `Rollup failed to resolve "@/..."` | re-export 链中**不要用 `@/` 别名**，改成相对路径；vite/rollup 在 CI 对 re-export 链的别名解析特别敏感 |
 | 桌面应用内嵌 frpc/easytier 等隧道二进制被杀软误报为木马 | 改为**引导用户自配反向代理**（应用只绑定本地端口） |
+| 写含 per-install token 的 endpoint 文件后不收敛文件权限 | `fs::write` 令牌文件后立即收敛（Windows `icacls` 按 SID / Unix `chmod 0600`）；只在注释写「仅当前用户可读」却不做 = 令牌裸奔，多用户机器上他用户可窃取。见 `security-permissions` skill |
