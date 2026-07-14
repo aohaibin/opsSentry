@@ -48,6 +48,10 @@
         "displayLanguageSelector": false,
         "languages": ["SimpChinese"]
       }
+    },
+    "macOS": {
+      "hardenedRuntime": true,
+      "entitlements": "./Entitlements.plist"
     }
   }
 }

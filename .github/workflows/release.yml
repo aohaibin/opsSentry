@@ -34,29 +34,53 @@ on:
 
 jobs:
   # ===========================================================================
+  # Job 0: 动态生成桌面端构建矩阵
+  # ===========================================================================
+  # 按仓库变量 RELEASE_WINDOWS 决定是否构建 Windows：
+  #   未设 / build → 含 Windows（默认=现状，向后兼容）
+  #   skip         → 不含 Windows（本地 evsign 签名档：Windows 本地签名构建，CI 不起 windows runner 省额度）
+  #   sign         → 含 Windows（配合 CI 签名变体边构建边签）
+  # 变量由 /release 流程按 .claude/signing.local.json 的 mode 通过 Sigil 预先设好。
+  prepare:
+    # 跳过 mobile-v* tag（矩阵仅供桌面端 release job 使用）
+    if: ${{ !startsWith(github.ref_name, 'mobile-') }}
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+      - name: Compute build matrix
+        id: set-matrix
+        shell: bash
+        env:
+          RELEASE_WINDOWS: ${{ vars.RELEASE_WINDOWS }}
+        run: |
+          WIN='{"platform":"windows-latest","args":"--bundles nsis"}'
+          MAC_ARM='{"platform":"macos-latest","args":"--bundles app,dmg","target":"aarch64-apple-darwin"}'
+          MAC_X64='{"platform":"macos-latest","args":"--bundles app,dmg","target":"x86_64-apple-darwin"}'
+          LINUX='{"platform":"ubuntu-22.04","args":"--bundles deb,appimage"}'
+          if [ "$RELEASE_WINDOWS" = "skip" ]; then
+            echo "跳过 Windows CI 构建（RELEASE_WINDOWS=skip，本地 evsign 签名档）"
+            INCLUDE="[$MAC_ARM,$MAC_X64,$LINUX]"
+          else
+            echo "含 Windows CI 构建（RELEASE_WINDOWS='${RELEASE_WINDOWS:-unset}'）"
+            INCLUDE="[$WIN,$MAC_ARM,$MAC_X64,$LINUX]"
+          fi
+          echo "matrix={\"include\":$INCLUDE}" >> "$GITHUB_OUTPUT"
+
+  # ===========================================================================
   # Job 1: 桌面端跨平台构建
   # ===========================================================================
   release:
     # 跳过 mobile-v* tag（交给 release-android job）
     if: ${{ !startsWith(github.ref_name, 'mobile-') }}
+    needs: prepare
     permissions:
       contents: write
     strategy:
       fail-fast: false
-      # TODO: 根据 platforms 配置裁剪不需要的平台
-      # 只需 Windows + macOS 时，删除 ubuntu-22.04 条目
-      matrix:
-        include:
-          - platform: windows-latest           # platforms: windows
-            args: '--bundles nsis'
-          - platform: macos-latest             # platforms: macos
-            args: '--bundles app,dmg'
-            target: aarch64-apple-darwin
-          - platform: macos-latest             # platforms: macos
-            args: '--bundles app,dmg'
-            target: x86_64-apple-darwin
-          - platform: ubuntu-22.04             # platforms: linux（不需要可删除此条目及对应的 Install dependencies step）
-            args: '--bundles deb,appimage'
+      # 矩阵由 prepare job 动态生成（含/不含 Windows 由 RELEASE_WINDOWS 决定）。
+      # TODO: 需裁剪平台时，改 prepare job 的 Compute build matrix 步骤（增删 WIN/MAC_*/LINUX 条目）。
+      matrix: ${{ fromJSON(needs.prepare.outputs.matrix) }}
 
     runs-on: ${{ matrix.platform }}
 
@@ -114,6 +138,15 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ''
+          # macOS 代码签名 + 公证（Developer ID，仅 macos-latest runner 生效，Win/Linux 忽略）
+          # 缺这 6 个 secret 时 tauri-action 自动跳过 mac 签名、出未签 mac（不报错）。
+          # 要签需同时配 tauri.conf.json 的 macOS.hardenedRuntime+entitlements（本项目已加）。
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         with:
           tagName: ${{ github.ref_name }}
           # TODO: 修改为你的应用名称

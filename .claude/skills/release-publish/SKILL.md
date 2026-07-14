@@ -368,8 +368,9 @@ matrix:
 ```
 
 ### 本地签名档（mode:local，Windows 机）—— 只改 Windows 产物来源
-主流程步骤基本不变，唯一差别：**Windows 产物改本地签名构建产出**，mac/linux 仍从 CI 下。
-- 下载产物那步：mac/linux 从 CI 下；Windows 改本地跑
+主流程步骤基本不变，两处差别：① **推 tag 前设 CI 仓变量让 CI 跳过 Windows 构建省额度**；② **Windows 产物改本地签名构建产出**，mac/linux 仍从 CI 下。
+- 🔴 推 tag 前：设 CI 仓变量 `RELEASE_WINDOWS=skip`（Sigil `github_repo_variable_set(credential_name=<CI仓凭据>, repo=<owner/repo>, name=RELEASE_WINDOWS, value=skip)` 或 `gh variable set RELEASE_WINDOWS --repo <owner/repo> -b skip`）→ workflow 的 `prepare` job 不把 Windows 放进矩阵，**CI 不起 windows runner，省 ~12min 额度**。常规档设 `build`（或不设=含 Windows）、CI 签名档设 `sign`；幂等设置防上次残留。
+- 下载产物那步：mac/linux 从 CI 下（skip 模式 CI 只有 mac/linux）；Windows 改本地跑
   `TAURI_SIGNING_PRIVATE_KEY="$(cat src-tauri/keys/tauri-updater.key)" pnpm tauri build --config src-tauri/tauri.conf.sign.json`
   → 得 `src-tauri/target/release/bundle/nsis/<AppName>_<ver>_x64-setup.exe`（已内外层签名）+ 配套 `.sig`
   → 用它替换 CI 的 Windows 产物（文件名一致）
