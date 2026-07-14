@@ -342,7 +342,60 @@ matrix:
 
 ---
 
+## 🔴 Windows 代码签名档位（发版起手判定，可选）
+
+> 发版**第一件事**先定档位。Windows 产物**可签可不签**：没配 evsign 照常发未签名版（现状），配了就让 Win11
+> 智能应用控制(SAC)不再拦"可能不安全"。**只影响 Windows**（mac=Apple 公证、linux 不需要 → 永远走 CI，不变）。
+> 签名机制细节见 `tauri-packaging`「可选：Windows 代码签名」。**工具箱 `~/.evsign` 名下所有软件共用一份。**
+
+### 档位来源 `.claude/signing.local.json`（每机状态，已 gitignore）
+```json
+{ "windows": "evsign", "mode": "local", "toolbox": "C:\\Users\\<你>\\.evsign" }   // Windows 机（本地签）
+{ "windows": "evsign", "mode": "ci" }                                            // Mac/无 Win 机（不需本地工具箱）
+```
+- `none` → 常规档（现状，CI 出未签 Windows）
+- `evsign`+`local` → 本地签名档（Windows 机本地签名构建）
+- `evsign`+`ci` → CI 签名档（CI windows runner 上签，见「CI 签名变体」）
+- 文件不存在 → **首次问一次**；mode 默认按本机 OS（Windows→local，非 Windows→ci）
+
+### 起手状态机（问一次/记住/坏了再问）
+```
+读 .claude/signing.local.json
+├─ 不存在 ─► 问「Windows 用 evsign 签名吗?」→ 没配写{none}常规档; 配了按OS定mode写{evsign,mode}
+├─ none          ─► 静默常规档（删文件可重启用）
+├─ evsign+local  ─► 校验 ~/.evsign(CLI+license+pwd+wrapper)+冒烟签 → 通过静默本地签名档; 失败报错/修/回退
+└─ evsign+ci     ─► 确认 CI 仓已配 evsign secrets+workflow → 走 CI 签名档; 没配好提示按「CI 签名变体」开通
+```
+
+### 本地签名档（mode:local，Windows 机）—— 只改 Windows 产物来源
+主流程步骤基本不变，唯一差别：**Windows 产物改本地签名构建产出**，mac/linux 仍从 CI 下。
+- 下载产物那步：mac/linux 从 CI 下；Windows 改本地跑
+  `TAURI_SIGNING_PRIVATE_KEY="$(cat src-tauri/keys/tauri-updater.key)" pnpm tauri build --config src-tauri/tauri.conf.sign.json`
+  → 得 `src-tauri/target/release/bundle/nsis/<AppName>_<ver>_x64-setup.exe`（已内外层签名）+ 配套 `.sig`
+  → 用它替换 CI 的 Windows 产物（文件名一致）
+- 组 update.json 那步：Windows 用本地 `.sig`，mac/linux 用 CI 的 `.sig`，其余不变
+> 本地构建同产 updater `.sig`（overlay 不关 `createUpdaterArtifacts` 且设了 key），下载+自动更新都指向已签
+> 版本、updater 校验通过，**无需事后补 `.sig`**。
+
+### CI 签名变体（mode:ci，Mac/无 Win 机）
+> 内层 sidecar 只能打包时签，只有构建 Windows 的机器能签到；Mac 别 cross-compile。让 **CI 的 windows runner
+> 边构建边签**，全平台仍从 CI 下 → **发版主流程 = 常规档**，只是 CI 出的 Windows 已内外层全签。
+
+一次性三步：
+1. **CI 仓加 2 Secret**（每个用作 CI 的仓都配）：`EVSIGN_LICENSE` + `EVSIGN_PASSWORD`（Sigil `github_repo_secret_set` / `gh secret set`，🔴 明文不进对话）
+2. 仓库已带 `scripts/evsign-sign-ci.ps1`（从 env 读凭据、无秘密可入库）
+3. `release.yml` 的 windows leg（`if: matrix.platform=='windows-latest'`）加一步：下 evsign CLI（写 `$GITHUB_ENV` 的 `EVSIGN_CLI`）+ 生成 signCommand overlay（绝对路径指向 `scripts/evsign-sign-ci.ps1`）→ tauri-action 的 windows leg 加 `args: --config src-tauri/tauri.conf.sign.ci.json` + 注入 `EVSIGN_LICENSE/PASSWORD` env
+> 完整示例 yaml 见 tauri-cc 的 release-publish「CI 签名变体」。
+
+### 失败回退
+CLI 丢→重下；`签名失败：签名密码为空`→更新 `~/.evsign/pwd.txt`/`license.txt`；`文件被占用`→wrapper 的 copy-sign-swap+重试已兜底；反复失败→问「这次先不签、正常发版」一键回退常规档，**不阻塞发布**。
+
+---
+
 ## 完整发布流程
+
+> **起手先定签名档位**（见上「Windows 代码签名档位」）：常规档 = 下面一字不改；本地签名档 = Windows 产物改本地
+> 签名构建、组 update.json 时 Windows 用本地 `.sig`；CI 签名档 = 下面一字不改（CI 已把 Windows 签好）。
 
 ### 步骤 1：询问版本号和更新说明
 

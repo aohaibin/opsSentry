@@ -39,6 +39,11 @@ src-tauri/keys/
 # Release config (contains local paths)
 .claude/release-config.json
 
+# 本地 Windows 代码签名（evsign）—— 每机由发版流程按本机路径生成，不入库
+# 全局工具箱在 ~/.evsign（CLI + license.txt + pwd.txt + wrapper，秘密不出本机）
+src-tauri/tauri.conf.sign.json
+.claude/signing.local.json
+
 # ============================================================================
 # 自动追加 (sync_to_skills_local 修复)
 # 部署产出 / 凭据 / 密钥不入 git
