@@ -383,13 +383,29 @@ matrix:
 > 边构建边签**，全平台仍从 CI 下 → **发版主流程 = 常规档**，只是 CI 出的 Windows 已内外层全签。
 
 一次性三步：
-1. **CI 仓加 2 Secret**（每个用作 CI 的仓都配）：`EVSIGN_LICENSE` + `EVSIGN_PASSWORD`（Sigil `github_repo_secret_set` / `gh secret set`，🔴 明文不进对话）
+1. **CI 仓加 2 Secret**（每个用作 CI 的仓都配）：`EVSIGN_LICENSE` + `EVSIGN_PASSWORD`。🔴 **一键（Sigil codesign 凭据，首选）**：`codesign_push_windows_secrets(credential_name=codesign_keroro, github_credential_name=<当次 CI 账号>, repo=<owner/repo>)` —— 从金库凭据 `codesign_keroro` 的 Win 段灌，sealed box 加密、明文不进对话；无 Sigil 时 `github_repo_secret_set` / `gh secret set` 逐个配
 2. 仓库已带 `scripts/evsign-sign-ci.ps1`（从 env 读凭据、无秘密可入库）
 3. `release.yml` 的 windows leg（`if: matrix.platform=='windows-latest'`）加一步：下 evsign CLI（写 `$GITHUB_ENV` 的 `EVSIGN_CLI`）+ 生成 signCommand overlay（绝对路径指向 `scripts/evsign-sign-ci.ps1`）→ tauri-action 的 windows leg 加 `args: --config src-tauri/tauri.conf.sign.ci.json` + 注入 `EVSIGN_LICENSE/PASSWORD` env
 > 完整示例 yaml 见 tauri-cc 的 release-publish「CI 签名变体」。
 
 ### 失败回退
 CLI 丢→重下；`签名失败：签名密码为空`→更新 `~/.evsign/pwd.txt`/`license.txt`；`文件被占用`→wrapper 的 copy-sign-swap+重试已兜底；反复失败→问「这次先不签、正常发版」一键回退常规档，**不阻塞发布**。
+
+### 🍎 macOS 签名 secrets（6 个 APPLE_*，配一次即自动签+公证）
+
+底层需就位：`release.yml` 的 macos-latest leg 引用 6 个 `APPLE_*`、`tauri.conf.json` 的 `macOS.hardenedRuntime+entitlements`、`src-tauri/Entitlements.plist`。
+🔴 **缺这 6 个 secret → tauri-action 静默跳过 mac 签名、出未签 mac（不报错）**；配齐则自动签名+公证。首次给某 CI 账号发签名 mac **必做这一步**。
+
+🔴 **一键配（Sigil codesign 凭据，首选）**：整套签名资产已存进金库凭据 `codesign_keroro`（Win+Mac 聚合），一条命令灌满 6 个：
+```
+mcp__sigil__codesign_push_apple_secrets(
+  credential_name=codesign_keroro,
+  github_credential_name=<当次 CI 账号>,
+  repo=<owner/repo>)
+```
+sealed box 加密注入，AI 不碰证书/密码明文。配完 `github_repo_secret_list(repo=<owner/repo>)` 核对 6 个都在。无 Sigil 时逐个 `gh secret set APPLE_* --repo <owner/repo>`（`.p12` 先 `base64 -w0`）。
+
+> 🔴 **job success ≠ 公证过**：签了没公证也 success。run 整体 completed 后 `github_download_run_logs` 下日志 grep「Notarizing Finished ... Accepted」——**aarch64 + x86_64 各一条**才算真公证（详见 tauri-cc 的 release-publish 及记忆 `macos-signing-notarization-ci`）。
 
 ---
 
