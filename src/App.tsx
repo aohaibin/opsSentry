@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { ConfigProvider } from "antd";
+import GlobalNativeTooltip from "@/components/GlobalNativeTooltip";
 import zhCN from "antd/locale/zh_CN";
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
 import { useAppStore } from "@/store";
@@ -39,6 +40,7 @@ function App() {
       <ErrorBoundary>
         <AppRouter />
       </ErrorBoundary>
+      <GlobalNativeTooltip />
     </ConfigProvider>
   );
 }
