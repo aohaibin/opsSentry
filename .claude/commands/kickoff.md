@@ -29,7 +29,9 @@
 ## 阶段二　命名 + Logo（必须走工作站）→ 🚦人工门
 
 1. **命名**：从 PRD 提炼命名候选，每组给：产品名（英文窗口标题）、缩写（2-3 字母）、应用标识符（反向域名 `com.x.y`，全小写）、包名（snake_case，≤20 字符）。给 2-3 组候选 + 推荐一组。
-2. **Logo**：调【AI 工作站】按产品名 + 定位设计 Logo——ai-workstation MCP → `route`（query=给 <产品名> 设计 logo）→ `get_skill`(ai-logo-studio) → 按其指导执行（优先 HTML/SVG，不优先 AI 生图）。导出主图 **`docs/brand/logo-1024.png`**（1024×1024，方形）+ 矢量 `docs/brand/logo.svg`。
+2. **Logo**：调【AI 工作站】按产品名 + 定位设计 Logo——ai-workstation MCP → `route`（query=给 <产品名> 设计 logo）→ `get_skill`(ai-logo-studio) → 按其指导执行（优先 HTML/SVG，不优先 AI 生图）。
+   - 🔴 **风格自动判断，不问用户偏好**：logo-studio 会从产品名 / 定位自动推导风格，别在这里问用户"想要什么风格 / 配色"。
+   - 🔴 **HTML 优先且必产 + 自动打开**：即使只要 1 个 app 图标，也先让 logo-studio 出 `preview.html`（多尺寸 + 深浅底对比）并**自动打开给用户看**，用户只看不选、AI 自动定稿；确认后再导出主图 **`docs/brand/logo-1024.png`**（1024×1024，方形）+ 矢量 `docs/brand/logo.svg`。
    - 🔴 **禁止模型自己瞎画 logo**；一律走工作站 logo-studio。
 3. 🚦**人工门**：把命名候选 + Logo 给用户看（可 `os.startfile` 打开），**停下等确认 / 修改**。
    - 确认的**命名留给阶段四 project-init 复用**（产品名 / 缩写 / 标识符 / 包名），不重复问。
