@@ -752,6 +752,8 @@ fi
 | **描述** | `A Tauri App` | Cargo.toml description |
 | **更新地址** | `https://gitee.com/<用户名>/<项目名>-release/raw/master/update.json` | 更新端点占位符 |
 | **签名公钥** | `YOUR_UPDATER_PUBKEY_HERE` | 更新签名占位符 |
+| **dev 标识符** | `com.agilefr.tauri.dev` | `tauri.conf.dev.json`（= 主标识符 + `.dev`，仅 `tauri dev` 生效） |
+| **dev 产品名** | `Agile Tauri (Dev)` | `tauri.conf.dev.json` 的 productName |
 
 ### Step 2.1：替换产品名称
 
@@ -767,6 +769,7 @@ fi
 | `index.html` | `<title>Agile Tauri</title>` → `<title>{新产品名}</title>` | 页面标题 |
 | `src/components/layout/Sidebar.tsx` | `"Agile Tauri"` → `"{新产品名}"` | 侧边栏展开时名称 |
 | `src/pages/home/index.tsx` | `Agile Tauri` 相关描述文字 | 首页欢迎语 |
+| `src-tauri/tauri.conf.dev.json` | `"productName": "Agile Tauri (Dev)"` → `"productName": "{新产品名} (Dev)"` | dev 覆盖配置显示名（保留 `(Dev)` 后缀） |
 
 **替换产品名缩写**：
 
@@ -810,12 +813,19 @@ pnpm tauri build
 | 文件 | 替换内容 | 说明 |
 |------|---------|------|
 | `src-tauri/tauri.conf.json` | `"identifier": "com.agilefr.tauri"` → `"identifier": "{新标识符}"` | 应用唯一标识 |
+| `src-tauri/tauri.conf.dev.json` | `"identifier": "com.agilefr.tauri.dev"` → `"identifier": "{新标识符}.dev"` | ★ dev 身份分流，**必须跟随主标识符**（漏改则各子项目 dev 实例 + 模板 dev 撞同一数据目录/单例锁） |
 | `CLAUDE.md` | `com.agilefr.tauri` → `{新标识符}` | 文档中的引用 |
 | `AGENTS.md` | `com.agilefr.tauri` → `{新标识符}` | Codex 项目规范（与 CLAUDE.md 对应） |
 | `.claude/commands/progress.md` | `com.agilefr.tauri` → `{新标识符}` | 进度报告模板 |
 | `.claude/commands/start.md` | `com.agilefr.tauri` → `{新标识符}` | 项目介绍模板 |
 
 > **注意**：`.claude/skills/` 中的技能文档如果包含 `com.agilefr.tauri` 作为示例引用，**不需要替换**。
+
+> 🔴 **dev 身份分流约定（防撞车，务必执行）**：模板自带 `src-tauri/tauri.conf.dev.json`（dev 专属 identifier = 主标识符 + `.dev`），
+> 只在 `pnpm tauri:dev` 时经 `--config` 叠加，`tauri build` 不碰它（发布产物身份干净，不违反 `env-isolation` 对发布物的约束）。
+> 新项目**必须**把其中的 `com.agilefr.tauri.dev` 换成 `{新标识符}.dev`——否则所有子项目 dev 实例都叫
+> `com.agilefr.tauri.dev`，会共享同一 `app_data_dir` + 单例锁互相打架。
+> 模板还默认装了 `tauri-plugin-single-instance`（禁止多开、重复启动唤回窗口）；确需多开的项目（如多会话管理器）可自行移除该插件与其 lib.rs 注册。
 
 ### Step 2.3：替换包名
 
@@ -1289,6 +1299,7 @@ index.html                      → <title>{新产品名}</title>
 src/components/layout/Sidebar.tsx → "{新产品名}"（展开时）
 src/pages/home/index.tsx        → 首页欢迎语中的产品名
 README.md                       → 整体重写（见 Step 2.1）
+src-tauri/tauri.conf.dev.json   → "productName": "{新产品名} (Dev)"
 ```
 
 ### 产品名缩写替换（AT → {新缩写}）
@@ -1305,6 +1316,7 @@ CLAUDE.md                       → 应用标识表格
 AGENTS.md                       → 应用标识引用（Codex 侧项目规范）
 .claude/commands/progress.md    → 应用标识引用
 .claude/commands/start.md       → 应用标识引用
+src-tauri/tauri.conf.dev.json   → "identifier": "{新标识符}.dev"（★ 必须跟随主标识符，防子项目 dev 互撞）
 ```
 
 ### 包名替换
