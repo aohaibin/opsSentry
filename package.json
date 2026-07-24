@@ -9,7 +9,8 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "tauri": "tauri",
-    "tauri:dev": "tauri dev",
+    "tauri:dev": "tauri dev --config src-tauri/tauri.conf.dev.json",
+    "tauri:dev:prod-id": "tauri dev",
     "tauri:build": "tauri build",
     "mobile:dev": "kill-port 1520 & vite --config vite.mobile.config.ts",
     "mobile:build": "vite --config vite.mobile.config.ts build"

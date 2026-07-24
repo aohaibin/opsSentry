@@ -1,0 +1,5 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Agile Tauri (Dev)",
+  "identifier": "com.agilefr.tauri.dev"
+}

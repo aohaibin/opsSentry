@@ -14,6 +14,18 @@ use tauri::{Manager, WindowEvent};
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        // ─── 禁止多开（必须是第一个注册的插件）─────────
+        // 锁键 = identifier，第二个实例启动时进程立刻退出，回调在“已运行的实例”里执行：
+        // 还原 + 显示（本应用关闭=隐藏到托盘，窗口很可能是隐藏态）+ 抢焦点，把用户带回当前窗口。
+        // identifier 已 dev/prod 分流（主 identifier + `.dev` 后缀，见 tauri.conf.dev.json）→
+        // dev 与 prod 各自独占一个实例、互不阻塞，可同时各开一个。
+        .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.unminimize();
+                let _ = window.show();
+                let _ = window.set_focus();
+            }
+        }))
         // ─── 插件注册 ───────────────────────────────
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_store::Builder::default().build())
