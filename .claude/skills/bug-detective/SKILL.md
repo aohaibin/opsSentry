@@ -92,6 +92,8 @@ description: |
 | Windows 下 `bash -c "set VAR=val && cmd"` 或 `$env:VAR='val'; cmd` 没生效 | Claude Code 的 Bash 跑在 Git Bash (MSYS2)，用 bash 语法 `export VAR=val && cmd`，不是 CMD/PowerShell | 统一 `export VAR=val && cmd`，或在子进程里用 env: `{}` 传 |
 | Android APK 每个新版本都被系统拦截「与已安装应用签名不同」，必须先卸载旧版才能升级 | CI workflow 没配 `ANDROID_KEYSTORE_BASE64` secret，gradle 用 runner 临时生成的 `debug.keystore` 签名，每次 build 签名都不同 | 本地一次性生成稳定 release keystore + 4 个 secret 注入 CI；workflow 加 `if: env.HAS_KEYSTORE == 'true'` 防 step 静默 skip；用 `apksigner verify --print-certs` 比对 SHA-256 指纹后再发布。详见 `release-publish` skill 移动端章节 |
 | 移动端「检查更新」永远报「已是最新版本」，但下载页确实有新版 | `parseSemver` 没剥 `mobile-` 前缀，`mobile-vX.Y.Z` 经 `replace(/^v/, "")` 不变（以 m 开头）→ 正则不匹配 → 返回 null → `compareSemver` 视为同版本 | 解析前先 `s.replace(/^mobile-/, "").replace(/^v/, "")`；老用户必须从下载页手动拉一次新版才能恢复 |
+| 启动 dev 报 `Found version mismatched Tauri packages`，如 `tauri (v2.11.5) : @tauri-apps/api (v2.10.1)`，但 `package.json` 明明写的是新版本 | 括号里是 **`node_modules` 实装版本**，不是 `package.json` 声明版本。他人/其他会话提交了依赖升级（只改 `package.json` + lockfile），本机没跑 `pnpm install`，实装仍是旧包 | 三层比对定位：① `package.json` 声明 ② `node_modules/@tauri-apps/*/package.json` 实装 ③ `src-tauri/Cargo.lock` 的 Rust 版本。**实装 ≠ 声明 → `pnpm install` 即可**；实装 = 声明但与 Rust 的 major.minor 不一致 → 才需要真改版本号。⚠️ 这不是 git 问题，`git pull` 解决不了——缺的是 `node_modules` 不是提交 |
+| 拉代码 / 切分支 / 他人改了依赖清单后，各种"版本对不上""模块找不到" | 声明层（`package.json`/`pnpm-lock.yaml`、`Cargo.toml`/`Cargo.lock`）已更新，但安装层（`node_modules`、`target/`）没跟上 | 动过 `package.json`/`pnpm-lock.yaml` → 补 `pnpm install`；动过 `Cargo.toml`/`Cargo.lock` → 补 `cargo check --manifest-path src-tauri/Cargo.toml`。多会话并行开发时尤其容易踩 |
 
 ---
 
