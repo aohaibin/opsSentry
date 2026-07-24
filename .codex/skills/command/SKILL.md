@@ -11,6 +11,8 @@ description: |
   触发词：command、命令、invoke、IPC、创建命令、新增命令、添加命令
 ---
 
+# /command - 快速创建 Tauri Command
+
 作为 Tauri Command 生成助手，快速创建完整的 Rust Command + 前端调用代码。
 
 ## 适用场景
@@ -116,16 +118,16 @@ Read src/types/index.ts
 
 ### 第三步：自动生成代码
 
-## 新架构说明（必须遵守）
+## 🔴 新架构说明（必须遵守）
 
 本项目采用**三层分离架构**：
 
 ```
-Commands (src-tauri/src/commands/)    <- 接收前端请求，参数校验
-    |
-Services (src-tauri/src/services/)    <- 业务逻辑层
-    |
-Database (src-tauri/src/database/)    <- 数据持久化层
+Commands (src-tauri/src/commands/)    ← 接收前端请求，参数校验
+    ↓
+Services (src-tauri/src/services/)    ← 业务逻辑层
+    ↓
+Database (src-tauri/src/database/)    ← 数据持久化层
 ```
 
 **架构要点**：
@@ -589,7 +591,7 @@ pub enum AppError {
 
 ### 架构规则
 
-1. **三层分离**: Commands -> Services -> Database
+1. **三层分离**: Commands → Services → Database
 2. **Commands 层**: 只做参数校验、调用 Service、返回结果
 3. **Services 层**: 核心业务逻辑、数据转换
 4. **Database 层**: SQL 操作、数据持久化
@@ -602,3 +604,257 @@ pub enum AppError {
 2. **Command 名称不得与已有 Command 冲突** -- 检查 `generate_handler![]` 列表
 3. **新增 Cargo 依赖必须告知用户** -- 说明为什么需要以及版本号
 4. **如使用插件 API 必须检查 Capabilities** -- 缺少权限声明会导致运行时报错
+
+---
+
+## 示例对话
+
+### 用户输入
+
+```
+/command
+```
+
+### AI 响应
+
+```
+好的！我将帮您快速创建一个 Tauri Command。
+
+请提供 Command 的基本信息：
+
+1. 功能描述？（如：读取配置文件、保存用户设置、调用系统命令）
+2. 所属模块？（如：system、config、user、file 等）
+3. 输入参数？（参数名 + 类型，如：path: String, content: String）
+4. 返回值类型？（String / 自定义结构体 / Vec<T> / 无返回值）
+5. 是否需要异步？（文件IO / 网络请求 / 数据库 --> 需要异步）
+6. 是否需要注入框架对象？（AppHandle / Window / State）
+```
+
+### 用户输入
+
+```
+获取用户列表，属于 user 模块，需要从数据库读取，返回用户列表
+```
+
+### AI 响应
+
+```
+好的！根据您的描述，我将创建一个异步 Command 来获取用户列表。
+
+分析：
+- 功能：获取用户列表
+- 模块：user
+- 类型：异步 Command（数据库操作）+ State（需要数据库连接）
+- 返回：Vec<User>
+
+让我先读取现有代码...
+
+[AI 内部：Read 相关文件]
+
+## Command 生成方案
+
+- 模块: user (新建 commands/user.rs)
+- Command 名称: get_user_list
+- Service: UserService::get_all
+- 数据模型: User (需新增到 models/mod.rs)
+
+[生成完整的三层代码 + 前端封装]
+```
+
+---
+
+## 完整示例：创建用户管理 Command
+
+假设用户要求："创建一个获取所有用户的 Command"
+
+### 生成的文件结构
+
+```
+src-tauri/src/
+├── commands/
+│   ├── mod.rs          (新增 pub mod user;)
+│   └── user.rs         (新建，包含 get_user_list Command)
+├── services/
+│   ├── mod.rs          (新增 pub mod user;)
+│   └── user.rs         (新建，包含 UserService)
+├── models/
+│   └── mod.rs          (新增 User 结构体)
+└── lib.rs              (注册 commands::user::get_user_list)
+
+src/
+├── lib/api/
+│   └── index.ts        (新增 userApi.getList)
+└── types/
+    └── index.ts        (新增 User 接口)
+```
+
+### 1. 数据模型 (models/mod.rs)
+
+```rust
+// 新增到 src-tauri/src/models/mod.rs
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct User {
+    pub id: i64,
+    pub username: String,
+    pub email: String,
+}
+```
+
+### 2. Service 层 (services/user.rs)
+
+```rust
+// src-tauri/src/services/user.rs
+use crate::database::Database;
+use crate::error::AppError;
+use crate::models::User;
+
+pub struct UserService;
+
+impl UserService {
+    pub fn get_all(db: &Database) -> Result<Vec<User>, AppError> {
+        let conn = db.connection.lock().unwrap();
+        let mut stmt = conn.prepare("SELECT id, username, email FROM users")?;
+
+        let users = stmt
+            .query_map([], |row| {
+                Ok(User {
+                    id: row.get(0)?,
+                    username: row.get(1)?,
+                    email: row.get(2)?,
+                })
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
+
+        Ok(users)
+    }
+}
+```
+
+### 3. Command 层 (commands/user.rs)
+
+```rust
+// src-tauri/src/commands/user.rs
+use crate::models::User;
+use crate::services::user::UserService;
+use crate::state::AppState;
+
+/// 获取所有用户
+#[tauri::command]
+pub fn get_user_list(state: tauri::State<'_, AppState>) -> Result<Vec<User>, String> {
+    UserService::get_all(&state.db).map_err(|e| e.to_string())
+}
+```
+
+### 4. 注册 (commands/mod.rs)
+
+```rust
+// src-tauri/src/commands/mod.rs
+pub mod config;
+pub mod system;
+pub mod user;  // <-- 新增
+```
+
+### 5. 注册 (services/mod.rs)
+
+```rust
+// src-tauri/src/services/mod.rs
+pub mod config;
+pub mod user;  // <-- 新增
+```
+
+### 6. 注册到 Builder (lib.rs)
+
+```rust
+// src-tauri/src/lib.rs
+.invoke_handler(tauri::generate_handler![
+    // ... 已有 commands ...
+    commands::user::get_user_list,  // <-- 新增
+])
+```
+
+### 7. 前端类型 (types/index.ts)
+
+```typescript
+// src/types/index.ts
+export interface User {
+  id: number;
+  username: string;
+  email: string;
+}
+```
+
+### 8. 前端 API (lib/api/index.ts)
+
+```typescript
+// src/lib/api/index.ts
+import type { User } from "@/types";
+
+export const userApi = {
+  /** 获取所有用户 */
+  getList: () => invoke<User[]>("get_user_list"),
+};
+```
+
+### 9. 使用示例 (React 组件)
+
+```tsx
+import { useState, useEffect } from "react";
+import { Card, Table, message } from "antd";
+import { userApi } from "@/lib/api";
+import type { User } from "@/types";
+
+function UserList() {
+  const [users, setUsers] = useState<User[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    loadUsers();
+  }, []);
+
+  const loadUsers = async () => {
+    setLoading(true);
+    try {
+      const data = await userApi.getList();
+      setUsers(data);
+    } catch (error) {
+      message.error(`加载失败: ${error}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const columns = [
+    { title: "ID", dataIndex: "id", key: "id" },
+    { title: "用户名", dataIndex: "username", key: "username" },
+    { title: "邮箱", dataIndex: "email", key: "email" },
+  ];
+
+  return (
+    <Card title="用户列表">
+      <Table
+        dataSource={users}
+        columns={columns}
+        loading={loading}
+        rowKey="id"
+      />
+    </Card>
+  );
+}
+
+export default UserList;
+```
+
+---
+
+## 总结
+
+使用 `/command` 快速创建 Tauri Command，遵循以下原则：
+
+1. **三层分离**：Commands → Services → Database
+2. **统一管理**：Models、Error、API 封装集中管理
+3. **类型安全**：Rust 和 TypeScript 双端类型定义
+4. **错误处理**：使用 `AppError` + `.map_err()`
+5. **命名规范**：Rust 用 snake_case，TypeScript 用 camelCase
+6. **UI 组件**：使用 Ant Design 5 + React Hooks
+
+通过 `/command` 可以快速生成标准化的 Command 代码，保持项目架构一致性。

@@ -73,14 +73,21 @@ pnpm tauri build --debug
       "timestampUrl": "",
       "wix": null,
       "nsis": {
-        "displayLanguageSelector": true,
-        "languages": ["SimpChinese", "English"],
+        "displayLanguageSelector": false,
+        "languages": ["SimpChinese"],
         "installerIcon": "icons/icon.ico"
       }
     }
   }
 }
 ```
+
+> **🔴 安装界面强制中文**（本框架默认）：
+> - `"languages": ["SimpChinese"]` —— **只列中文**，保证任何系统（含英文 Windows）安装界面都是中文。
+>   若列了 `["SimpChinese", "English"]`，`displayLanguageSelector:false` 时 NSIS 会**按系统语言自动选**，
+>   英文系统就变英文了，无法保证中文。需要中文兜底就只留 SimpChinese。
+> - `"displayLanguageSelector": false` —— 关掉安装首屏的语言选择弹窗，直接进中文界面。
+> - 需要同时支持英文（让用户自己选）时，才改回 `["SimpChinese", "English"]` + `displayLanguageSelector: true`（中文为默认项）。
 
 ### macOS 配置
 
@@ -171,6 +178,28 @@ src-tauri/target/release/bundle/
 
 ---
 
+## 可选：Windows 代码签名（evsign 云签，"没配也能发"）
+
+> **默认不签**：没配 evsign 的机器照常发未签名版（现状），零影响。可选叠加层——配了就本地签名构建，让 Win11
+> 智能应用控制(SAC)不再拦"可能不安全"。**仅 Windows**（mac=Apple 公证、linux 不需要）。与 updater 签名(minisign)
+> 是两回事：updater 签名只给自动更新校验，Windows 信任要 Authenticode。
+
+- **全局工具箱 `~/.evsign`**（本机一份、名下所有软件共用；`evsign-client.exe` + `license.txt`(许可证UUID，非私钥)
+  + `pwd.txt`(密码) + `evsign-sign.ps1`(wrapper)，秘密不入 git）。CLI 下载 Win
+  `https://mc.evsign.cn/evsign-client-cli-windows-latest`（mac/linux 换 `-macos-`/`-linux-`）。
+- **接法**：`src-tauri/tauri.conf.sign.json`（overlay，只加 `signCommand`→`~/.evsign/evsign-sign.ps1`，object
+  notation；已 gitignore）+ `pnpm tauri build --config src-tauri/tauri.conf.sign.json`。发版还要 updater `.sig`
+  → 设 `TAURI_SIGNING_PRIVATE_KEY`（本框架私钥在 `src-tauri/keys/tauri-updater.key`）。
+- **签哪些**：Tauri 自动签**主程序 + 全部 externalBin sidecar + NSIS 插件 DLL + 安装器**，无需手写清单。
+  除非自定义 `installerHooks` 往安装包塞了 Tauri 不认识的额外二进制才要补签。
+- 🔴 **wrapper 必须 copy-sign-swap**：Tauri patch 主程序后 Windows Defender 实时扫描抢锁 → evsign 独占改写
+  "文件被占用"；对策=签临时副本+回填+短重试；`.ps1` 纯 ASCII（PS5.1 GBK 陷阱）；`Start-Process` 重定向 stdio
+  脱离 Tauri 管道。
+- **档位与 CI 变体**：Windows 机 → 本地签（`.claude/signing.local.json` 标记 `mode:local`）；Mac/无 Win 机 →
+  CI 签（`mode:ci`，用 `scripts/evsign-sign-ci.ps1` 从 env 读凭据）。发版编排见 release-publish「Windows 代码签名档位」。
+
+---
+
 ## 版本管理
 
 版本号需在 3 处同步:
@@ -208,3 +237,5 @@ version = "1.0.0"
 | Rust 中启动子进程未设 `CREATE_NO_WINDOW` | 打包后变 GUI 进程，所有 `Command::new()` 必须设 `creation_flags(0x08000000)` |
 | `productName` 含中文导致 WiX MSI 打包失败 | 改用 NSIS (`"targets": ["nsis"]`) 或改 productName 为纯 ASCII |
 | `bundle.targets` 设为 `"all"` 在 CI 上出错 | CI 中通过 `--bundles` 参数指定，本地可用 `["nsis"]` |
+| 只签 NSIS 安装器、主程序/sidecar 没签 → SAC 仍拦 | 用 `signCommand` 让 Tauri 自动签主程序+sidecar+插件 DLL+安装器（见「可选：Windows 代码签名」）|
+| 把 updater 私钥当 Windows 代码签名 | 两回事：updater 签名(minisign)只给自动更新校验；Windows 信任要 Authenticode(evsign/signtool) |

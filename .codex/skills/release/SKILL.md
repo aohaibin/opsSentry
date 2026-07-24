@@ -11,7 +11,9 @@ description: |
   触发词：发布、release、版本、version、打包、构建、build、tag
 ---
 
-作为版本发布助手，执行 Tauri 桌面应用的发布流程：更新版本号 -> 更新 README -> 推送 -> 打 Tag 触发 CI -> 等待 CI -> 下载产物 -> 本地推送到 release 仓库。
+# /release - 发布新版本
+
+作为版本发布助手，执行 Tauri 桌面应用的发布流程：更新版本号 → 更新 README → 推送 → 打 Tag 触发 CI → 等待 CI → 下载产物 → 本地推送到 release 仓库。
 
 > **本地不需要执行 `pnpm tauri build`**。CI 负责构建和签名。用户只需从 GitHub Release 下载产物。
 
@@ -46,6 +48,14 @@ Read src-tauri/tauri.conf.json  # 读取当前 version 和 productName
 - 本地 Release 仓库（GitHub）路径
 - 主分支名（master/main）
 
+**问题4**（可选）：是否使用 Cloudflare R2 CDN 作为主下载源？
+- 选项：`是`、`否`（默认否）
+- 如果选"是"，继续询问：
+  - R2 公开地址（如 `https://pub-xxx.r2.dev`）
+  - rclone remote 名（默认 `r2`）
+  - R2 bucket 名（默认 `downloads`）
+  - R2 路径前缀（如 `myapp`，用于多项目隔离）
+
 将信息保存到 `.claude/release-config.json`：
 
 ```json
@@ -58,9 +68,19 @@ Read src-tauri/tauri.conf.json  # 读取当前 version 和 productName
   "releaseRepoGithubUrl": "https://github.com/user/my-app-release",
   "localReleaseGiteePath": "<绝对路径>",
   "localReleaseGithubPath": "<绝对路径>",
-  "mainBranch": "master"
+  "mainBranch": "master",
+  "r2": {
+    "enabled": false,
+    "publicUrl": "",
+    "rcloneRemote": "r2",
+    "bucket": "downloads",
+    "pathPrefix": ""
+  }
 }
 ```
+
+> **R2 CDN 说明**：`r2` 字段为可选配置。`enabled` 为 `false` 时，所有 R2 相关步骤跳过，回退到 Gitee 主源模式。
+> 启用后，R2 作为主下载源和自动更新端点，Gitee 降级为备源。
 
 > **平台配置说明**：`platforms` 数组决定 CI 构建矩阵、README 下载表格、产物清单和 update.json 内容。
 > 修改平台配置后，需同步更新 `.github/workflows/release.yml` 的构建矩阵。
@@ -82,11 +102,13 @@ Skill(release-publish)
 
 ### 第五步：按技能中的步骤执行发布前半段
 
+> **注意**：此阶段只操作源码仓库，**不推送任何内容到 release 仓库**。
+> release 仓库的 README、产物、update.json 全部在第七步（CI 完成后）一次性处理。
+
 1. 更新三处版本号（tauri.conf.json / Cargo.toml / package.json）
-2. 更新两个 release 仓库的 README.md（下载链接 + 版本历史 + 项目结构树，**仅包含已配置的平台**）
-3. 提交 + pull rebase + 推送 release 仓库 README 变更（Gitee 先推，GitHub 后推）
-4. 提交源码仓库 + 推送到 GitHub
-5. 打 Tag + 推送（触发 CI）
+2. 提交源码仓库（包含所有未提交的改动）
+3. 推送到 GitHub
+4. 打 Tag + 推送（触发 CI）
 
 ### 第六步：输出等待提示和文件清单
 
@@ -116,10 +138,19 @@ CI 已触发，请等待构建完成。
 
 用户提供下载目录后：
 
-1. 复制所有产物到两个 release 仓库的 `releases/vX.Y.Z/` 目录
-2. 读取 `.sig` 文件生成 `update.json`（**仅包含已配置平台**，Gitee 版 + GitHub 版）
-3. 提交 + pull rebase + 推送 release 仓库（Gitee 先推，GitHub 后推）
-4. 输出完成报告
+1. **如果 r2.enabled**：使用 rclone 上传产物到 R2 CDN（`rclone copy` → `<rcloneRemote>:<bucket>/<pathPrefix>/releases/vX.Y.Z/`）
+2. 复制所有产物到两个 release 仓库的 `releases/vX.Y.Z/` 目录
+3. 读取 `.sig` 文件生成 `update.json`（**仅包含已配置平台**）
+   - **如果 r2.enabled**：生成 R2 版 + Gitee 版 + GitHub 版（3 个版本）
+   - **如果 r2 未启用**：生成 Gitee 版 + GitHub 版（2 个版本）
+   - **🔴 必须用 shell 变量注入签名**（见技能 release-publish 步骤 5「3a~3f」的 `generate_update_json()` 函数）
+   - **🚫 禁止手动粘贴 base64 签名**（400+ 字符极易出错，一个字符差异即导致签名验证失败，所有用户更新报 `signature verification failed`）
+   - **生成后必须验证**：对比 update.json 中的签名与原始 `.sig` 文件是否完全一致（步骤 3f 自动比对）
+4. **如果 r2.enabled**：上传 R2 版 update.json 到 R2（`rclone copyto` → `<rcloneRemote>:<bucket>/<pathPrefix>/update.json`）
+5. **如果 r2.enabled**：更新 R2 上的 `versions.json`（下载当前版本列表 → 在数组头部插入新版本 → 上传回 R2）。文档站下载页依赖此文件获取版本列表。
+6. 更新两个 release 仓库的 README.md（下载链接 + 版本历史 + 项目结构树，**仅包含已配置的平台**）
+7. 提交 + pull rebase + 推送 release 仓库（Gitee 先推，GitHub 后推）
+8. 输出完成报告
 
 ---
 
@@ -149,5 +180,17 @@ CI 已触发，请等待构建完成。
 ### CI 与产物处理
 14. **不需要本地构建**：`pnpm tauri build` 由 CI 执行
 15. **签名由 CI 完成**：`.sig` 文件已包含在 CI 产物中，用户只需下载
-16. **Claude 生成 update.json**：读取 `.sig` 文件内容写入 update.json（仅包含已配置平台）
+16. **Claude 生成 update.json**：读取 `.sig` 文件内容写入 update.json（仅包含已配置平台）。如果 r2.enabled，生成 3 个版本（R2 版 + Gitee 版 + GitHub 版）；否则生成 2 个版本（Gitee 版 + GitHub 版）
 17. **Claude 推送 release 仓库**：复制产物 + update.json 后本地推送到 Gitee/GitHub
+
+### 🔴 签名注入（防错规则，整个发布最易炸的一步）
+18. **必须用 shell 变量注入签名**：先 `WIN_SIG=$(cat <AppName>_*x64-setup.exe.sig | tr -d '\r\n')`，再用**双引号 heredoc** `<< JSONEOF`（无单引号）通过 `$WIN_SIG` 注入
+19. **禁止手动粘贴 base64 签名**：400+ 字符极易出错，一个字符差异即导致 `signature verification failed`，所有用户自动更新失效
+20. **必须用 `<AppName>_` 前缀过滤 .sig**：禁止 `cat *x64-setup.exe.sig` 纯后缀通配符（会把同目录其他项目的 sig 拼进来 → 非法 base64 "Invalid symbol 61"）；强烈建议下载用独立子目录隔离
+21. **生成后必须验证**：① `=` 字符数 ≤ 2 ② node 真 base64 解码 ③ 比对 update.json 内签名与 `.sig` 一致，任一不过立即中止
+22. **统一生成函数**：所有版本（R2/Gitee/GitHub）必须用同一个 `generate_update_json()` 函数生成，只传不同的 BASE_URL，确保签名/结构完全一致
+
+### R2 CDN（可选）
+23. **R2 为可选功能**：通过 `release-config.json` 的 `r2.enabled` 字段控制，未配置时回退到 Gitee 主源模式
+24. **R2 上传使用 rclone**：`rclone copy` 上传产物，`rclone copyto` 上传 update.json
+25. **R2 启用后分发策略**：R2 CDN 为主源，Gitee 为备源，GitHub 为存档

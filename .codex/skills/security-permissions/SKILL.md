@@ -430,6 +430,55 @@ pub fn delete_user(id: i64) -> Result<(), String> {
 }
 ```
 
+### 7. 运行时敏感文件权限收敛（endpoint 令牌 / per-install token）
+
+对外暴露本地服务（典型：MCP host —— 主 App 起 axum server 绑 `127.0.0.1`，把 `{url, token}` 写进
+`<app_data_dir>/mcp-rpc.json` 供 sidecar / 外部客户端连）时，该文件含**全权 per-install token**。
+`std::fs::write` 默认按父目录继承 ACL 创建，多用户机器上他用户可读 → **令牌泄露**。必须**写后立即收敛**为「仅属主可读写」。
+
+**标准模板（跨平台，失败仅告警不致命）**：
+
+```rust
+/// endpoint 令牌文件写后立即收敛权限。Unix：0600；Windows：icacls 去继承 + 仅授当前用户 SID。
+fn harden_token_file(path: &std::path::Path) {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let _ = std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o600));
+    }
+    #[cfg(windows)]
+    {
+        // 🔴 icacls 收敛必须按**当前用户 SID**，绝不能用裸用户名（%USERNAME%）：
+        //    在「计算机名 == 用户名」的机器上，icacls 把裸名解析成机器账户（机器 SID，无 RID）而非
+        //    用户账户；叠加 /inheritance:r 删继承后，当前用户反被锁在文件外 → App 自己都读不了该文件。
+        let sid = match current_user_sid() {
+            Some(s) => s,
+            None => return, // 🔴 取不到 SID 就别删继承：宁可少收一层，也不能用不可靠的裸名把属主锁死
+        };
+        // silent_command = 带 CREATE_NO_WINDOW，免弹 CMD 黑窗；* 前缀 = 按 SID 授权
+        let _ = silent_command("icacls")
+            .arg(path).arg("/inheritance:r").arg("/grant:r").arg(format!("*{sid}:F"))
+            .output();
+    }
+}
+
+/// whoami /user /fo csv /nh → `"域\用户","S-1-5-21-..."`，取末字段即 SID，校验 S-1- 前缀
+#[cfg(windows)]
+fn current_user_sid() -> Option<String> {
+    let out = silent_command("whoami").args(["/user", "/fo", "csv", "/nh"]).output().ok()?;
+    if !out.status.success() { return None; }
+    let s = String::from_utf8_lossy(&out.stdout);
+    let sid = s.lines().rev().find(|l| !l.trim().is_empty())?
+        .rsplit(',').next()?.trim().trim_matches('"').to_string();
+    sid.starts_with("S-1-").then_some(sid)
+}
+```
+
+**三条铁律**：
+1. **写后必收敛** —— `fs::write` 令牌文件后立刻调收敛，别只在注释里写"仅当前用户可读"却不做（= 令牌裸奔，多用户机器上他用户可窃取）。
+2. **Windows 按 SID 不按裸名** —— `/grant:r *<SID>:F`（`*` 前缀传 SID），规避机名 == 用户名时裸名被解析成机器账户。
+3. **取不到 SID 就别删继承** —— 降级为不 `/inheritance:r`，避免把属主自己锁出文件（否则 App / sidecar 都读不了，服务起不来 → 表现为「端点未就绪 / MCP 工具全挂」）。
+
 ---
 
 ## 排查权限问题
@@ -457,3 +506,5 @@ pub fn delete_user(id: i64) -> Result<(), String> {
 | 添加权限不测试 | 添加权限后验证功能是否正常 |
 | 以为 `core:default` 包含所有窗口操作 | 无边框窗口的拖拽/最大化等需显式声明 |
 | 动态窗口只写固定标签名 | 使用 `窗口前缀-*` 通配符覆盖动态窗口 |
+| 写含 token 的 endpoint 文件后不收敛权限 | `fs::write` 后立即 icacls(按 SID)/chmod 0600，见「运行时敏感文件权限收敛」 |
+| Windows icacls 用裸用户名 `%USERNAME%:F` | 按 SID `*<SID>:F`，否则机名 == 用户名时把属主锁死 |
