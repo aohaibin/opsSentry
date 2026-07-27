@@ -457,6 +457,102 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
 
 ---
 
+## 🔴 Tailwind 与 antd 共存（样式失效必查）
+
+> 本项目是 **Tailwind 4 + antd v6**。下方「样式选择规则」里"布局/间距用 TailwindCSS 原子类"这条，
+> **能否作用在 antd 组件上，取决于本节的 layer 配置**。配错会静默失效，没有任何报错。
+
+### 两种故障，同一个根因
+
+| 症状 | 根因 |
+|------|------|
+| 给 antd 组件写的 Tailwind 类（`mt-4` / `flex-1` / `text-xs`）**静默失效**，代码里写了间距界面上没有 | antd 样式「未分层」，按 CSS Cascade Layers 规范优先级**高于** `@layer utilities` |
+| antd 组件**整体崩坏**：弹窗不居中、输入框没边框、按钮挤成一团 | antd 层排到了 `base` 之前，被 Tailwind preflight（CSS reset）冲掉 |
+
+### 正解：antd 必须夹在中间（"三明治"）
+
+```css
+/* src/styles/global.css —— 必须写在 @import "tailwindcss" 之前（先声明的 layer 优先级更低） */
+@layer theme, base, components, antd, utilities;
+
+@import "tailwindcss";
+```
+
+```tsx
+// src/App.tsx —— 把 antd 运行时样式装进 @layer antd
+import { StyleProvider } from "@ant-design/cssinjs";
+
+<StyleProvider layer>
+  <ConfigProvider locale={antdLocale} theme={getAntdTheme(appTheme)}>
+    {/* ... */}
+  </ConfigProvider>
+</StyleProvider>
+```
+
+两侧都不能挪：
+- **排在 `base` 之后** → 不被 Tailwind preflight 的 reset 冲掉
+- **排在 `utilities` 之前** → Tailwind 工具类才能覆盖 antd 默认样式
+
+⚠️ 依赖 `@ant-design/cssinjs` 必须**显式安装**（pnpm 严格模式下不能直接 import 传递依赖）。
+⚠️ **删掉任何一处，全项目 antd 组件上的 Tailwind 类都会失效**，且失效是静默的。
+
+### 验证：必须双向测（浏览器 console）
+
+```js
+// 方向 1：Tailwind 能覆盖 antd？期望 16px
+const d = document.createElement('div');
+d.className = 'ant-alert mt-4';
+document.body.appendChild(d);
+getComputedStyle(d).marginTop;   // "16px" = 正常
+
+// 方向 2：antd 自己没被 reset 冲掉？期望 border 1px / radius 6px
+getComputedStyle(document.querySelector('button.ant-btn'));
+```
+
+🔴 **只测一个方向会漏掉反向破坏** —— 改完 layer 只确认"Tailwind 生效"，很可能整套 antd 样式已经崩了。
+
+⚠️ 方向 2 必须取**页面上真实渲染的元素**。手工 `createElement` 造的裸 `.ant-btn` 测不出来：
+antd v6 的选择器带 hash 前缀（`.css-var-xxx.ant-btn`），裸类名匹配不到任何规则，会得到全 0 的假结果。
+
+---
+
+## 组件间距规范（单边控制）
+
+**规则：相邻两元素的间距，只由后一个元素的 `mt-*` 给，前一个不设 `mb-*`。**
+
+```tsx
+// ✅ 正确：间距 = 你写的那个数，可预测
+<Input value={displayName} onChange={...} />
+<Alert className="mt-3" ... />
+
+// ❌ 错误：间距是 12 还是 28，取决于会不会 margin 折叠
+<Input className="mb-3" ... />
+<Alert className="mt-4" ... />
+```
+
+**为什么两边都设会出问题**：
+
+| 情况 | 结果 |
+|------|------|
+| 相邻块级元素 | margin 折叠，取 `max(12,16)` = **16px** |
+| antd `Input` 根元素是 `inline-block` | **不折叠**，`12+16` = **28px** |
+
+同一个 antd 组件，**加不加 prefix/suffix 会改变根元素**（`<input class="ant-input">` ↔
+`<span class="ant-input-affix-wrapper">`），导致间距在 16 和 28 之间跳。单边控制可以绕开整个问题。
+
+---
+
+## antd Alert 使用注意
+
+| 注意事项 | 做法 |
+|---------|------|
+| **带 description 时内边距过大** | antd 默认给 `16px 24px`，紧凑表单里要收窄：`style={{ padding: "10px 14px" }}` |
+| **长错误提示不能用 toast** | `message.error()` 几秒自动消失，用户来不及照做。含"下一步动作"的多句提示必须用**常驻可关闭的 Alert** |
+| **阻断性提示放在输入框上方** | 例如"此邮箱不支持密码登录"，要在用户动手填之前就告知，而不是填完提交才报错 |
+| **占位元素别留空高** | 状态提示区若用 `min-h-[20px]` 占位，在不会触发该状态的模式下应整块 `{cond && ...}` 不渲染，否则留下莫名空白 |
+
+---
+
 ## 桌面应用 UI 注意事项
 
 | 注意事项 | 说明 |
@@ -475,6 +571,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
 | Ant Design 组件内 | `token.*`（`useToken()`） | `token.colorBgContainer` |
 | 自定义组件颜色 | CSS 变量 `var(--xxx)` | `background: var(--bg-secondary)` |
 | 布局/间距 | TailwindCSS 原子类 | `className="flex gap-4 p-6"` |
+| ⚠️ 作用在 **antd 组件**上的 Tailwind 类 | 需 layer 配置就位，见上方「Tailwind 与 antd 共存」 | 配错则静默失效 |
 | 边框颜色 | CSS 变量 | `border: 1px solid var(--border)` |
 | TailwindCSS 引用变量 | arbitrary values | `bg-[var(--bg-hover)]` |
 
@@ -502,6 +599,9 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
 | 设置页用独立路由 | 使用 `Drawer` 从右侧滑入，无需路由切换 |
 | 所有 API/类型/store 写在单文件 | 按模块拆分（`api/config.ts`、`store/settings.ts`、`types/system.ts`） |
 | 表单 Modal/Drawer 允许点击遮罩关闭 | 必须加 `maskClosable={false}`，防止误点丢失输入 |
+| 给 antd 组件写 Tailwind 类却不生效，改用 `!important`（`!mt-4`）硬顶 | 治标不治本 —— 查 `@layer` 三明治顺序是否配好（见「Tailwind 与 antd 共存」） |
+| 相邻元素两边都设间距（前 `mb-3` + 后 `mt-4`） | 只由后一个元素的 `mt-*` 单边控制，避免 margin 折叠导致间距不可预测 |
+| 长错误提示用 `message.error()` 弹 toast | 含"下一步动作"的多句提示用常驻 Alert，toast 会自动消失、用户来不及照做 |
 | `<iframe src={convertFileSrc(abs)}>` 预览本地 PDF/HTML，内嵌在 Modal | 部分老 WebView2 / 严格 CSP 下 iframe 加载 asset: 协议被拦成「已阻止此内容」；各机器行为不一 | Modal title 右侧固定加一个「用系统应用打开」小按钮调 `openPath(abs)`，作为跨环境兜底；不要依赖 iframe 的 onerror（拦截不会触发） |
 
 
