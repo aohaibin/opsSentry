@@ -2,7 +2,10 @@ mod commands;
 mod database;
 mod error;
 mod models;
-mod remote;
+// 远程访问网关骨架：默认不接线，等衍生项目做移动端伴侣时再调用 remote::server::start。
+// 声明为 pub 而非 mod —— 它是面向外部（移动端）的 API 骨架，pub 让编译器认可其可达性，
+// 从而不误报 dead_code，同时骨架仍参与编译检查、不会悄悄烂掉。
+pub mod remote;
 mod services;
 pub mod shared;
 mod state;

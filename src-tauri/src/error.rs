@@ -62,7 +62,9 @@ impl From<AppError> for CommandError {
 /// Tauri 要求错误类型实现 Into<InvokeError>，序列化为 JSON 字符串传递给前端
 impl From<CommandError> for String {
     fn from(err: CommandError) -> String {
-        serde_json::to_string(&err).unwrap_or_else(|_| err.message)
+        // 用 unwrap_or 而非 unwrap_or_else：兜底值是已有字段、不是惰性计算，
+        // 包一层闭包对性能无益，反而触发 clippy::unnecessary_lazy_evaluations
+        serde_json::to_string(&err).unwrap_or(err.message)
     }
 }
 

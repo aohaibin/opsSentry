@@ -87,6 +87,11 @@ impl Database {
     }
 
     /// 物理删除配置（永久删除，不可恢复）
+    ///
+    /// 与 `delete_config`（软删）、`restore_config`（恢复）构成软删除三件套。
+    /// 当前无调用方：本模板只默认接线软删除，硬删/恢复留给业务按需暴露成 Command。
+    /// 保留完整三件套而非删掉，是为了让 `deleted_at` 软删除机制在语义上闭环。
+    #[allow(dead_code)]
     pub fn hard_delete_config(&self, key: &str) -> Result<bool, AppError> {
         let conn = self.conn.lock().map_err(|e| AppError::Custom(e.to_string()))?;
         let affected = conn.execute("DELETE FROM app_config WHERE key = ?1", [key])?;
@@ -94,6 +99,9 @@ impl Database {
     }
 
     /// 恢复已软删除的配置
+    ///
+    /// 同上：软删除三件套的一员，当前无调用方，按需接线成 Command。
+    #[allow(dead_code)]
     pub fn restore_config(&self, key: &str) -> Result<bool, AppError> {
         let conn = self.conn.lock().map_err(|e| AppError::Custom(e.to_string()))?;
         let affected = conn.execute(
