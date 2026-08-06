@@ -1,3 +1,9 @@
+/* CSS Cascade Layers 顺序声明 —— 必须在 @import "tailwindcss" 之前，先声明者优先级更低。
+ * antd 夹在 base 与 utilities 之间：排在 base 后不被 Tailwind preflight 的 reset 冲掉，
+ * 排在 utilities 前才能让 Tailwind 工具类（mt-6 等）覆盖 antd 组件默认样式。
+ * 配套 src/App.tsx 的 <StyleProvider layer>，两者缺一则 antd 上的 Tailwind 类静默失效。 */
+@layer theme, base, components, antd, utilities;
+
 @import "tailwindcss";
 @import "./variables.css";
 

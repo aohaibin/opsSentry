@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { ConfigProvider } from "antd";
+import { StyleProvider } from "@ant-design/cssinjs";
 import GlobalNativeTooltip from "@/components/GlobalNativeTooltip";
 import zhCN from "antd/locale/zh_CN";
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
@@ -36,12 +37,17 @@ function App() {
   }, [resolved]);
 
   return (
-    <ConfigProvider locale={zhCN} theme={getAntdTheme(resolved)}>
-      <ErrorBoundary>
-        <AppRouter />
-      </ErrorBoundary>
-      <GlobalNativeTooltip />
-    </ConfigProvider>
+    // StyleProvider layer：把 antd 运行时注入的样式装进 @layer antd。
+    // 层顺序由 src/styles/global.css 首行的 @layer 声明决定（antd 排在 utilities 之前），
+    // 否则 antd 层会被追加到序列末尾，Tailwind 工具类照样覆盖不了。
+    <StyleProvider layer>
+      <ConfigProvider locale={zhCN} theme={getAntdTheme(resolved)}>
+        <ErrorBoundary>
+          <AppRouter />
+        </ErrorBoundary>
+        <GlobalNativeTooltip />
+      </ConfigProvider>
+    </StyleProvider>
   );
 }
 
