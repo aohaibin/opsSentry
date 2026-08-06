@@ -164,6 +164,33 @@ Tauri Desktop App 的技术决策记录技能，使用 ADR（Architecture Decisi
 
 ---
 
+### ADR：antd 与 Tailwind 共存方案（CSS Cascade Layers 三明治）
+
+**状态**：已采纳
+
+**背景**：antd v6 的样式由 cssinjs 运行时注入，默认**不属于任何 `@layer`**；而 Tailwind 4 的工具类在
+`@layer utilities` 内。按 Cascade Layers 规范，未分层样式优先级高于所有分层样式（与选择器特异性无关），
+导致给 antd 组件写的 Tailwind 类被 antd 的 `resetComponent`（含 `margin: 0`）静默覆盖。
+
+| 方案 | 优点 | 缺点 | 本项目选择 |
+|------|------|------|-----------|
+| **StyleProvider layer 三明治** | 一次配置全局生效；顺序确定，不依赖样式表插入时机 | 需显式装 `@ant-design/cssinjs` 并维护声明行 | ✅ 已采纳 |
+| 逐个加 `!important`（`!mt-4`） | 改动局部 | 治标不治本，越滚越多，且无法解决 antd 反向覆盖 | ⭕ 未采纳 |
+| 约定"不给 antd 组件写 Tailwind 类" | 零配置 | 多人/多会话协作下守不住，且已有代码大量违反 | ⭕ 未采纳 |
+| 提高 Tailwind 选择器特异性 | 无需新依赖 | 无效 —— layer 优先级不受特异性影响 | ⭕ 不可行 |
+
+**决策**：采用三明治方案，`@layer theme, base, components, antd, utilities;` +
+`<StyleProvider layer>` + 显式依赖 `"@ant-design/cssinjs": "^2.1.0"`，三者缺一不可。
+
+**影响**：
+- 前端：`src/styles/global.css` 首行加声明、`src/App.tsx` 最外层包 `StyleProvider`
+- 依赖：新增直接依赖（**零体积增量**，本就是 antd 的传递依赖）
+- 兼容性：**不引入新下限** —— Tailwind 4 要求 Safari 16.4+，严于 Cascade Layers 的 15.4+
+- Rust 侧 / Capabilities：无影响
+- 详细机制、失败态与验证脚本见 `ui-frontend` 技能的「Tailwind 与 antd 共存」章节
+
+---
+
 ### 日志系统
 
 | 方案 | 优点 | 缺点 | 本项目选择 |

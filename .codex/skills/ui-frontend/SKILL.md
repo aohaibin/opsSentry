@@ -462,12 +462,36 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
 > 本项目是 **Tailwind 4 + antd v6**。下方「样式选择规则」里"布局/间距用 TailwindCSS 原子类"这条，
 > **能否作用在 antd 组件上，取决于本节的 layer 配置**。配错会静默失效，没有任何报错。
 
-### 两种故障，同一个根因
+### 三种故障，同一个根因
 
 | 症状 | 根因 |
 |------|------|
-| 给 antd 组件写的 Tailwind 类（`mt-4` / `flex-1` / `text-xs`）**静默失效**，代码里写了间距界面上没有 | antd 样式「未分层」，按 CSS Cascade Layers 规范优先级**高于** `@layer utilities` |
+| 给 antd 组件写的 Tailwind 类（`mt-4` / `flex-1` / `text-xs`）**静默失效**，代码里写了间距界面上没有 | antd 样式「未分层」，按 CSS Cascade Layers 规范优先级**高于**任何 `@layer` |
+| **包也装了、`StyleProvider layer` 也加了，Tailwind 类照样不生效** | 漏了 `global.css` 里的 `@layer` 声明行 —— 见下方「为什么少一行就全废」 |
 | antd 组件**整体崩坏**：弹窗不居中、输入框没边框、按钮挤成一团 | antd 层排到了 `base` 之前，被 Tailwind preflight（CSS reset）冲掉 |
+
+#### 为什么少一行就全废（源码依据）
+
+`@ant-design/cssinjs-utils/es/util/genStyleUtils.js` 里 antd 传的 layer 配置是：
+
+```js
+var mergedLayer = config.layer || { name: 'antd' };   // 注意：没有 dependencies
+```
+
+而 `@ant-design/cssinjs/es/hooks/useStyleRegister.js` **只在 `layer.dependencies` 存在时**才会 prepend 层顺序声明：
+
+```js
+if (layer.dependencies) {
+  effectStyle[`@layer ${layer.name}`] = layer.dependencies.map(d => `@layer ${d}, ${layer.name};`)
+}
+```
+
+**结论：antd 从不自己声明层顺序。** 所以只加 `StyleProvider layer` 而不写声明行时，`@layer antd`
+首次出现会被**追加到已有序列末尾** → 实际顺序变成 `theme, base, components, utilities, antd`
+→ antd 排在 utilities **之后** → Tailwind 类依旧覆盖不了，而且人会误以为"我明明配了"。
+
+> layer 名**固定是 `antd`**（`genStyleUtils.js` 与 `theme/util/useResetIconStyle.js` 两处硬编码），
+> 声明行里的名字必须一字不差，改了就对不上。
 
 ### 正解：antd 必须夹在中间（"三明治"）
 
@@ -493,26 +517,100 @@ import { StyleProvider } from "@ant-design/cssinjs";
 - **排在 `base` 之后** → 不被 Tailwind preflight 的 reset 冲掉
 - **排在 `utilities` 之前** → Tailwind 工具类才能覆盖 antd 默认样式
 
-⚠️ 依赖 `@ant-design/cssinjs` 必须**显式安装**（pnpm 严格模式下不能直接 import 传递依赖）。
-⚠️ **删掉任何一处，全项目 antd 组件上的 Tailwind 类都会失效**，且失效是静默的。
+⚠️ **删掉三处中任何一处，全项目 antd 组件上的 Tailwind 类都会失效**，且失效是静默的。
 
-### 验证：必须双向测（浏览器 console）
+### 第三处：依赖必须显式装，且版本必须可 dedupe
 
-```js
-// 方向 1：Tailwind 能覆盖 antd？期望 16px
-const d = document.createElement('div');
-d.className = 'ant-alert mt-4';
-document.body.appendChild(d);
-getComputedStyle(d).marginTop;   // "16px" = 正常
+`@ant-design/cssinjs` 是 antd 的传递依赖，pnpm 严格模式下**不会提升到 `node_modules/` 顶层**，
+不显式声明就 `import` 会直接解析失败。
 
-// 方向 2：antd 自己没被 reset 冲掉？期望 border 1px / radius 6px
-getComputedStyle(document.querySelector('button.ant-btn'));
+```jsonc
+"@ant-design/cssinjs": "^2.1.0"   // ✅ 与 antd 自身声明同范围，pnpm 复用同一份
+"@ant-design/cssinjs": "2.1.2"    // ❌ 写死；antd 将来升到 ^3 就会装两份
 ```
 
-🔴 **只测一个方向会漏掉反向破坏** —— 改完 layer 只确认"Tailwind 生效"，很可能整套 antd 样式已经崩了。
+🔴 **版本写死的后果极其隐蔽**：装两份 = 两个 React Context 实例 → `StyleProvider` 设的 layer
+写进 A 实例，antd 内部 `useContext(StyleContext)` 读的是 B 实例 → 配置读不到，**静默退回未配状态**，
+但代码看上去完全正确。装完务必验证只有一份：
 
-⚠️ 方向 2 必须取**页面上真实渲染的元素**。手工 `createElement` 造的裸 `.ant-btn` 测不出来：
-antd v6 的选择器带 hash 前缀（`.css-var-xxx.ant-btn`），裸类名匹配不到任何规则，会得到全 0 的假结果。
+```bash
+ls -d node_modules/.pnpm/@ant-design+cssinjs@* | grep -v utils   # 必须只有 1 行
+```
+
+### 兼容性：不引入任何新的运行环境下限
+
+常见顾虑是"`@layer` 会不会让老 WebView 挂掉"。结论是**不会新增约束**：
+
+| | Chrome | Safari | Firefox |
+|---|---|---|---|
+| CSS Cascade Layers | 99 | **15.4** | 97 |
+| **Tailwind 4 官方要求** | **111** | **16.4** | **128** |
+
+项目选用 Tailwind 4 的那一刻下限就已是 Safari 16.4，**严于** `@layer` 的 15.4。对应到 Tauri 三平台：
+Windows WebView2 常青自动更新、Linux 被 `webkit2gtk-4.1`（Tauri 2 硬性要求）覆盖、macOS 的
+WKWebView 门槛由 Tailwind 4 决定而非 `@layer`。
+
+体积同理是**零增量** —— cssinjs 本来就随 antd 打进 bundle，显式声明只是把传递依赖提为直接依赖。
+
+### 验证：必须双向测，且**两个方向都取页面上真实渲染的元素**
+
+🔴 **两个方向都不能用 `document.createElement` 造元素**。antd v6 的选择器带 hash 前缀
+（`.css-var-_r_0_.ant-card`），手工造的裸 `.ant-card` 匹配不到任何 antd 规则：
+- 方向 2 会得到全 0 的**假阴性**（看起来 antd 崩了，其实没崩）
+- 方向 1 更危险 —— 裸元素上只有 Tailwind 规则生效，`mt-4` 必然返回 16px，**无论 layer 配没配都"通过"**，是彻底的**假阳性**
+
+正确做法是先在页面上渲染一个真的带 Tailwind 类的 antd 组件（如 `<Card className="mt-6">`），再测：
+
+```js
+(() => {
+  const card = document.querySelector('.ant-card.mt-6');           // 页面真实元素
+  const btn  = document.querySelector('button.ant-btn');
+  const antdStyles = [...document.querySelectorAll('style[data-css-hash]')];
+  return {
+    // 方向 1：Tailwind 能覆盖 antd？mt-6 期望 24px（配置错误时为 0px）
+    cardMarginTop: card && getComputedStyle(card).marginTop,
+    // 方向 2：antd 自己没被 preflight 冲掉？期望 radius 非 0
+    btnRadius:  btn && getComputedStyle(btn).borderRadius,
+    cardRadius: card && getComputedStyle(card).borderRadius,
+    // 旁证：应有相当一部分 style 标签带 @layer antd（改前为 0）
+    layered: antdStyles.filter(s => s.textContent.includes('@layer antd')).length + '/' + antdStyles.length,
+  };
+})()
+```
+
+本框架实测基线（antd 6.3.1 + Tailwind 4，light 主题）：
+
+| 指标 | 配置前 | 配置后 |
+|------|--------|--------|
+| `.ant-card.mt-6` marginTop | `0px` ❌ | `24px` ✅ |
+| btnRadius / cardRadius | 6px / 8px | 6px / 8px（**不变**才对） |
+| 带 `@layer antd` 的 style 标签 | 0 / 32 | 14 / 32 |
+
+🔴 **只测一个方向会漏掉反向破坏** —— 只确认"Tailwind 生效"，很可能整套 antd 样式已经崩了。
+方向 2 的正确期望是**与改动前完全一致**，所以改之前要先把基线量下来。
+
+### 还要验生产构建：lightningcss 会重写声明行
+
+dev 通过 ≠ 生产没问题。Tailwind 4 的 lightningcss 在打包时会把**已实际使用的层内联展开**，
+只为剩下的层保留声明，源码里那行完整声明在产物里会变成残缺的样子：
+
+```bash
+grep -ob "@layer properties{\|@layer theme{\|@layer base{\|@layer utilities{\|@layer components,antd;" dist/assets/index-*.css
+```
+
+本框架实测输出（字节偏移，**`components,antd` 必须小于 `utilities` 的偏移**）：
+
+```
+0     @layer properties{
+360   @layer theme{
+1373  @layer base{
+4875  @layer components,antd;   ← 在 utilities 之前 = 语义保留 ✅
+4898  @layer utilities{
+```
+
+lightningcss 会把剩余声明精确插在 `utilities` 块之前，顺序语义完整。但**这是它按源码顺序推导出来的** ——
+一旦把 `@layer` 声明行误写到 `@import "tailwindcss"` 之后，产物里的相对位置就会变，而 dev 模式未必暴露。
+改动过 `global.css` 的层声明后，务必跑一次 `pnpm build` 并用上面这条命令复核偏移。
 
 ---
 
@@ -599,7 +697,10 @@ antd v6 的选择器带 hash 前缀（`.css-var-xxx.ant-btn`），裸类名匹�
 | 设置页用独立路由 | 使用 `Drawer` 从右侧滑入，无需路由切换 |
 | 所有 API/类型/store 写在单文件 | 按模块拆分（`api/config.ts`、`store/settings.ts`、`types/system.ts`） |
 | 表单 Modal/Drawer 允许点击遮罩关闭 | 必须加 `maskClosable={false}`，防止误点丢失输入 |
-| 给 antd 组件写 Tailwind 类却不生效，改用 `!important`（`!mt-4`）硬顶 | 治标不治本 —— 查 `@layer` 三明治顺序是否配好（见「Tailwind 与 antd 共存」） |
+| 给 antd 组件写 Tailwind 类却不生效，改用 `!important`（`!mt-4`）硬顶 | 治标不治本 —— 查 `@layer` 三明治**三处是否都到位**（见「Tailwind 与 antd 共存」） |
+| `@ant-design/cssinjs` 版本写死成 `"2.1.2"` | 用 `"^2.1.0"`；写死会在 antd 升 major 时装出两份实例，layer 配置静默失效 |
+| 只加 `StyleProvider layer`，没在 `global.css` 写 `@layer` 声明行 | antd 不自带 `dependencies`，层会被追加到 `utilities` 之后，等于没配 |
+| 用 `document.createElement` 造元素验证 layer 是否生效 | 必须取页面真实渲染的 antd 元素；裸元素让方向 1 恒为假阳性 |
 | 相邻元素两边都设间距（前 `mb-3` + 后 `mt-4`） | 只由后一个元素的 `mt-*` 单边控制，避免 margin 折叠导致间距不可预测 |
 | 长错误提示用 `message.error()` 弹 toast | 含"下一步动作"的多句提示用常驻 Alert，toast 会自动消失、用户来不及照做 |
 | `<iframe src={convertFileSrc(abs)}>` 预览本地 PDF/HTML，内嵌在 Modal | 部分老 WebView2 / 严格 CSP 下 iframe 加载 asset: 协议被拦成「已阻止此内容」；各机器行为不一 | Modal title 右侧固定加一个「用系统应用打开」小按钮调 `openPath(abs)`，作为跨环境兜底；不要依赖 iframe 的 onerror（拦截不会触发） |
