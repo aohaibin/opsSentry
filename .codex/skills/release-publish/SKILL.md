@@ -458,7 +458,8 @@ git push <github_remote> "v$VERSION"
 
 > **演化背景**：早期流程让用户在浏览器手动下载所有 CI 产物，再 `AskUserQuestion` 询问目录。
 > 实操中用户经常下漏文件、下到默认目录被多项目混在一起、下到一半浏览器中断。
-> 现升级为 **Claude 自己用 git credential helper 拿 token → API 轮询 CI → 用 asset id 下载到独立子目录**。
+> 现升级为 **Claude 自己拿到 GitHub 访问能力 → 轮询 CI → 用 asset id 下载到独立子目录**
+> （路线 A 走 Sigil 能力，路线 B 走 `gh` CLI，见本技能「发布架构选型」一节）。
 > 用户全程不操作浏览器；仅在自动流程崩掉时（步骤 4.5）才回退到手动下载。
 
 **各平台对应的 CI 产物**：
@@ -470,22 +471,67 @@ git push <github_remote> "v$VERSION"
 | macOS Intel | 3 个 | `_x64.dmg` + `_x64.app.tar.gz` + `_x64.app.tar.gz.sig` |
 | Linux | 3 个 | `.AppImage` + `.AppImage.sig` + `.deb` |
 
-#### 4.1 拿 GitHub Token（git credential helper）
+#### 4.1 取得 GitHub 访问能力（🔴 严禁 `git credential fill`）
+
+按开头「路线 A / B」的检测结果分流，**两条路都不会弹任何登录框**：
+
+**路线 A（本会话能 `ToolSearch` 到 `mcp__sigil__*`）—— 根本不需要 TOKEN 变量**
+
+后面 4.2–4.4 直接调 Sigil 能力（`github_runs_list` / `github_run_jobs` /
+`github_release_get` / `github_download_release_asset`），凭据由 Sigil 内部注入，
+明文不出 Rust。**整节跳过，不要取 token。**
+
+**路线 B（查不到 `mcp__sigil__*`）—— 用 `gh` 自带的 token**
 
 ```bash
-TOKEN=$(printf "protocol=https\nhost=github.com\n" | git credential fill 2>/dev/null \
-        | grep "^password=" | cut -d= -f2)
+TOKEN="${GH_TOKEN:-$GITHUB_TOKEN}"                      # ① 环境变量 / CI 优先
+[ -z "$TOKEN" ] && TOKEN=$(gh auth token 2>/dev/null)   # ② gh 已登录则直接给，不碰系统凭据管理器
 if [ -z "$TOKEN" ] || [ ${#TOKEN} -lt 20 ]; then
-  echo "❌ 拿不到 token，请确认 git config 里 credential.helper = manager 并已存过 GitHub 密码"
+  echo "❌ 拿不到 token。二选一（都不会弹窗）："
+  echo "   · gh auth login          （推荐，一次登录长期有效）"
+  echo "   · export GH_TOKEN=<PAT>  （临时会话）"
   exit 1
 fi
-echo "✅ token 长度 ${#TOKEN}（已隐藏内容）"
+echo "✅ token 已就绪，长度 ${#TOKEN}（内容不回显）"
 ```
 
-> 不要用 `gh auth login` —— 项目环境通常已经用 OS Credential Manager 存好了，`git credential fill` 一句话拿到，零配置。
+> **🔴 绝对不要用 `git credential fill` 拿 token。**
+> 它会调用系统 credential helper（Windows 上是 Git Credential Manager）。本机没给
+> github.com 存过凭据时——**用 Sigil 或 gh 的人正好都没存**——GCM 会弹出
+> `Connect to GitHub` 登录框并阻塞等待。若再被写进 4.2 的轮询循环，就是每 30 秒弹一次、
+> 弹到 timeout 为止（zhongyu 发版实录：30 分钟连弹约 60 次，任务最后以 exit 255 被杀）。
+> 同理不要用 `git ls-remote` / `git fetch` 探远程状态——一样会触发 GCM。
+>
 > **fine-grained PAT 必须有 `Contents: Read and write` + `Actions: Read`**（CI 创建的是 draft release，仅 `Contents: Read` 看不到也下载不了）。
 
 #### 4.2 监听 CI 进度（每 30s 轮询）
+
+> **🔴 铁律：取凭据的动作只能在循环外做一次，绝不能写进 `while` 的循环体或循环条件里。**
+> 4.1 已经把访问能力准备好了，循环里只管发请求。违反这条 = 弹窗风暴（见 4.1 红字）。
+
+**路线 A（Sigil）** —— 推荐，零弹窗，且不受本机 http_proxy 影响（curl 直连 GitHub API 常被代理拦）：
+
+反复调用下面这条直到 `status=completed`，每次间隔 30s：
+
+```
+mcp__sigil__github_runs_list(credential_name=<CI 账号凭据>, repo=<owner/repo>, branch=v$VERSION, per_page=1)
+```
+
+`completed` 但 `conclusion != success` 时，用
+`mcp__sigil__github_run_jobs(credential_name=…, repo=…, run_id=<上面拿到的 id>)`
+定位是哪个 job / step 挂了（该能力还会提示 Actions 配额是否耗尽）。
+
+**路线 B（gh CLI）**：
+
+```bash
+TAG="v$VERSION"
+CI_OWNER_REPO="<owner>/<repo>"   # 按用户选择的 CI remote 替换
+RUN_ID=$(gh run list --repo "$CI_OWNER_REPO" --branch "$TAG" --limit 1 --json databaseId -q '.[0].databaseId')
+gh run watch "$RUN_ID" --repo "$CI_OWNER_REPO" --exit-status \
+  && echo "✅ CI 成功" || { echo "❌ CI 失败"; gh run view "$RUN_ID" --repo "$CI_OWNER_REPO" --log-failed | tail -50; exit 1; }
+```
+
+**路线 B 兜底**（没装 `gh`，只能用 curl + 4.1 拿到的 `$TOKEN`）：
 
 ```bash
 TAG="v$VERSION"
@@ -513,6 +559,11 @@ done
 
 #### 4.3 列出 release 的所有 asset
 
+**路线 A（Sigil）**：`mcp__sigil__github_release_get(credential_name=…, repo=<owner/repo>, tag=v$VERSION)`
+直接返回 release id / draft 标志 / assets 列表（含 asset id + 大小 + 文件名），下面的 curl 不用跑。
+
+**路线 B（gh / curl）**：
+
 ```bash
 ASSETS_JSON=$(curl -s -H "Authorization: Bearer $TOKEN" -H "Accept: application/vnd.github+json" \
   "https://api.github.com/repos/$CI_OWNER_REPO/releases?per_page=10")
@@ -529,6 +580,14 @@ r.assets.forEach(a => console.log(a.id, a.size.toString().padStart(10), a.name))
 > CI 创建的是 **draft release**（`draft: true`），普通浏览器 URL 看不到，必须用 asset id + token + `Accept: application/octet-stream` 调 API 下载。
 
 #### 4.4 自动下载到独立子目录（避免与其他项目混）
+
+**路线 A（Sigil）**：对 4.3 拿到的每个 asset 调
+`mcp__sigil__github_download_release_asset(credential_name=…, repo=…, asset_id=…, dest_path=<DOWNLOAD_DIR>/<name>)`
+（draft release 也能下）。目录规划与前缀过滤规则同下。
+
+**路线 B（gh）**：`gh release download v$VERSION --repo <owner/repo> --dir "$DOWNLOAD_DIR" --pattern '<AppName>_*'`
+
+**路线 B 兜底（curl + `$TOKEN`）**：
 
 ```bash
 # 一个版本一个目录，旧版本残留 .sig 不会污染本次（v3.0.7 踩过坑：下载目录混入其他项目 .sig，cat 通配符拼接出非法 base64）
