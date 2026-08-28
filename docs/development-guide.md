@@ -324,8 +324,8 @@ Claude 会执行完整的发布流程：
 | `git-workflow` | Git、分支、提交、版本 | Git 工作流规范 |
 | `release-publish` | 发布、release、打 Tag | 版本发布执行 |
 | `add-skill` | 添加技能、修改技能 | 扩展技能系统 |
-| `collaborating-with-codex` | Codex、协作 | 与 OpenAI Codex CLI 协同 |
-| `collaborating-with-gemini` | Gemini、前端原型 | 与 Google Gemini CLI 协同 |
+| `collaborating-with-codex` | Codex、codex协同（仅限点名） | 与 OpenAI Codex CLI 协同 |
+| `collaborating-with-gemini` | Gemini、gemini协同（仅限点名） | 与 Google Gemini CLI 协同 |
 
 ---
 
@@ -457,7 +457,10 @@ Claude 会将任务委托给 Codex CLI 执行，并整合结果。
 
 **自动激活技能**：`collaborating-with-gemini`
 
-Claude 会将前端原型任务委托给 Gemini CLI。
+Claude 会将该任务委托给 Gemini CLI。
+
+> **注意**：协同类技能**只在你点名某个 CLI 时才激活**。没点名的"设计几套 UI 原型""帮我审一下代码"
+> 不会触发协同，会走 `ui-frontend` / `bug-detective` 等本地技能，或你指定的外部工具。
 
 ---
 
