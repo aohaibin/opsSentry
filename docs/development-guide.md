@@ -324,6 +324,7 @@ Claude 会执行完整的发布流程：
 | `git-workflow` | Git、分支、提交、版本 | Git 工作流规范 |
 | `release-publish` | 发布、release、打 Tag | 版本发布执行 |
 | `add-skill` | 添加技能、修改技能 | 扩展技能系统 |
+| `collaborating-with-antigravity` | Antigravity、反重力、agy（仅限点名） | 与 Google Antigravity CLI 协同；唯一支持 `--json-schema` 强制结构化，一个入口可调 Gemini / Claude / GPT-OSS 三家模型 |
 | `collaborating-with-codex` | Codex、codex协同（仅限点名） | 与 OpenAI Codex CLI 协同 |
 | `collaborating-with-gemini` | Gemini、gemini协同（仅限点名） | 与 Google Gemini CLI 协同 |
 
@@ -458,6 +459,15 @@ Claude 会将任务委托给 Codex CLI 执行，并整合结果。
 **自动激活技能**：`collaborating-with-gemini`
 
 Claude 会将该任务委托给 Gemini CLI。
+
+```
+你: 用 agy 让三家模型都评一遍这个 Command 的并发安全
+```
+
+**自动激活技能**：`collaborating-with-antigravity`
+
+Claude 会用 `agy` 分别调 Gemini 3.1 Pro、Claude Opus 4.6、GPT-OSS 120B 各答一遍再汇总分歧。
+需要严格 JSON 结果时可加 `--json-schema`（三个协同技能里只有它支持）。
 
 > **注意**：协同类技能**只在你点名某个 CLI 时才激活**。没点名的"设计几套 UI 原型""帮我审一下代码"
 > 不会触发协同，会走 `ui-frontend` / `bug-detective` 等本地技能，或你指定的外部工具。
