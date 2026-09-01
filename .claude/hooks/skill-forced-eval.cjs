@@ -92,6 +92,7 @@ const instructions = `## 强制技能激活流程（必须执行）
 - notification-system: 通知/notification/系统通知/托盘通知/消息提醒
 - performance-doctor: 性能/优化/内存/渲染/打包体积/Rust性能/WebView优化
 - docs-management: 文档站点/VitePress/docs 站点/用户手册/更新文档/文档同步/.docs-meta.json/website 目录/文档仓库
+- admin-backend-client: 后台管理/admin后台/若依/RuoYi/Sa-Token/远程后端/接口对接/Token鉴权/多租户/字典缓存/按钮权限/分页对接
 
 **L4 框架专属：**
 - tauri-commands: Tauri Command/IPC通信/#[tauri::command]/invoke/generate_handler

@@ -129,6 +129,9 @@ git pull origin master
 4. 应用标识符：反向域名格式（如 "com.mycompany.mall"）
 5. 包名：用于 Cargo/npm（snake_case，如 "mall_admin"）
 6. 作者：（如 "Zhang San"）
+7. 数据来源：
+   a) 本地优先（默认）—— 数据存本机 SQLite，不依赖服务端
+   b) 对接远程后台管理系统 —— 已有 Java/其他后台（如若依 RuoYi-Plus），桌面端作客户端
 
 或者只告诉我项目名称，我来推荐配置。
 ```
@@ -161,6 +164,19 @@ git pull origin master
 - 应用标识符：反向域名格式，仅英文字母和点，全小写
 - 包名：仅英文字母和下划线，全小写，不超过 20 字符
 - 包名同时也是新项目的**目录名**
+
+**数据来源（第 7 项）的影响**：
+
+这一项决定 SQLite 的角色，选错后期返工代价大，务必在初始化阶段就问清楚。
+
+| 选择 | SQLite 角色 | 初始化差异 | 后续走哪个技能 |
+|------|------------|-----------|--------------|
+| a) 本地优先 | 权威数据源 | 无额外动作（框架默认形态） | `database-ops` |
+| b) 对接远程后台 | 仅存本机偏好 / 缓存 | 需追加 `reqwest` 依赖与 `services/admin/` 骨架 | `admin-backend-client` |
+
+> 选 b 时**不要**在初始化阶段就动手写对接代码 —— 初始化只负责记录这个决定，
+> 待用户提供后端 baseUrl、是否多租户、是否开接口加密等信息后，
+> 再激活 `admin-backend-client` 技能按其第四节落地骨架。
 
 ### Step 0.3：收集发布配置
 
@@ -211,6 +227,7 @@ git pull origin master
   作者：Zhang San
 
   新目录：{模板仓库同级}/mall_admin
+  数据来源：本地优先（SQLite 为权威数据源）
   开发端口：{dev_port}（HMR: {hmr_port}）
   Git 仓库：https://gitee.com/user/mall_admin.git  [私有 🔒]
   Release 仓库：https://gitee.com/user/mall_admin-release.git  [公开 🌐 更新端点需匿名可读]

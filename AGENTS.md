@@ -202,6 +202,7 @@ tauri/
 | 技能名称 | 触发条件（description） |
 |---------|----------------------|
 | `add-skill` | 添加技能、创建技能、新技能、技能开发、写技能、技能文档、skill 创建、修改技能、更新技能、同步技能 |
+| `admin-backend-client` | 后台管理、admin后台、若依、RuoYi、Sa-Token、远程后端、接口对接、Token鉴权、多租户、字典缓存、按钮权限、分页对接、TableDataInfo、baseUrl |
 | `api-development` | Command、API、invoke、IPC、接口、通信、前后端 |
 | `architecture-design` | 架构、设计、模块、拆分、重构、组织、结构 |
 | `brainstorm` | 头脑风暴、方案、怎么设计、有什么办法、创意、讨论、探索、建议、怎么做、如何实现 |
