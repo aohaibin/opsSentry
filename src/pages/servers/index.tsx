@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type CSSProperties } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Button,
   Input,
@@ -6,7 +7,6 @@ import {
   Select,
   Space,
   Table,
-  Tag,
   Tooltip,
   message,
   type TableProps,
@@ -14,20 +14,16 @@ import {
 import {
   Blocks,
   FileCode,
-  Loader2,
   Monitor,
   MonitorUp,
-  Pencil,
   Plus,
-  RefreshCw,
   ShieldCheck,
+  Server as ServerIcon,
   Star,
-  Terminal,
-  Trash2,
-  Zap,
 } from "lucide-react";
 import type {
   AIPolicy,
+  AuthType,
   ConnectivityResult,
   OsType,
   Server,
@@ -37,12 +33,16 @@ import type {
 import { serverApi } from "@/lib/api/server";
 import { getErrorMessage } from "@/lib/api/client";
 import { SshConnectModal } from "@/components/server/SshConnectModal";
+import { useAppStore } from "@/store/app";
+import { modulePath, requireModule } from "@/navigation/modules";
 import { ServerGroupPanel } from "./components/ServerGroupPanel";
 import { ServerToolbar, type OsFilter } from "./components/ServerToolbar";
 import { ServerFormModal } from "./components/ServerFormModal";
 import { BatchActionBar } from "./components/BatchActionBar";
 import { WindowsGuideModal } from "./components/WindowsGuideModal";
 import { ImportSSHConfigModal } from "./components/ImportSSHConfigModal";
+import { AiPolicyBadge } from "./components/AiPolicyBadge";
+import { ServerRowActions } from "./components/ServerRowActions";
 import {
   AI_POLICY_META,
   AI_POLICY_ORDER,
@@ -56,7 +56,6 @@ import {
   matchServer,
   parseTags,
 } from "./lib/serverMeta";
-import { requireModule } from "@/navigation/modules";
 
 /** 模块元信息（标题 / 副标题 / 定位说明）取自注册表，避免与导航、占位页三处各写一份 */
 const MODULE = requireModule("servers");
@@ -64,11 +63,29 @@ const MODULE = requireModule("servers");
 /** 每行的探测状态：探测中、已出结果、或尚未探测 */
 type ProbeState = Record<number, ConnectivityResult | "testing">;
 
-const SSH_STATUS_META: Record<string, { label: string; color: string }> = {
-  unknown: { label: "未验证", color: "default" },
-  verified: { label: "已认证", color: "success" },
-  failed: { label: "验证失败", color: "error" },
-  host_key_changed: { label: "指纹变化", color: "warning" },
+/** 行内标签胶囊，对齐原型（px-1.5 rounded text-[10px] bg-slate-800 border-slate-700） */
+const TAG_PILL: CSSProperties = {
+  padding: "1px 6px",
+  borderRadius: 4,
+  fontSize: 10,
+  lineHeight: "16px",
+  background: "var(--bg-secondary)",
+  border: "1px solid var(--border)",
+  color: "var(--text-secondary)",
+};
+
+/**
+ * SSH 身份认证状态。
+ *
+ * 原型没有独立的 SSH 状态列，但「主机指纹是否已核验」是这套产品的核心安全态。
+ * 直接抹掉会让这张表失去最关键的一条信息，所以压成「认证方式」胶囊右侧的一颗 5px 状态点，
+ * 完整结论仍走悬停提示——视觉上基本不增加体量。
+ */
+const SSH_STATUS_META: Record<string, { label: string; tone: string }> = {
+  unknown: { label: "未验证", tone: "var(--text-muted)" },
+  verified: { label: "已认证", tone: "var(--success)" },
+  failed: { label: "验证失败", tone: "var(--danger)" },
+  host_key_changed: { label: "指纹变化", tone: "var(--warning)" },
 };
 
 export default function ServersPage() {
@@ -100,6 +117,9 @@ export default function ServersPage() {
   const [tagInput, setTagInput] = useState("");
   const [policyModalOpen, setPolicyModalOpen] = useState(false);
   const [policyInput, setPolicyInput] = useState<AIPolicy>("approval");
+
+  const navigate = useNavigate();
+  const setActiveServerId = useAppStore((s) => s.setActiveServerId);
 
   const loadServers = useCallback(async (): Promise<Server[]> => {
     setLoading(true);
@@ -182,6 +202,19 @@ export default function ServersPage() {
     setSelectedTags([]);
     setActiveGroup(VIRTUAL_GROUP_ALL);
   };
+
+  /**
+   * 跳到目标模块，并把该主机写进顶栏的「当前会话」。
+   * 原型是 switchHost() + switchTab()，这里对应 setActiveServerId() + 路由跳转——
+   * 不同步会话的话，切过去看到的会是上一次选中的机器，在多机运维里属于危险误导。
+   */
+  const goModule = useCallback(
+    (moduleKey: string, server: Server) => {
+      setActiveServerId(server.id);
+      navigate(modulePath(moduleKey));
+    },
+    [navigate, setActiveServerId]
+  );
 
   const handleSave = async (payload: ServerPayload, credentials?: SshCredentials) => {
     try {
@@ -400,79 +433,140 @@ export default function ServersPage() {
     setFormOpen(true);
   };
 
+  /**
+   * 六列，与原型 renderServerTable() 的 thead 严格一一对应：
+   * 服务器名称/标签 · 连接地址 · 系统/架构 · 认证方式 · AI 策略档位 · 操作。
+   *
+   * 原先多出来的「连通状态」「SSH 状态」两列已按原型收掉：
+   * 延迟并入「连接地址」第二行，SSH 核验结果压成「认证方式」胶囊上的状态点。
+   */
   const columns: TableProps<Server>["columns"] = [
     {
       title: "服务器名称 / 标签",
       key: "alias",
-      width: 260,
+      width: 228,
       render: (_: unknown, server: Server) => {
+        const state = probeStates[server.id];
+        const probing = state === "testing";
+        const result = state !== undefined && state !== "testing" ? state : null;
+        const dotTone = probing
+          ? "var(--warning)"
+          : result === null
+            ? "var(--text-muted)"
+            : result.ok
+              ? "var(--success)"
+              : "var(--danger)";
+        const dotTitle = probing
+          ? "正在探测连通性"
+          : result === null
+            ? "尚未探测连通性"
+            : result.ok
+              ? `在线延迟 ${result.latency_ms} ms`
+              : "不可达";
         const tags = parseTags(server.tags);
+
         return (
-          <div className="space-y-1">
-            <div className="flex items-center gap-1.5">
-              <button
-                type="button"
-                onClick={() => handleToggleFavorite(server)}
-                title={server.favorite ? "取消收藏" : "加入收藏"}
-                style={{
-                  color: server.favorite ? "#fbbf24" : "var(--text-muted)",
-                  display: "flex",
-                }}
+          <div className="flex items-center gap-2">
+            <span
+              className="rounded-full shrink-0"
+              style={{ width: 8, height: 8, background: dotTone }}
+              title={dotTitle}
+            />
+            <div className="min-w-0">
+              <div
+                className="flex items-center gap-1.5 font-bold"
+                style={{ color: "var(--text-primary)" }}
               >
-                <Star
-                  size={13}
-                  fill={server.favorite ? "#fbbf24" : "none"}
-                />
-              </button>
-              <span className="font-medium" style={{ color: "var(--text-primary)" }}>
-                {server.alias}
-              </span>
-            </div>
-            <div className="flex items-center gap-1 flex-wrap pl-[18px]">
-              <Tag color="default" className="text-[10px] m-0">
-                {server.group || "未分组"}
-              </Tag>
-              {tags.map((tag) => (
-                <Tag key={tag} color="purple" className="text-[10px] m-0">
-                  {tag}
-                </Tag>
-              ))}
+                <span className="truncate">{server.alias}</span>
+                {server.os_type === "windows" ? (
+                  <Monitor size={13} style={{ color: "var(--info)", flexShrink: 0 }} />
+                ) : (
+                  <ServerIcon size={13} style={{ color: "var(--text-secondary)", flexShrink: 0 }} />
+                )}
+                <button
+                  type="button"
+                  onClick={() => handleToggleFavorite(server)}
+                  title={server.favorite ? "取消收藏" : "加入收藏"}
+                  style={{
+                    display: "flex",
+                    flexShrink: 0,
+                    color: server.favorite ? "#fbbf24" : "var(--text-muted)",
+                  }}
+                >
+                  <Star size={12} fill={server.favorite ? "#fbbf24" : "none"} />
+                </button>
+              </div>
+              {tags.length > 0 && (
+                <div className="flex flex-wrap gap-1 mt-0.5">
+                  {tags.map((tag) => (
+                    <span key={tag} style={TAG_PILL}>
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         );
       },
     },
     {
-      title: "连接地址",
+      title: "连接地址 (IP & 端口)",
       key: "address",
-      width: 190,
-      render: (_: unknown, server: Server) => (
-        <div className="space-y-0.5">
-          <div
-            className="text-xs"
-            style={{ fontFamily: "var(--font-mono)", color: "var(--text-primary)" }}
-          >
-            {server.hostname}:{server.port}
+      width: 182,
+      render: (_: unknown, server: Server) => {
+        const state = probeStates[server.id];
+        const probing = state === "testing";
+        const result = state !== undefined && state !== "testing" ? state : null;
+        const tone = probing
+          ? "var(--warning)"
+          : result === null
+            ? "var(--text-muted)"
+            : result.ok
+              ? "var(--success)"
+              : "var(--danger)";
+        const label = probing
+          ? "探测中…"
+          : result === null
+            ? "未探测"
+            : result.ok
+              ? `${result.latency_ms} ms · 稳定在线`
+              : "不可达";
+
+        return (
+          <div style={{ fontFamily: "var(--font-mono)", color: "var(--text-secondary)" }}>
+            <div>
+              {server.username}@{server.hostname}:{server.port}
+            </div>
+            {/* 原型这一行点击会弹出握手诊断报告；本项目没有那份报告，就直接触发 TCP 探测 */}
+            <button
+              type="button"
+              onClick={() => handleProbe(server)}
+              disabled={probing}
+              title="点击执行 TCP 连通性探测（仅三次握手，不校验凭据）"
+              className="flex items-center gap-1 hover:underline"
+              style={{ marginTop: 2, fontSize: 10, color: tone }}
+            >
+              <span
+                className="rounded-full inline-block"
+                style={{ width: 6, height: 6, background: tone }}
+              />
+              {label}
+            </button>
           </div>
-          <div className="text-[11px]" style={{ color: "var(--text-muted)" }}>
-            {server.username} · 最近 {formatRelativeTime(server.last_used_at)}
-          </div>
-        </div>
-      ),
+        );
+      },
     },
     {
       title: "系统 / 架构",
       key: "os",
-      width: 130,
+      width: 112,
       render: (_: unknown, server: Server) => (
-        <div className="space-y-0.5">
-          <Tag
-            color={server.os_type === "windows" ? "blue" : "cyan"}
-            className="text-[10px] m-0"
-          >
+        <div>
+          <div style={{ color: "var(--text-primary)" }}>
             {OS_TYPE_LABEL[server.os_type as OsType] ?? server.os_type}
-          </Tag>
-          <div className="text-[11px]" style={{ color: "var(--text-muted)" }}>
+          </div>
+          <div style={{ fontSize: 10, fontFamily: "var(--font-mono)", color: "var(--text-muted)" }}>
             {server.arch || "架构待探测"}
           </div>
         </div>
@@ -480,142 +574,78 @@ export default function ServersPage() {
     },
     {
       title: "认证方式",
-      dataIndex: "auth_type",
       key: "auth_type",
-      width: 90,
-      render: (value: string) => (
-        <Tag color={value === "key" ? "geekblue" : "orange"} className="text-[10px]">
-          {AUTH_TYPE_LABEL[value as "password" | "key"] ?? value}
-        </Tag>
-      ),
+      width: 104,
+      render: (_: unknown, server: Server) => {
+        const meta = SSH_STATUS_META[server.last_connection_status] ?? SSH_STATUS_META.unknown;
+        return (
+          <Tooltip
+            title={
+              <span>
+                SSH 身份认证：{meta.label}
+                {server.last_connected_at
+                  ? ` · ${formatRelativeTime(server.last_connected_at)}`
+                  : ""}
+                <br />
+                点击执行认证与主机指纹核验
+              </span>
+            }
+          >
+            <button
+              type="button"
+              onClick={() => setSshServer(server)}
+              className="inline-flex items-center gap-1.5"
+              style={{
+                padding: "1px 8px",
+                borderRadius: 4,
+                fontSize: 10,
+                fontFamily: "var(--font-mono)",
+                background: "var(--bg-secondary)",
+                border: "1px solid var(--border)",
+                color: "var(--text-secondary)",
+              }}
+            >
+              {AUTH_TYPE_LABEL[server.auth_type as AuthType] ?? server.auth_type}
+              {/* 原型没有 SSH 状态列，这里压成一颗状态点，保住这条核心安全信息 */}
+              <span
+                className="rounded-full"
+                style={{ width: 5, height: 5, background: meta.tone }}
+              />
+            </button>
+          </Tooltip>
+        );
+      },
     },
     {
       title: "AI 策略档位",
       key: "ai_policy",
-      width: 130,
+      width: 106,
       render: (_: unknown, server: Server) => (
-        <Tooltip title={AI_POLICY_META[server.ai_policy as AIPolicy]?.hint}>
-          <Select
-            size="small"
-            value={server.ai_policy}
-            style={{ width: 108 }}
-            onChange={(value) => handleInlinePolicyChange(server, value as AIPolicy)}
-            options={AI_POLICY_ORDER.map((policy) => ({
-              value: policy,
-              label: AI_POLICY_META[policy].label,
-            }))}
-          />
-        </Tooltip>
+        <AiPolicyBadge
+          policy={server.ai_policy as AIPolicy}
+          onChange={(policy) => handleInlinePolicyChange(server, policy)}
+        />
       ),
-    },
-    {
-      title: "连通状态",
-      key: "probe",
-      width: 130,
-      render: (_: unknown, server: Server) => {
-        const state = probeStates[server.id];
-        if (!state) {
-          return (
-            <span className="text-[11px]" style={{ color: "var(--text-muted)" }}>
-              未探测
-            </span>
-          );
-        }
-        if (state === "testing") {
-          return (
-            <span
-              className="text-[11px] flex items-center gap-1"
-              style={{ color: "var(--text-muted)" }}
-            >
-              <Loader2 size={11} className="animate-spin" />
-              探测中
-            </span>
-          );
-        }
-        return (
-          <Tooltip title={state.message}>
-            <span
-              className="text-[11px] font-mono flex items-center gap-1"
-              style={{ color: state.ok ? "var(--success)" : "var(--danger)" }}
-            >
-              <span
-                className="inline-block w-1.5 h-1.5 rounded-full"
-                style={{ background: state.ok ? "var(--success)" : "var(--danger)" }}
-              />
-              {state.ok ? `${state.latency_ms} ms` : "不可达"}
-            </span>
-          </Tooltip>
-        );
-      },
-    },
-    {
-      title: "SSH 状态",
-      key: "ssh_status",
-      width: 120,
-      render: (_: unknown, server: Server) => {
-        const meta = SSH_STATUS_META[server.last_connection_status] ?? SSH_STATUS_META.unknown;
-        return (
-          <Tooltip title={server.last_connection_message || "尚未执行 SSH 身份认证"}>
-            <div className="space-y-0.5">
-              <Tag color={meta.color} className="text-[10px] m-0">
-                {meta.label}
-              </Tag>
-              <div className="text-[10px]" style={{ color: "var(--text-muted)" }}>
-                {server.last_connected_at
-                  ? formatRelativeTime(server.last_connected_at)
-                  : "从未认证"}
-              </div>
-            </div>
-          </Tooltip>
-        );
-      },
     },
     {
       title: "操作",
       key: "action",
-      width: 160,
+      width: 302,
       fixed: "right",
       render: (_: unknown, server: Server) => (
-        <Space size={2}>
-          <Tooltip title="SSH 身份认证">
-            <Button
-              type="text"
-              size="small"
-              icon={<Terminal size={14} />}
-              onClick={() => setSshServer(server)}
-            />
-          </Tooltip>
-          <Tooltip title="连通性测试（TCP 握手）">
-            <Button
-              type="text"
-              size="small"
-              icon={<Zap size={14} />}
-              disabled={probeStates[server.id] === "testing"}
-              onClick={() => handleProbe(server)}
-            />
-          </Tooltip>
-          <Tooltip title="编辑">
-            <Button
-              type="text"
-              size="small"
-              icon={<Pencil size={14} />}
-              onClick={() => {
-                setEditingServer(server);
-                setPresetGroup(undefined);
-                setFormOpen(true);
-              }}
-            />
-          </Tooltip>
-          <Tooltip title="移除">
-            <Button
-              type="text"
-              size="small"
-              danger
-              icon={<Trash2 size={14} />}
-              onClick={() => handleDelete(server)}
-            />
-          </Tooltip>
-        </Space>
+        <ServerRowActions
+          server={server}
+          probing={probeStates[server.id] === "testing"}
+          onOpenWorkbench={(item) => goModule("workbench", item)}
+          onOpenModule={goModule}
+          onProbe={handleProbe}
+          onEdit={(item) => {
+            setEditingServer(item);
+            setPresetGroup(undefined);
+            setFormOpen(true);
+          }}
+          onDelete={handleDelete}
+        />
       ),
     },
   ];
@@ -633,12 +663,16 @@ export default function ServersPage() {
         </div>
 
         <Space size={8}>
-          <Button icon={<RefreshCw size={14} />} onClick={() => void loadServers()}>
-            刷新
-          </Button>
+          {/* 三个按钮与原型头部严格一致。原型头部没有「刷新」——
+              列表在进入页面、增删改、切换分组后都会自动重载，手动刷新属于冗余入口。 */}
           <Button
             icon={<Monitor size={14} />}
             onClick={() => setWindowsGuideOpen(true)}
+            style={{
+              background: "color-mix(in srgb, var(--info) 20%, transparent)",
+              color: "var(--info)",
+              borderColor: "color-mix(in srgb, var(--info) 40%, transparent)",
+            }}
           >
             Windows 接入
           </Button>
@@ -695,9 +729,9 @@ export default function ServersPage() {
             dataSource={visibleServers}
             rowKey="id"
             loading={loading}
-            size="small"
+            size="middle"
             pagination={{ pageSize: 20, showSizeChanger: false }}
-            scroll={{ x: 1140 }}
+            scroll={{ x: 1080 }}
             rowSelection={{
               selectedRowKeys: selectedIds,
               onChange: (keys) => setSelectedIds(keys as number[]),
@@ -747,7 +781,8 @@ export default function ServersPage() {
             <span>MCP Server 协议集成</span>
           </div>
           <p className="text-xs leading-relaxed" style={{ color: "var(--text-secondary)" }}>
-            支持将受控服务器能力作为 MCP Tool 导出，可直接接入 Claude Code、Cursor 等外部 AI 客户端。
+            支持将受控服务器能力作为 <strong>MCP Tool</strong> 导出，
+            可直接接入 Claude Desktop、Cursor 或 Antigravity。
           </p>
         </div>
 
@@ -757,10 +792,10 @@ export default function ServersPage() {
             style={{ color: "#fbbf24" }}
           >
             <ShieldCheck size={15} />
-            <span>AI 执行安全分级</span>
+            <span>AI 执行安全分级说明</span>
           </div>
           <p className="text-xs leading-relaxed" style={{ color: "var(--text-secondary)" }}>
-            每台主机可独立设置 <strong>放行 / 白名单 / 需审批 / 已锁定</strong> 四档，
+            采用<strong>只读分析 / 建议确认 / 自动修复</strong>三阶防护梯次，
             敏感写操作必须由工程师审批放行。
           </p>
         </div>
@@ -774,8 +809,8 @@ export default function ServersPage() {
             <span>Windows 原生免代理纳管</span>
           </div>
           <p className="text-xs leading-relaxed" style={{ color: "var(--text-secondary)" }}>
-            兼容 Windows 自带 <strong>OpenSSH Server</strong>，
-            无需在被控机安装任何第三方守护进程。
+            全面兼容原生 <strong>OpenSSH for Windows</strong> 与 <strong>PowerShell Remoting</strong>，
+            零第三方守护进程侵入。
           </p>
         </div>
       </div>

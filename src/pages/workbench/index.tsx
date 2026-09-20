@@ -18,6 +18,7 @@ import { SshConnectModal } from "@/components/server/SshConnectModal";
 import { getErrorMessage } from "@/lib/api/client";
 import { serverApi } from "@/lib/api/server";
 import { requireModule } from "@/navigation/modules";
+import { useAppStore } from "@/store/app";
 import type { AIPolicy, OsType, Server } from "@/types";
 import {
   AI_POLICY_META,
@@ -43,6 +44,7 @@ export default function WorkbenchPage() {
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [sshServer, setSshServer] = useState<Server | null>(null);
+  const setActiveServerId = useAppStore((s) => s.setActiveServerId);
 
   const loadServers = useCallback(async () => {
     setLoading(true);
@@ -53,6 +55,12 @@ export default function WorkbenchPage() {
         if (current !== null && data.some((server) => server.id === current)) {
           return current;
         }
+        // 从资产页的「工作台」按钮跳过来时，目标主机已经写进顶栏的「当前会话」，
+        // 优先认它；没有会话时才退到第一台，避免跳过来看到的是别的机器。
+        const fromSession = useAppStore.getState().activeServerId;
+        if (fromSession !== null && data.some((server) => server.id === fromSession)) {
+          return fromSession;
+        }
         return data[0]?.id ?? null;
       });
     } catch (error) {
@@ -61,6 +69,15 @@ export default function WorkbenchPage() {
       setLoading(false);
     }
   }, []);
+
+  /** 工作台内切主机时反向同步顶栏会话，避免顶栏显示 A、内容区看 B */
+  const selectServer = useCallback(
+    (id: number) => {
+      setSelectedId(id);
+      setActiveServerId(id);
+    },
+    [setActiveServerId]
+  );
 
   useEffect(() => {
     void loadServers();
@@ -191,7 +208,7 @@ export default function WorkbenchPage() {
                         border: `1px solid ${active ? "var(--primary)" : "transparent"}`,
                         background: active ? "var(--bg-elevated)" : "transparent",
                       }}
-                      onClick={() => setSelectedId(server.id)}
+                      onClick={() => selectServer(server.id)}
                     >
                       <div className="flex items-center justify-between gap-2">
                         <span
