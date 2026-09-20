@@ -246,7 +246,51 @@ export function ServerFormModal({
         </div>
       }
     >
-      <div className="max-h-[66vh] overflow-y-auto custom-scrollbar px-1 pb-1">
+      <div
+        className="custom-scrollbar px-1 pb-1"
+        style={{
+          maxHeight: "calc(100vh - 210px)",
+          overflowY: "auto",
+        }}
+      >
+        {/* 结果放在滚动区顶部，避免长表单把测试反馈推到弹窗底部之外。 */}
+        {(testing || pingResult) && (
+          <div
+            className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-xl px-3 py-2.5 text-xs"
+            style={{
+              position: "sticky",
+              top: 0,
+              zIndex: 2,
+              border: "1px solid var(--border)",
+              background: "var(--bg-secondary)",
+              boxShadow: "0 4px 12px rgba(0, 0, 0, 0.12)",
+            }}
+          >
+            <div className="flex min-w-0 items-center gap-2">
+              <span
+                className="h-2 w-2 shrink-0 rounded-full"
+                style={{
+                  background: testing
+                    ? "var(--warning)"
+                    : pingResult?.ok
+                      ? "var(--success)"
+                      : "var(--danger)",
+                }}
+              />
+              <span className="truncate" style={{ color: "var(--text-secondary)" }}>
+                {testing
+                  ? `正在连接 ${form.getFieldValue("hostname") || "目标主机"} 进行 TCP 握手...`
+                  : pingResult?.message}
+              </span>
+            </div>
+            {!testing && pingResult?.latency_ms !== null && (
+              <span className="font-mono font-semibold" style={{ color: "var(--success)" }}>
+                {pingResult?.latency_ms} ms
+              </span>
+            )}
+          </div>
+        )}
+
         <Form
           form={form}
           layout="vertical"
@@ -405,41 +449,6 @@ export function ServerFormModal({
 
         </Form>
       </div>
-
-      {/* 探测结果固定在滚动区之外：表单主体是可滚动的，结果条放在里面会落在视口下方，
-          用户点了「连通性测试」看不到任何变化，会以为按钮没生效。 */}
-      {(testing || pingResult) && (
-        <div
-          className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-xl px-3 py-2.5 text-xs"
-          style={{
-            border: "1px solid var(--border)",
-            background: "var(--bg-secondary)",
-          }}
-        >
-          <div className="flex min-w-0 items-center gap-2">
-            <span
-              className="h-2 w-2 shrink-0 rounded-full"
-              style={{
-                background: testing
-                  ? "var(--warning)"
-                  : pingResult?.ok
-                    ? "var(--success)"
-                    : "var(--danger)",
-              }}
-            />
-            <span className="truncate" style={{ color: "var(--text-secondary)" }}>
-              {testing
-                ? `正在连接 ${form.getFieldValue("hostname") || "目标主机"} 进行 TCP 握手...`
-                : pingResult?.message}
-            </span>
-          </div>
-          {!testing && pingResult?.latency_ms !== null && (
-            <span className="font-mono font-semibold" style={{ color: "var(--success)" }}>
-              {pingResult?.latency_ms} ms
-            </span>
-          )}
-        </div>
-      )}
     </Modal>
   );
 }

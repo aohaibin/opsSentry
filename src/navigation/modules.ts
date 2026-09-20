@@ -98,6 +98,7 @@ export const MODULES: ModuleDef[] = [
     ],
     icon: Terminal,
     group: "core",
+    implemented: true,
   },
   {
     key: "workbench",

@@ -118,6 +118,57 @@ export default function ServersPage() {
   const [policyModalOpen, setPolicyModalOpen] = useState(false);
   const [policyInput, setPolicyInput] = useState<AIPolicy>("approval");
 
+  /** 左侧分组栏宽度（支持拖拽调整、双击还原 190px 以及 localStorage 持久化） */
+  const [groupWidth, setGroupWidth] = useState<number>(() => {
+    try {
+      const saved = localStorage.getItem("ops_server_group_width");
+      if (saved) {
+        const num = parseInt(saved, 10);
+        if (num >= 140 && num <= 450) return num;
+      }
+    } catch {}
+    return 190;
+  });
+
+  const handleResizerMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startW = groupWidth;
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+
+    let currentW = startW;
+    const onMouseMove = (moveEvent: MouseEvent) => {
+      const delta = moveEvent.clientX - startX;
+      let nextW = startW + delta;
+      if (nextW < 140) nextW = 140;
+      if (nextW > 450) nextW = 450;
+      currentW = nextW;
+      setGroupWidth(nextW);
+    };
+
+    const onMouseUp = () => {
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", onMouseUp);
+      try {
+        localStorage.setItem("ops_server_group_width", String(currentW));
+      } catch {}
+    };
+
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseup", onMouseUp);
+  };
+
+  const handleResizerDoubleClick = () => {
+    setGroupWidth(190);
+    try {
+      localStorage.setItem("ops_server_group_width", "190");
+    } catch {}
+    message.info("已恢复分组栏默认宽度 (190px)");
+  };
+
   const navigate = useNavigate();
   const setActiveServerId = useAppStore((s) => s.setActiveServerId);
 
@@ -651,7 +702,7 @@ export default function ServersPage() {
   ];
 
   return (
-    <div className="ops-page space-y-4">
+    <div className="ops-page ops-server-page">
       <div className="ops-page-head">
         <div style={{ minWidth: 0 }}>
           {/* 标题与说明取自模块注册表，保证与左侧导航的 tooltip、占位页文案三处一致 */}
@@ -662,7 +713,7 @@ export default function ServersPage() {
           <p className="ops-page-desc">{MODULE.desc}</p>
         </div>
 
-        <Space size={8}>
+        <Space className="ops-server-actions" size={8}>
           {/* 三个按钮与原型头部严格一致。原型头部没有「刷新」——
               列表在进入页面、增删改、切换分组后都会自动重载，手动刷新属于冗余入口。 */}
           <Button
@@ -696,8 +747,15 @@ export default function ServersPage() {
         </Space>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
-        <div className="lg:col-span-1">
+      <div
+        className="ops-server-main"
+        style={{
+          display: "flex",
+          gap: 6,
+          alignItems: "stretch",
+        }}
+      >
+        <div style={{ width: groupWidth, flexShrink: 0, minWidth: 140, maxWidth: 450 }}>
           <ServerGroupPanel
             servers={servers}
             activeGroup={activeGroup}
@@ -710,7 +768,17 @@ export default function ServersPage() {
           />
         </div>
 
-        <div className="lg:col-span-4 ops-panel overflow-hidden relative flex flex-col">
+        {/* 垂直宽度拖拽分割条 */}
+        <div
+          onMouseDown={handleResizerMouseDown}
+          onDoubleClick={handleResizerDoubleClick}
+          className="ops-server-resizer"
+          title="按住左右拖拽调整宽度，双击恢复默认 (190px)"
+        >
+          <div className="ops-server-resizer-handle" />
+        </div>
+
+        <div className="ops-panel ops-server-table-panel" style={{ flex: "1 1 0%", minWidth: 0 }}>
           <ServerToolbar
             keyword={keyword}
             onKeywordChange={setKeyword}
@@ -724,34 +792,34 @@ export default function ServersPage() {
           />
 
           <Table<Server>
-            className="ops-table"
-            columns={columns}
-            dataSource={visibleServers}
-            rowKey="id"
-            loading={loading}
-            size="middle"
-            pagination={{ pageSize: 20, showSizeChanger: false }}
-            scroll={{ x: 1080 }}
-            rowSelection={{
-              selectedRowKeys: selectedIds,
-              onChange: (keys) => setSelectedIds(keys as number[]),
-            }}
-            locale={{
-              emptyText:
-                servers.length === 0
-                  ? "还没有纳管任何服务器，点击右上角「新增服务器」开始"
-                  : (
-                    <div className="py-6 space-y-2">
-                      <p style={{ color: "var(--text-muted)" }}>
-                        没有匹配当前过滤条件的服务器
-                      </p>
-                      <Button type="link" size="small" onClick={resetAllFilters}>
-                        重置所有过滤条件
-                      </Button>
-                    </div>
-                  ),
-            }}
-          />
+              className="ops-table"
+              columns={columns}
+              dataSource={visibleServers}
+              rowKey="id"
+              loading={loading}
+              size="middle"
+              pagination={false}
+              scroll={{ x: 1080, y: "calc(100vh - 410px)" }}
+              rowSelection={{
+                selectedRowKeys: selectedIds,
+                onChange: (keys) => setSelectedIds(keys as number[]),
+              }}
+              locale={{
+                emptyText:
+                  servers.length === 0
+                    ? "还没有纳管任何服务器，点击右上角「新增服务器」开始"
+                    : (
+                      <div className="py-6 space-y-2">
+                        <p style={{ color: "var(--text-muted)" }}>
+                          没有匹配当前过滤条件的服务器
+                        </p>
+                        <Button type="link" size="small" onClick={resetAllFilters}>
+                          重置所有过滤条件
+                        </Button>
+                      </div>
+                    ),
+              }}
+            />
 
           <BatchActionBar
             count={selectedIds.length}
@@ -771,8 +839,11 @@ export default function ServersPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-        <div className="glass-card rounded-xl p-3.5 space-y-1.5">
+      <div className="ops-server-cards grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div
+          className="glass-card rounded-xl p-3.5 space-y-1.5"
+          style={{ borderColor: "color-mix(in srgb, #818cf8 30%, var(--border))" }}
+        >
           <div
             className="flex items-center gap-2 text-xs font-medium"
             style={{ color: "#818cf8" }}
@@ -786,7 +857,10 @@ export default function ServersPage() {
           </p>
         </div>
 
-        <div className="glass-card rounded-xl p-3.5 space-y-1.5">
+        <div
+          className="glass-card rounded-xl p-3.5 space-y-1.5"
+          style={{ borderColor: "color-mix(in srgb, var(--warning) 30%, var(--border))" }}
+        >
           <div
             className="flex items-center gap-2 text-xs font-medium"
             style={{ color: "#fbbf24" }}
@@ -800,7 +874,10 @@ export default function ServersPage() {
           </p>
         </div>
 
-        <div className="glass-card rounded-xl p-3.5 space-y-1.5">
+        <div
+          className="glass-card rounded-xl p-3.5 space-y-1.5"
+          style={{ borderColor: "color-mix(in srgb, var(--info) 30%, var(--border))" }}
+        >
           <div
             className="flex items-center gap-2 text-xs font-medium"
             style={{ color: "#60a5fa" }}

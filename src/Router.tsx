@@ -30,6 +30,7 @@ import {
 } from "@/navigation/modules";
 import ServersPage from "@/pages/servers";
 import WorkbenchPage from "@/pages/workbench";
+import TerminalPage from "@/pages/terminal";
 import SettingsPage from "@/pages/settings";
 import { ModulePlaceholder } from "@/pages/module";
 
@@ -37,6 +38,7 @@ import { ModulePlaceholder } from "@/pages/module";
 const IMPLEMENTED_PAGES: Record<string, ComponentType> = {
   servers: ServersPage,
   workbench: WorkbenchPage,
+  terminal: TerminalPage,
   settings: SettingsPage,
 };
 

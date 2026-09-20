@@ -10,12 +10,11 @@
  * 与原型的一处必要差异：原型是单页 switchTab，这里是多路由 <Outlet />。
  */
 
-import { useEffect, useRef } from "react";
-import { Outlet } from "react-router-dom";
+import { useRef } from "react";
+import { Outlet, useLocation } from "react-router-dom";
 import { Layout } from "antd";
-import { PanelLeftClose, PanelLeftOpen, Shield } from "lucide-react";
+import { Shield } from "lucide-react";
 import { getCurrentWindow, type Window } from "@tauri-apps/api/window";
-import { useAppStore } from "@/store";
 import { NavRail } from "./NavRail";
 import { WindowControls } from "./WindowControls";
 import { SessionSelector } from "./header/SessionSelector";
@@ -63,20 +62,8 @@ function DragRegion() {
 }
 
 export function AppLayout() {
-  const sidebarCollapsed = useAppStore((s) => s.sidebarCollapsed);
-  const toggleSidebar = useAppStore((s) => s.toggleSidebar);
-
-  // Ctrl+B 折叠 / 展开侧边菜单，与原型标题上的键位提示一致
-  useEffect(() => {
-    function onKeyDown(e: KeyboardEvent) {
-      if (e.ctrlKey && !e.shiftKey && !e.altKey && e.key.toLowerCase() === "b") {
-        e.preventDefault();
-        toggleSidebar();
-      }
-    }
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [toggleSidebar]);
+  const location = useLocation();
+  const isTerminal = location.pathname.startsWith("/terminal");
 
   return (
     <Layout style={{ height: "100vh", display: "flex", flexDirection: "column" }}>
@@ -90,18 +77,9 @@ export function AppLayout() {
           userSelect: "none",
         }}
       >
-        {/* 左：折叠按钮 + 品牌区 */}
-        <div className="flex items-center shrink-0" style={{ gap: 10 }}>
-          <button
-            type="button"
-            className="header-icon-btn"
-            onClick={toggleSidebar}
-            title="展开 / 收起侧边菜单 (快捷键: Ctrl+B)"
-          >
-            {sidebarCollapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
-          </button>
-
-          <div className="flex items-center" style={{ gap: 8 }}>
+        {/* 左：Logo + 标题 + 模式提示 */}
+        <div className="flex items-center shrink-0" style={{ gap: 8 }}>
+          <div className="flex items-center space-x-2">
             <div
               className="flex items-center justify-center"
               style={{
@@ -170,8 +148,8 @@ export function AppLayout() {
         <Content
           className="custom-scrollbar"
           style={{
-            padding: 20,
-            overflow: "auto",
+            padding: isTerminal ? 0 : 20,
+            overflow: isTerminal ? "hidden" : "auto",
             overscrollBehavior: "contain",
             minHeight: 0,
             minWidth: 0,

@@ -82,7 +82,7 @@ export function ServerGroupPanel({
   }, [servers]);
 
   return (
-    <div className="glass-card rounded-xl p-3 space-y-3">
+    <div className="glass-card ops-server-group rounded-xl p-3 space-y-3">
       <div
         className="flex items-center justify-between pb-2"
         style={{ borderBottom: "1px solid var(--border)" }}
@@ -105,7 +105,7 @@ export function ServerGroupPanel({
         </button>
       </div>
 
-      <div className="space-y-1">
+      <div className="ops-server-group-list custom-scrollbar space-y-1 pr-0.5">
         {groups.map((group) => {
           const active = group.key === activeGroup;
           return (

@@ -95,7 +95,7 @@ export default function SettingsPage() {
       const savedLang = pick(CONFIG_KEY_LANGUAGE);
       if (savedLang) setLanguage(savedLang);
       const savedClose = pick(CONFIG_KEY_CLOSE_BEHAVIOR);
-      if (savedClose === "minimize" || savedClose === "exit") {
+      if (savedClose === "ask" || savedClose === "minimize" || savedClose === "exit") {
         setCloseBehavior(savedClose);
       }
     } catch (e) {
@@ -352,6 +352,7 @@ export default function SettingsPage() {
             >
               <div className="flex items-center" style={{ gap: 10 }}>
                 {[
+                  { id: "ask", label: "每次询问" },
                   { id: "minimize", label: "最小化到托盘" },
                   { id: "exit", label: "直接退出" },
                 ].map((b) => {
@@ -361,7 +362,7 @@ export default function SettingsPage() {
                       key={b.id}
                       type="button"
                       onClick={() => {
-                        setCloseBehavior(b.id as "minimize" | "exit");
+                        setCloseBehavior(b.id as "ask" | "minimize" | "exit");
                         void persist(CONFIG_KEY_CLOSE_BEHAVIOR, b.id, "关闭行为未写入配置库");
                       }}
                       style={{
@@ -379,9 +380,8 @@ export default function SettingsPage() {
                   );
                 })}
               </div>
-              <Notice tone="warning">
-                该选项已持久化，但后端尚未接入窗口关闭拦截逻辑 —— 目前点关闭仍会直接退出程序。
-                要做成真正的「最小化到托盘」需要注册 <code>WindowEvent::CloseRequested</code> 并接入托盘插件。
+              <Notice tone="info">
+                选择“每次询问”时，点击右上角关闭按钮或按 Alt+F4 会弹出关闭确认；也可以在弹窗中勾选记住选择。
               </Notice>
             </Section>
           )}

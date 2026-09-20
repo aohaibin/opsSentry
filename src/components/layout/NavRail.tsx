@@ -17,23 +17,18 @@ import {
   modulePath,
   type ModuleDef,
 } from "@/navigation/modules";
-import { useAppStore } from "@/store/app";
 
 /** 核心运维组有几项 —— 原型在这之后插一条分割线，与 AI/安全组分开 */
 const CORE_COUNT = NAV_MODULES.filter((m) => m.group === "core").length;
 
 export function NavRail() {
-  // 收起态只留图标。顶栏的折叠按钮会改这个值。
-  const collapsed = useAppStore((s) => s.sidebarCollapsed);
-
   return (
     <aside
       className="h-full flex flex-col shrink-0 select-none"
       style={{
-        width: collapsed ? 48 : 68,
+        width: 68,
         background: "var(--surface-900)",
         borderRight: "1px solid var(--border)",
-        transition: "width 0.2s ease",
       }}
     >
       {/*
@@ -51,11 +46,11 @@ export function NavRail() {
       >
         {NAV_MODULES.map((mod, idx) => (
           <Fragment key={mod.key}>
-            <NavRailItem mod={mod} collapsed={collapsed} />
+            <NavRailItem mod={mod} />
             {idx === CORE_COUNT - 1 && (
               <div
                 style={{
-                  width: collapsed ? 24 : 32,
+                  width: 32,
                   borderTop: "1px solid var(--border)",
                   margin: "4px 0",
                 }}
@@ -74,14 +69,14 @@ export function NavRail() {
         }}
       >
         {PINNED_MODULES.map((mod) => (
-          <NavRailItem key={mod.key} mod={mod} collapsed={collapsed} />
+          <NavRailItem key={mod.key} mod={mod} />
         ))}
       </div>
     </aside>
   );
 }
 
-function NavRailItem({ mod, collapsed }: { mod: ModuleDef; collapsed: boolean }) {
+function NavRailItem({ mod }: { mod: ModuleDef }) {
   const location = useLocation();
   const path = modulePath(mod.key);
   const active = location.pathname === path;
@@ -96,13 +91,12 @@ function NavRailItem({ mod, collapsed }: { mod: ModuleDef; collapsed: boolean })
       title={tooltip}
       data-active={active}
       className="nav-rail-item"
-      style={collapsed ? { width: 40 } : undefined}
     >
       <span className="relative flex items-center justify-center">
         <Icon size={20} style={active ? { color: "var(--nav-active-icon)" } : undefined} />
         {mod.dot && <span className={`nav-dot nav-dot-${mod.dot}`} />}
       </span>
-      {!collapsed && <span className="nav-rail-label">{mod.navLabel}</span>}
+      <span className="nav-rail-label">{mod.navLabel}</span>
     </Link>
   );
 }

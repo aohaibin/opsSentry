@@ -81,12 +81,6 @@ interface AppStore {
   /** 选中皮肤，同时把主题切到该皮肤所属的明暗族 */
   setSkin: (skin: SkinId) => void;
 
-  /* ---- 布局 ---- */
-  /** 侧边栏是否折叠 */
-  sidebarCollapsed: boolean;
-  /** 切换侧边栏 */
-  toggleSidebar: () => void;
-
   /* ---- 当前会话主机（顶栏会话选择器） ---- */
   /** 当前选中的服务器 id；null 表示尚未选择 */
   activeServerId: number | null;
@@ -135,9 +129,6 @@ export const useAppStore = create<AppStore>((set, get) => ({
     // 皮肤自带明暗族，选中即同步主题，避免出现「选了亮色皮肤但仍是暗色主题」的错配
     set(def ? { skin, theme: def.family } : { skin });
   },
-
-  sidebarCollapsed: false,
-  toggleSidebar: () => set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),
 
   activeServerId: null,
   setActiveServerId: (activeServerId) => set({ activeServerId }),
