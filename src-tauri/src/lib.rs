@@ -92,6 +92,21 @@ pub fn run() {
             commands::config::get_config,
             commands::config::set_config,
             commands::config::delete_config,
+            // 服务器模块
+            commands::server::list_servers,
+            commands::server::add_server,
+            commands::server::update_server,
+            commands::server::delete_server,
+            commands::server::batch_delete_servers,
+            commands::server::batch_update_server_policy,
+            commands::server::batch_add_server_tags,
+            commands::server::set_server_favorite,
+            commands::server::test_server_connectivity,
+            commands::server::test_server_ssh,
+            commands::server::import_ssh_config,
+            // 审核日志模块
+            commands::audit::get_audit_logs,
+            commands::audit::add_audit_log,
         ])
         // ─── 窗口事件处理 ─────────────────────────
         .on_window_event(|window, event| {

@@ -6,9 +6,9 @@ import { theme } from "antd";
  * 与 variables.css 设计令牌保持同步
  */
 const sharedToken: ThemeConfig["token"] = {
-  borderRadius: 6,
-  borderRadiusSM: 3,
-  borderRadiusLG: 8,
+  borderRadius: 8,
+  borderRadiusSM: 6,
+  borderRadiusLG: 12,
   fontSize: 13,
   controlHeight: 32,
   controlHeightSM: 24,
@@ -34,57 +34,75 @@ const sharedComponents: ThemeConfig["components"] = {
   },
 };
 
-/** 暗色主题（与 variables.css :root[data-theme="dark"] 同步） */
+/** 暗色主题（与 variables.css :root[data-theme="dark"] 同步 - 运维助手风格） */
 export const darkTheme: ThemeConfig = {
   algorithm: theme.darkAlgorithm,
   token: {
     ...sharedToken,
-    colorPrimary: "#5090f0",
-    colorSuccess: "#5ec26a",
-    colorWarning: "#e8c44a",
-    colorError: "#f0554a",
-    colorInfo: "#5090f0",
-    colorBgContainer: "#232325",
-    colorBgElevated: "#2a2a2d",
-    colorBgLayout: "#1a1a1c",
-    colorText: "#dcdcde",
-    colorTextSecondary: "#8a8a8d",
-    colorTextTertiary: "#707074",
-    colorBorder: "#353538",
-    colorBorderSecondary: "#2a2a2d",
+    colorPrimary: "#6366f1",
+    colorSuccess: "#22c55e",
+    colorWarning: "#f59e0b",
+    colorError: "#ef4444",
+    colorInfo: "#3b82f6",
+    colorBgContainer: "#1e293b",
+    colorBgElevated: "#334155",
+    colorBgLayout: "#0f172a",
+    colorText: "#f1f5f9",
+    colorTextSecondary: "#94a3b8",
+    colorTextTertiary: "#64748b",
+    colorBorder: "rgba(255, 255, 255, 0.08)",
+    colorBorderSecondary: "rgba(255, 255, 255, 0.04)",
   },
   components: {
     ...sharedComponents,
+    Layout: {
+      bodyBg: "#0f172a",
+      siderBg: "#1e293b",
+      headerBg: "rgba(15, 23, 42, 0.95)",
+    },
+    Menu: {
+      darkItemBg: "#1e293b",
+      darkItemSelectedBg: "rgba(99, 102, 241, 0.15)",
+      darkItemHoverBg: "#334155",
+    },
+    Card: {
+      borderRadiusLG: 12,
+      boxShadow: "0 4px 12px rgba(0, 0, 0, 0.3)",
+    },
     Tooltip: {
-      colorBgSpotlight: "#2a2a2d",
-      colorTextLightSolid: "#dcdcde",
+      colorBgSpotlight: "#334155",
+      colorTextLightSolid: "#f1f5f9",
+    },
+    Table: {
+      headerBg: "#1e293b",
+      rowHoverBg: "#334155",
     },
   },
 };
 
-/** 亮色主题（与 variables.css :root[data-theme="light"] 同步） */
+/** 亮色主题 */
 export const lightTheme: ThemeConfig = {
   algorithm: theme.defaultAlgorithm,
   token: {
     ...sharedToken,
-    colorPrimary: "#2563eb",
-    colorSuccess: "#16a34a",
-    colorWarning: "#d97706",
-    colorError: "#dc2626",
-    colorInfo: "#2563eb",
+    colorPrimary: "#4f46e5",
+    colorSuccess: "#22c55e",
+    colorWarning: "#f59e0b",
+    colorError: "#ef4444",
+    colorInfo: "#3b82f6",
     colorBgContainer: "#ffffff",
     colorBgElevated: "#ffffff",
-    colorBgLayout: "#f5f5f7",
-    colorText: "#1a1a2e",
-    colorTextSecondary: "#5c5c6e",
-    colorTextTertiary: "#9898a6",
-    colorBorder: "#d9d9de",
-    colorBorderSecondary: "#e8e8ec",
+    colorBgLayout: "#f8fafc",
+    colorText: "#0f172a",
+    colorTextSecondary: "#475569",
+    colorTextTertiary: "#94a3b8",
+    colorBorder: "#e2e8f0",
+    colorBorderSecondary: "#f1f5f9",
   },
   components: {
     ...sharedComponents,
     Tooltip: {
-      colorBgSpotlight: "#1a1a2e",
+      colorBgSpotlight: "#0f172a",
       colorTextLightSolid: "#ffffff",
     },
   },

@@ -137,7 +137,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ''
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
           # macOS 代码签名 + 公证（Developer ID，仅 macos-latest runner 生效，Win/Linux 忽略）
           # 缺这 6 个 secret 时 tauri-action 自动跳过 mac 签名、出未签 mac（不报错）。
           # 要签需同时配 tauri.conf.json 的 macOS.hardenedRuntime+entitlements（本项目已加）。

@@ -11,6 +11,7 @@ import { AppRouter } from "@/Router";
 
 function App() {
   const appTheme = useAppStore((s) => s.theme);
+  const skin = useAppStore((s) => s.skin);
   const [resolved, setResolved] = useState<"light" | "dark">(
     resolveTheme(appTheme)
   );
@@ -35,6 +36,12 @@ function App() {
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", resolved);
   }, [resolved]);
+
+  // 皮肤单独用一个属性：它只覆盖背景与品牌色，不改变明暗族的其余令牌。
+  // 两属性分开，才能做到「换皮肤」与「跟随系统」互不干扰。
+  useEffect(() => {
+    document.documentElement.setAttribute("data-skin", skin);
+  }, [skin]);
 
   return (
     // StyleProvider layer：把 antd 运行时注入的样式装进 @layer antd。

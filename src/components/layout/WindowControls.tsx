@@ -80,9 +80,8 @@ export function WindowControls() {
         display: "flex",
         alignItems: "center",
         gap: 2,
-        height: 48,
-        paddingRight: 8,
-        paddingLeft: 4,
+        height: "var(--header-height)",
+        paddingRight: 0,
       }}
     >
       <button

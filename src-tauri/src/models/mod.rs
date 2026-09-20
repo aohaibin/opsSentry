@@ -15,3 +15,116 @@ pub struct SystemInfo {
     pub app_version: String,
     pub data_dir: String,
 }
+
+/// 服务器资产
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Server {
+    pub id: i64,
+    pub alias: String,
+    pub hostname: String,
+    pub port: i32,
+    pub username: String,
+    pub auth_type: String, // "password" / "key"
+    pub tags: String,      // JSON 数组字符串，如 ["生产环境","腾讯云"]
+    pub group: String,
+    pub ai_policy: String, // "trusted" / "allowlist" / "approval" / "denied"
+    pub os_type: String,   // "linux" / "windows"
+    /// 是否收藏（左侧分组树「我的收藏」）
+    pub favorite: bool,
+    /// CPU 架构，空串表示尚未探测（不要当成 linux/amd64 处理）
+    pub arch: String,
+    /// 最近一次成功连通/探活时间，None 表示从未使用过
+    pub last_used_at: Option<String>,
+    /// 首次 SSH 认证时由用户确认并保存的主机公钥指纹
+    pub host_key_fingerprint: String,
+    /// unknown / verified / failed / host_key_changed
+    pub last_connection_status: String,
+    /// 最近一次 SSH 验证结果摘要，不包含密码、私钥等敏感信息
+    pub last_connection_message: String,
+    /// 最近一次 SSH 认证成功时间
+    pub last_connected_at: Option<String>,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+/// 连通性探测结果
+///
+/// 探测为纯 TCP 三次握手，不涉及认证：握手成功只代表「网络可达 + 端口有服务监听」，
+/// 不代表账号密码正确。前端文案需据此区分「可达」与「可登录」。
+#[derive(Debug, Clone, Serialize)]
+pub struct ConnectivityResult {
+    /// 是否连通
+    pub ok: bool,
+    /// TCP 握手耗时（毫秒）；失败时为 None
+    pub latency_ms: Option<u64>,
+    /// 面向用户的结果说明（成功或失败原因）
+    pub message: String,
+}
+
+/// SSH 认证测试请求。
+///
+/// 凭据只通过当前 IPC 调用短暂进入 Rust，绝不写入数据库或审计日志。
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SshProbeRequest {
+    pub server_id: i64,
+    pub password: Option<String>,
+    pub private_key_path: Option<String>,
+    pub passphrase: Option<String>,
+    #[serde(default)]
+    pub trust_host_key: bool,
+}
+
+/// SSH 认证及只读系统摘要探测结果
+#[derive(Debug, Clone, Serialize)]
+pub struct SshProbeResult {
+    pub connected: bool,
+    pub requires_host_key_trust: bool,
+    pub fingerprint: String,
+    pub host_key_type: String,
+    pub latency_ms: u64,
+    pub remote_hostname: String,
+    pub os_name: String,
+    pub arch: String,
+    pub uptime: String,
+    pub message: String,
+}
+
+/// 从 ~/.ssh/config 解析出的主机条目
+///
+/// 只做「读取 + 解析 + 预览」，不自动写入资产表：
+/// 该文件里常混有跳板机、生产机等敏感条目，导入必须由用户逐条勾选确认。
+#[derive(Debug, Clone, Serialize)]
+pub struct SshConfigHost {
+    /// Host 别名，用于生成资产别名
+    pub alias: String,
+    /// HostName，未配置时回退为别名（ssh 自身也是这个行为）
+    pub hostname: String,
+    pub port: i32,
+    pub username: String,
+    /// IdentityFile 路径；空串表示该条目未显式指定私钥
+    pub identity_file: String,
+}
+
+/// 审核日志
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AuditLog {
+    pub id: i64,
+    pub server_alias: String,
+    pub command: String,
+    pub user: String,
+    pub result: String, // "success" / "failed" / "denied"
+    pub created_at: String,
+}
+
+/// 告警规则
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AlertRule {
+    pub id: i64,
+    pub name: String,
+    pub metric: String,
+    pub threshold: String,
+    pub severity: String, // "critical" / "warning" / "info"
+    pub enabled: bool,
+    pub created_at: String,
+}

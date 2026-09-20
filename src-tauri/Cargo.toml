@@ -33,7 +33,20 @@ tauri-plugin-process = "2"
 # 禁止多开：dev/prod 因 identifier 分流各占一个实例锁，可同时各开一个；重复启动唤回已有窗口
 tauri-plugin-single-instance = "2"
 
-# ─── 远程访问网关（移动端伴侣） ─────────────
+# ─── 远程运维核心依赖 ─────────────────────
+# SSH/SFTP：libssh2 的原生 Rust 绑定，支持密码/私钥/代理跳转
+ssh2 = "0.9"
+# AES-GCM 加密（凭据 vault）
+ring = "0.17"
+# HMAC-SHA256（审计日志防篡改）
+hmac = "0.12"
+sha2 = "0.10"
+# 正则匹配（危险命令黑名单）
+regex = "1"
+# 并发 HashMap（SSH session pool）
+dashmap = "5"
+# UUID（工单/会话 ID）
+uuid = { version = "1", features = ["serde"] }
 # 详见 src/remote/ 模块和 .claude/skills/remote-gateway/skill.md
 axum = { version = "0.7", features = ["ws", "multipart"] }
 tower-http = { version = "0.5", features = ["cors"] }

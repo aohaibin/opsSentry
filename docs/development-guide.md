@@ -571,6 +571,18 @@ cd src-tauri && cargo clippy  # Rust 代码检查
 cd src-tauri && cargo test    # Rust 测试
 ```
 
+> **生产构建需要签名环境变量**
+>
+> `plugins.updater.pubkey` 非空时，Tauri CLI 会强制校验更新包签名私钥，缺失时报
+> `A public key has been found, but no private key`。需要两个环境变量（均已配置到本机用户级变量）：
+>
+> - `TAURI_SIGNING_PRIVATE_KEY` —— 私钥内容或路径（本机：`src-tauri/keys/opsentr.key`）
+> - `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` —— 私钥密码（本机：`src-tauri/keys/opsentr.key.password`）
+>
+> 注意：**`.env` 文件无效**，Tauri CLI 不加载 dotenv，必须是真实环境变量；且
+> `tauri build` 只识别 `TAURI_SIGNING_PRIVATE_KEY`（不认 `_PATH` 变体）。
+> 密钥由 `pnpm tauri signer generate -w src-tauri/keys/opsentr.key` 生成，整目录已 gitignore。
+
 ### C. 关键文件速查
 
 | 你想做什么 | 查看/修改哪个文件 |

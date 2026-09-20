@@ -14,3 +14,4 @@ export type { CommandError } from "./client";
 export { systemApi } from "./system";
 export { configApi } from "./config";
 export { updaterApi } from "./updater";
+export { serverApi, auditApi } from "./server";

@@ -5,5 +5,6 @@
 // 1. 创建 src/store/xxx.ts
 // 2. 在此处 export
 
-export { useAppStore } from "./app";
+export { useAppStore, SKINS, UNLOCK_DURATIONS } from "./app";
+export type { SkinId, SkinDef, ThemeMode, UnlockDuration } from "./app";
 export { useSettingsStore } from "./settings";

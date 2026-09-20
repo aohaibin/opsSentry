@@ -1,77 +1,92 @@
 /* ============================================================
- * 设计令牌系统 (Design Tokens)
- * 基于语义化命名，通过 data-theme 属性切换暗色/亮色主题
+ * 设计令牌系统 (Design Tokens) — 运维助手暗色主题
+ * 基于原型 OpsSentry 配色方案
  * ============================================================ */
 
 /* ---- 暗色主题（默认） ---- */
 :root,
 :root[data-theme="dark"] {
-  /* 背景色层级（从深到浅） */
-  --bg-primary: #1a1a1c;
-  --bg-secondary: #232325;
-  --bg-tertiary: #2a2a2d;
-  --bg-hover: #333336;
-  --bg-active: #2a4a82;
+  /* 背景色层级（从深到浅）- 原型风格深蓝黑 */
+  --bg-primary: #0f172a;
+  --bg-secondary: #1e293b;
+  --bg-tertiary: #334155;
+  --bg-hover: #334155;
+  --bg-active: #1e3a5f;
 
   /* 文本色层级 */
-  --text-primary: #dcdcde;
-  --text-secondary: #8a8a8d;
-  --text-muted: #707074;
+  --text-primary: #f1f5f9;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
 
-  /* 品牌色 */
-  --accent: #5090f0;
-  --accent-hover: #6aa0f5;
-  --danger: #f0554a;
-  --success: #5ec26a;
-  --warning: #e8c44a;
-  --info: #5090f0;
+  /* 品牌色 - 靛蓝/青色系 */
+  --accent: #6366f1;
+  --accent-hover: #818cf8;
+  --danger: #ef4444;
+  --success: #22c55e;
+  --warning: #f59e0b;
+  --info: #3b82f6;
+  --brand-500: #6366f1;
+  --brand-400: #818cf8;
 
   /* 边框 */
-  --border: #353538;
-  --border-secondary: #2a2a2d;
+  --border: rgba(255, 255, 255, 0.08);
+  --border-secondary: rgba(255, 255, 255, 0.04);
 
   /* 阴影 */
-  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.35);
-  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.45);
-  --shadow-lg: 0 16px 48px rgba(0, 0, 0, 0.55);
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 16px 48px rgba(0, 0, 0, 0.6);
 
   /* 滚动条 */
   --scrollbar-thumb: rgba(255, 255, 255, 0.15);
   --scrollbar-thumb-hover: rgba(255, 255, 255, 0.25);
 
   /* 选区 */
-  --selection-bg: rgba(80, 144, 240, 0.35);
+  --selection-bg: rgba(99, 102, 241, 0.35);
   --selection-text: #fff;
 
   /* 玻璃效果 */
-  --overlay-bg: rgba(0, 0, 0, 0.6);
+  --overlay-bg: rgba(15, 23, 42, 0.9);
+  --surface-950: #090d16;
+  --surface-900: #0f172a;
+  --surface-850: #141e33;
+  --glass-card-bg: rgba(30, 41, 59, 0.65);
+  --glass-nav-bg: rgba(15, 23, 42, 0.86);
+
+  /* 导航选中态 —— 原型 switchTab() 给激活项上的是 emerald 而非品牌靛蓝。
+     语义是「活跃 / 在线」，与品牌色刻意区分，不要合并成 --accent。 */
+  --nav-active-bg: rgba(16, 185, 129, 0.15);
+  --nav-active-border: rgba(16, 185, 129, 0.3);
+  --nav-active-text: #6ee7b7;
+  --nav-active-icon: #34d399;
+  --nav-active-glow: 0 0 12px rgba(16, 185, 129, 0.15);
 }
 
 /* ---- 亮色主题 ---- */
 :root[data-theme="light"] {
   /* 背景色层级 */
-  --bg-primary: #ffffff;
-  --bg-secondary: #f5f5f7;
-  --bg-tertiary: #ebebef;
-  --bg-hover: #e0e0e4;
-  --bg-active: #d6e4f8;
+  --bg-primary: #f8fafc;
+  --bg-secondary: #f1f5f9;
+  --bg-tertiary: #e2e8f0;
+  --bg-hover: #e2e8f0;
+  --bg-active: #dbeafe;
 
   /* 文本色层级 */
-  --text-primary: #1a1a2e;
-  --text-secondary: #5c5c6e;
-  --text-muted: #9898a6;
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #94a3b8;
 
   /* 品牌色 */
-  --accent: #2563eb;
-  --accent-hover: #1d4ed8;
-  --danger: #dc2626;
-  --success: #16a34a;
-  --warning: #d97706;
-  --info: #2563eb;
+  --accent: #4f46e5;
+  --accent-hover: #6366f1;
+  --danger: #ef4444;
+  --success: #22c55e;
+  --warning: #f59e0b;
+  --info: #3b82f6;
 
   /* 边框 */
-  --border: #d9d9de;
-  --border-secondary: #e8e8ec;
+  --border: #e2e8f0;
+  --border-secondary: #f1f5f9;
 
   /* 阴影 */
   --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.08);
@@ -83,11 +98,23 @@
   --scrollbar-thumb-hover: rgba(0, 0, 0, 0.25);
 
   /* 选区 */
-  --selection-bg: rgba(37, 99, 235, 0.25);
+  --selection-bg: rgba(79, 70, 229, 0.25);
   --selection-text: #000;
 
   /* 玻璃效果 */
-  --overlay-bg: rgba(0, 0, 0, 0.4);
+  --overlay-bg: rgba(248, 250, 252, 0.9);
+  --surface-950: #f8fafc;
+  --surface-900: #ffffff;
+  --surface-850: #eef2f7;
+  --glass-card-bg: rgba(255, 255, 255, 0.86);
+  --glass-nav-bg: rgba(255, 255, 255, 0.9);
+
+  /* 导航选中态：亮色下 emerald 需要压深才能保证对比度 */
+  --nav-active-bg: rgba(16, 185, 129, 0.12);
+  --nav-active-border: rgba(16, 185, 129, 0.35);
+  --nav-active-text: #047857;
+  --nav-active-icon: #059669;
+  --nav-active-glow: 0 0 12px rgba(16, 185, 129, 0.12);
 }
 
 /* ---- 通用令牌（不随主题切换） ---- */
@@ -101,10 +128,10 @@
   --spacing-2xl: 24px;
 
   /* 圆角 */
-  --radius-sm: 3px;
-  --radius-md: 6px;
-  --radius-lg: 8px;
-  --radius-xl: 12px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
 
   /* 过渡 */
   --transition-fast: 0.1s ease;
@@ -125,6 +152,414 @@
   /* 布局尺寸 */
   --sidebar-width: 220px;
   --sidebar-collapsed-width: 60px;
-  --header-height: 48px;
+  /* 顶栏高度对齐原型的 h-14（56px） */
+  --header-height: 56px;
   --content-max-width: none;  /* 默认无限制，新项目可覆盖为如 1200px */
+}
+
+/* 玻璃拟态卡片 */
+.glass-card {
+  background: var(--glass-card-bg);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+}
+
+.glass-nav {
+  background: var(--glass-nav-bg);
+  backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--border);
+}
+
+/* 原型中的密集运维工作区：低高度、细边框、弱阴影。 */
+.ops-page {
+  min-height: 100%;
+  color: var(--text-primary);
+}
+
+.ops-panel {
+  background: var(--glass-card-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  backdrop-filter: blur(12px);
+}
+
+.ops-table .ant-table,
+.ops-table .ant-table-container,
+.ops-table .ant-table-content {
+  background: transparent;
+}
+
+.ops-table .ant-table-thead > tr > th {
+  background: rgba(15, 23, 42, 0.58);
+  color: var(--text-secondary);
+  border-bottom-color: var(--border);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+:root[data-theme="light"] .ops-table .ant-table-thead > tr > th {
+  background: rgba(241, 245, 249, 0.82);
+}
+
+.ops-table .ant-table-tbody > tr > td {
+  border-bottom-color: var(--border-secondary);
+  color: var(--text-primary);
+  font-size: 12px;
+}
+
+.ops-table .ant-table-tbody > tr:hover > td,
+.ops-table .ant-table-tbody > tr.ant-table-row-selected > td {
+  background: var(--bg-hover) !important;
+}
+
+.ops-table .ant-table-pagination {
+  padding: 8px 12px;
+  margin: 0 !important;
+  border-top: 1px solid var(--border);
+}
+
+.ops-modal .ant-modal-content {
+  overflow: hidden;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface-900);
+  box-shadow: var(--shadow-lg);
+}
+
+.ops-modal .ant-modal-header {
+  margin: 0;
+  padding: 14px 16px;
+  background: color-mix(in srgb, var(--surface-950) 72%, transparent);
+  border-bottom: 1px solid var(--border);
+}
+
+.ops-modal .ant-modal-body {
+  padding: 16px;
+  background: var(--surface-900);
+}
+
+.ops-modal .ant-modal-footer {
+  margin: 0;
+  padding: 12px 16px;
+  background: color-mix(in srgb, var(--surface-950) 72%, transparent);
+  border-top: 1px solid var(--border);
+}
+
+/* 自定义滚动条样式（更细更精致） */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) var(--surface-950);
+  overscroll-behavior: contain;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: var(--surface-950);
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
+}
+
+/* ============================================================
+ * 主题皮肤（原型顶栏调色盘下拉的 6 套）
+ *
+ * 放在文件末尾是刻意的：皮肤选择器与上方的 data-theme 选择器同优先级，
+ * 依据「后出现者胜出」覆盖它们。移到前面就会静默失效。
+ * 每套只覆盖背景层级 + 品牌色，文字/边框/圆角等沿用所属明暗族。
+ * ============================================================ */
+
+/* --- 暗色 · 午夜耀石（= 默认暗色，仅作显式声明，便于日后单独调） --- */
+:root[data-skin="obsidian"] {
+  --surface-950: #090d16;
+  --surface-900: #0f172a;
+  --surface-850: #141e33;
+  --bg-primary: #0f172a;
+  --bg-secondary: #1e293b;
+  --bg-tertiary: #334155;
+  --bg-hover: #334155;
+  --glass-nav-bg: rgba(15, 23, 42, 0.86);
+  --glass-card-bg: rgba(30, 41, 59, 0.65);
+}
+
+/* --- 暗色 · 石墨暗黑（中性灰 + 靛蓝强调） --- */
+:root[data-skin="graphite"] {
+  --surface-950: #0a0a0b;
+  --surface-900: #18181b;
+  --surface-850: #202023;
+  --bg-primary: #18181b;
+  --bg-secondary: #27272a;
+  --bg-tertiary: #3f3f46;
+  --bg-hover: #3f3f46;
+  --bg-active: #312e81;
+  --accent: #818cf8;
+  --accent-hover: #a5b4fc;
+  --brand-500: #818cf8;
+  --brand-400: #a5b4fc;
+  --overlay-bg: rgba(24, 24, 27, 0.9);
+  --glass-nav-bg: rgba(24, 24, 27, 0.86);
+  --glass-card-bg: rgba(39, 39, 42, 0.65);
+  --selection-bg: rgba(129, 140, 248, 0.35);
+}
+
+/* --- 暗色 · 暮薇暖橙（暖褐 + 琥珀强调） --- */
+:root[data-skin="amber"] {
+  --surface-950: #12100e;
+  --surface-900: #1c1917;
+  --surface-850: #241f1c;
+  --bg-primary: #1c1917;
+  --bg-secondary: #292524;
+  --bg-tertiary: #44403c;
+  --bg-hover: #44403c;
+  --bg-active: #78350f;
+  --accent: #fbbf24;
+  --accent-hover: #fcd34d;
+  --brand-500: #fbbf24;
+  --brand-400: #fcd34d;
+  --overlay-bg: rgba(28, 25, 23, 0.9);
+  --glass-nav-bg: rgba(28, 25, 23, 0.86);
+  --glass-card-bg: rgba(41, 37, 36, 0.65);
+  --selection-bg: rgba(251, 191, 36, 0.3);
+}
+
+/* --- 亮色 · 晴空素白（冷灰白 + 蓝强调） --- */
+:root[data-skin="sky"] {
+  --surface-950: #f8fafc;
+  --surface-900: #ffffff;
+  --surface-850: #eef2f7;
+  --bg-primary: #f8fafc;
+  --bg-secondary: #f1f5f9;
+  --bg-tertiary: #e2e8f0;
+  --bg-hover: #e2e8f0;
+  --bg-active: #dbeafe;
+  --accent: #3b82f6;
+  --accent-hover: #60a5fa;
+  --brand-500: #3b82f6;
+  --brand-400: #60a5fa;
+  --selection-bg: rgba(59, 130, 246, 0.25);
+}
+
+/* --- 亮色 · 活力晨光（暖米白 + 橙强调） --- */
+:root[data-skin="warm"] {
+  --surface-950: #fffbeb;
+  --surface-900: #ffffff;
+  --surface-850: #fef9e7;
+  --bg-primary: #fffbeb;
+  --bg-secondary: #fef3c7;
+  --bg-tertiary: #fde68a;
+  --bg-hover: #fde68a;
+  --bg-active: #fed7aa;
+  --accent: #f97316;
+  --accent-hover: #fb923c;
+  --brand-500: #f97316;
+  --brand-400: #fb923c;
+  --overlay-bg: rgba(255, 251, 235, 0.9);
+  --glass-nav-bg: rgba(255, 251, 235, 0.9);
+  --glass-card-bg: rgba(255, 255, 255, 0.88);
+  --selection-bg: rgba(249, 115, 22, 0.22);
+}
+
+/* --- 亮色 · 极光浅葱（薄荷白 + 青绿强调） --- */
+:root[data-skin="aurora"] {
+  --surface-950: #f0fdfa;
+  --surface-900: #ffffff;
+  --surface-850: #e6fbf5;
+  --bg-primary: #f0fdfa;
+  --bg-secondary: #ccfbf1;
+  --bg-tertiary: #99f6e4;
+  --bg-hover: #99f6e4;
+  --bg-active: #99f6e4;
+  --accent: #14b8a6;
+  --accent-hover: #2dd4bf;
+  --brand-500: #14b8a6;
+  --brand-400: #2dd4bf;
+  --overlay-bg: rgba(240, 253, 250, 0.9);
+  --glass-nav-bg: rgba(240, 253, 250, 0.9);
+  --glass-card-bg: rgba(255, 255, 255, 0.88);
+  --selection-bg: rgba(20, 184, 166, 0.22);
+}
+
+/* ============================================================
+ * 运维控制台专用排版工具类
+ * 原型是密集运维工作区：低高度、细边框、弱阴影、小字号。
+ * 抽成类而不是在每个页面写一长串内联样式，改一处即可全局生效。
+ * ============================================================ */
+
+/* 页面顶栏：标题 + 副标题 + 右侧操作按钮群 */
+.ops-page-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.ops-page-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 1.3;
+  color: var(--text-primary);
+}
+
+/* 标题后的括号说明，弱化处理，避免和主标题抢视线 */
+.ops-page-subtitle {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
+.ops-page-desc {
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+/* 面板内的区块小标题 */
+.ops-section-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+/* 导航轨上的状态圆点 */
+.nav-dot {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  width: 8px;
+  height: 8px;
+  border-radius: 9999px;
+  border: 1px solid var(--surface-900);
+}
+.nav-dot-amber {
+  background: #fbbf24;
+}
+
+.nav-dot-rose {
+  background: #f43f5e;
+}
+
+.nav-dot-rose-pulse {
+  background: #f43f5e;
+  animation: nav-dot-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes nav-dot-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+/* 导航轨按钮：图标在上、文字在下，56px 见方 */
+.nav-rail-item {
+  position: relative;
+  width: 56px;
+  padding: 6px 2px;
+  border-radius: 12px;
+  border: 1px solid transparent;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  color: var(--text-secondary);
+  cursor: pointer;
+  user-select: none;
+  transition: color 0.2s ease, background 0.2s ease, border-color 0.2s ease;
+}
+
+.nav-rail-item:hover {
+  color: var(--text-primary);
+  background: color-mix(in srgb, var(--bg-hover) 80%, transparent);
+}
+
+/* 选中态：emerald，与原型 switchTab() 一致 */
+.nav-rail-item[data-active="true"] {
+  color: var(--nav-active-text);
+  background: var(--nav-active-bg);
+  border-color: var(--nav-active-border);
+  box-shadow: var(--nav-active-glow);
+}
+
+.nav-rail-item[data-active="true"]:hover {
+  color: var(--nav-active-text);
+}
+
+.nav-rail-label {
+  margin-top: 4px;
+  max-width: 52px;
+  font-size: 10.5px;
+  font-weight: 500;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 顶栏右侧图标按钮：统一 30x30，避免各按钮高度不齐 */
+.header-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface-900);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.header-icon-btn:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+
+/* 顶栏胶囊按钮（版本号、AI 锁定态） */
+.header-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface-900);
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.header-pill:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
 }

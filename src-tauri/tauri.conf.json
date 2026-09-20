@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Agile Tauri",
+  "productName": "运维助手",
   "version": "0.1.0",
-  "identifier": "com.agilefr.tauri",
+  "identifier": "com.opsentr.yunwei",
   "build": {
     "beforeDevCommand": "pnpm dev:clean",
     "devUrl": "http://localhost:1420",
@@ -12,11 +12,11 @@
   "app": {
     "windows": [
       {
-        "title": "Agile Tauri",
-        "width": 1330,
-        "height": 830,
-        "minWidth": 900,
-        "minHeight": 600,
+        "title": "运维助手",
+        "width": 1440,
+        "height": 900,
+        "minWidth": 1100,
+        "minHeight": 700,
         "center": true,
         "decorations": false,
         "dragDropEnabled": false
@@ -29,7 +29,7 @@
   "plugins": {
     "updater": {
       "endpoints": ["https://gitee.com/<用户名>/<项目名>-release/raw/master/update.json"],
-      "pubkey": "YOUR_UPDATER_PUBKEY_HERE"
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDc1RkVGQTc4MjE0NTQ5NEIKUldSTFNVVWhlUHIrZGY4TUpLSWkraXZKcGYyVkVYc1NvTDI0Tm83NC9UMHlhU2JmTHFFUzdRTmQK"
     }
   },
   "bundle": {
