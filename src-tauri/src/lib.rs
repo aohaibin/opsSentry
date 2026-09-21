@@ -104,6 +104,11 @@ pub fn run() {
             commands::server::test_server_connectivity,
             commands::server::test_server_ssh,
             commands::server::import_ssh_config,
+            // 交互式终端模块
+            commands::terminal::open_terminal_session,
+            commands::terminal::write_terminal_session,
+            commands::terminal::resize_terminal_session,
+            commands::terminal::close_terminal_session,
             // 审核日志模块
             commands::audit::get_audit_logs,
             commands::audit::add_audit_log,

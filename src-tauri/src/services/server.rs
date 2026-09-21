@@ -7,7 +7,9 @@ use ssh2::{HashType, HostKeyType, Session};
 
 use crate::database::Database;
 use crate::error::AppError;
-use crate::models::{ConnectivityResult, Server, SshConfigHost, SshProbeRequest, SshProbeResult};
+use crate::models::{
+    ConnectivityResult, Server, SshConfigHost, SshProbeRequest, SshProbeResult, TerminalOpenRequest,
+};
 
 /// 连通性探测超时（毫秒）
 ///
@@ -294,6 +296,65 @@ impl ServerService {
                 Err(AppError::Custom(failure.message))
             }
         }
+    }
+
+    /// 为交互式终端建立已认证会话。
+    ///
+    /// 终端只能使用已经确认过的主机指纹，避免绕过首次连接的人工信任步骤。
+    pub(crate) fn connect_terminal(
+        db: &Database,
+        request: &TerminalOpenRequest,
+    ) -> Result<(Server, Session), AppError> {
+        let server = db
+            .get_server_by_id(request.server_id)?
+            .ok_or_else(|| AppError::NotFound(format!("服务器 {} 不存在", request.server_id)))?;
+
+        if server.host_key_fingerprint.is_empty() {
+            return Err(AppError::InvalidInput(
+                "请先完成 SSH 验证并确认主机公钥指纹".into(),
+            ));
+        }
+
+        let stream = connect_tcp(&server.hostname, server.port)
+            .map_err(|failure| AppError::Custom(failure.message))?;
+        stream.set_read_timeout(Some(Duration::from_millis(SSH_TIMEOUT_MS.into())))?;
+        stream.set_write_timeout(Some(Duration::from_millis(SSH_TIMEOUT_MS.into())))?;
+
+        let mut session = Session::new()
+            .map_err(|error| AppError::Custom(format!("初始化 SSH 会话失败: {error}")))?;
+        session.set_timeout(SSH_TIMEOUT_MS);
+        session.set_tcp_stream(stream);
+        session
+            .handshake()
+            .map_err(|error| AppError::Custom(format!("SSH 握手失败: {error}")))?;
+
+        let fingerprint = session
+            .host_key_hash(HashType::Sha256)
+            .map(format_sha256_fingerprint)
+            .ok_or_else(|| AppError::Custom("无法计算 SSH 主机公钥指纹".into()))?;
+        if server.host_key_fingerprint != fingerprint {
+            return Err(AppError::Custom(format!(
+                "主机指纹已变化，已拒绝打开终端。已保存：{}；当前：{}",
+                server.host_key_fingerprint, fingerprint
+            )));
+        }
+
+        let probe_request = SshProbeRequest {
+            server_id: request.server_id,
+            password: request.password.clone(),
+            private_key_path: request.private_key_path.clone(),
+            passphrase: request.passphrase.clone(),
+            trust_host_key: false,
+        };
+        authenticate(&session, &server, &probe_request)
+            .map_err(|failure| AppError::Custom(failure.message))?;
+        if !session.authenticated() {
+            return Err(AppError::Custom(
+                "SSH 认证失败，请检查凭据和登录策略".into(),
+            ));
+        }
+
+        Ok((server, session))
     }
 }
 

@@ -13,3 +13,10 @@ export type {
   ServerPayload,
   SshConfigHost,
 } from "./server";
+export type {
+  TerminalOpenRequest,
+  TerminalSessionInfo,
+  TerminalSessionStatus,
+  TerminalOutputEvent,
+  TerminalStatusEvent,
+} from "./terminal";

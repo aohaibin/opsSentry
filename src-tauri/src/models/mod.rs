@@ -90,6 +90,45 @@ pub struct SshProbeResult {
     pub message: String,
 }
 
+/// 打开交互式 SSH 终端的请求。
+///
+/// 凭据只用于建立当前内存会话，建立完成后仅保留已认证的 SSH 通道。
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TerminalOpenRequest {
+    pub server_id: i64,
+    pub password: Option<String>,
+    pub private_key_path: Option<String>,
+    pub passphrase: Option<String>,
+}
+
+/// 已建立的终端会话摘要。
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TerminalSessionInfo {
+    pub session_id: String,
+    pub server_id: i64,
+    pub status: String,
+    pub started_at: String,
+}
+
+/// SSH PTY 输出事件。
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TerminalOutputEvent {
+    pub session_id: String,
+    pub data: String,
+}
+
+/// SSH PTY 生命周期事件。
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TerminalStatusEvent {
+    pub session_id: String,
+    pub status: String,
+    pub message: String,
+}
+
 /// 从 ~/.ssh/config 解析出的主机条目
 ///
 /// 只做「读取 + 解析 + 预览」，不自动写入资产表：

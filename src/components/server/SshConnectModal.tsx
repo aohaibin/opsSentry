@@ -20,7 +20,10 @@ interface SshConnectModalProps {
   server: Server | null;
   initialCredentials?: SshCredentials;
   onCancel: () => void;
-  onVerified: (result: SshProbeResult) => Promise<void> | void;
+  onVerified: (
+    result: SshProbeResult,
+    credentials: SshCredentials,
+  ) => Promise<void> | void;
   onStatusChanged?: () => Promise<void> | void;
 }
 
@@ -116,10 +119,10 @@ export function SshConnectModal({
         throw new Error(probe.message || "SSH 认证未完成");
       }
 
+      await onVerified(probe, values);
       form.resetFields();
       setResult(probe);
       message.success(`「${server.alias}」SSH 认证成功`);
-      await onVerified(probe);
     } catch (error) {
       message.error(getErrorMessage(error));
       await onStatusChanged?.();

@@ -15,3 +15,8 @@ export { systemApi } from "./system";
 export { configApi } from "./config";
 export { updaterApi } from "./updater";
 export { serverApi, auditApi } from "./server";
+export {
+  terminalApi,
+  TERMINAL_OUTPUT_EVENT,
+  TERMINAL_STATUS_EVENT,
+} from "./terminal";

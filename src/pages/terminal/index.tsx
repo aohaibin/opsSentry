@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
-import { Empty, Input, Spin, message } from "antd";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Empty, Input, Slider, Spin, message } from "antd";
+import { listen } from "@tauri-apps/api/event";
 import { useNavigate } from "react-router-dom";
 import {
   Activity,
@@ -32,10 +33,23 @@ import {
   Zap,
 } from "lucide-react";
 import { SshConnectModal } from "@/components/server/SshConnectModal";
+import { TerminalPane } from "@/components/terminal/TerminalPane";
 import { getErrorMessage } from "@/lib/api/client";
 import { serverApi } from "@/lib/api/server";
+import {
+  TERMINAL_OUTPUT_EVENT,
+  TERMINAL_STATUS_EVENT,
+  terminalApi,
+} from "@/lib/api/terminal";
 import { useAppStore } from "@/store/app";
-import type { Server, SshProbeResult } from "@/types";
+import type {
+  Server,
+  SshCredentials,
+  SshProbeResult,
+  TerminalOutputEvent,
+  TerminalSessionInfo,
+  TerminalStatusEvent,
+} from "@/types";
 import { AI_POLICY_META, OS_TYPE_LABEL } from "@/pages/servers/lib/serverMeta";
 
 type SplitMode = "single" | "dual-h" | "dual-v" | "quad";
@@ -57,14 +71,20 @@ export default function TerminalPage() {
   const [splitMode, setSplitMode] = useState<SplitMode>("single");
   const [syncInput, setSyncInput] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
-  const [sessions, setSessions] = useState<number[]>([]);
-  const [activeSessionId, setActiveSessionId] = useState<number | null>(null);
+  const [sessions, setSessions] = useState<TerminalSessionInfo[]>([]);
+  const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
+  const [terminalOutputs, setTerminalOutputs] = useState<Record<string, string>>({});
+  const [sessionMessages, setSessionMessages] = useState<Record<string, string>>({});
   const [sshServer, setSshServer] = useState<Server | null>(null);
   const [drawerTab, setDrawerTab] = useState<DrawerTab>("ai");
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [command, setCommand] = useState("");
   const [commandHistory, setCommandHistory] = useState<string[]>([]);
+  const [fontSize, setFontSize] = useState(13);
+  const sessionsRef = useRef<TerminalSessionInfo[]>([]);
+  const lineBuffersRef = useRef(new Map<string, string>());
   const setActiveServerId = useAppStore((state) => state.setActiveServerId);
+
+  sessionsRef.current = sessions;
 
   const loadServers = useCallback(async () => {
     setLoading(true);
@@ -86,6 +106,53 @@ export default function TerminalPage() {
     void loadServers();
   }, [loadServers]);
 
+  useEffect(() => {
+    let disposed = false;
+    const unlisteners: Array<() => void> = [];
+
+    void Promise.all([
+      listen<TerminalOutputEvent>(TERMINAL_OUTPUT_EVENT, ({ payload }) => {
+        setTerminalOutputs((current) => {
+          const previous = current[payload.sessionId] ?? "";
+          const next = `${previous}${payload.data}`;
+          return {
+            ...current,
+            [payload.sessionId]: next.length > 750_000 ? next.slice(-600_000) : next,
+          };
+        });
+      }),
+      listen<TerminalStatusEvent>(TERMINAL_STATUS_EVENT, ({ payload }) => {
+        setSessionMessages((current) => ({
+          ...current,
+          [payload.sessionId]: payload.message,
+        }));
+        setSessions((current) =>
+          current.map((session) =>
+            session.sessionId === payload.sessionId
+              ? { ...session, status: payload.status }
+              : session
+          )
+        );
+      }),
+    ]).then((cleanups) => {
+      if (disposed) cleanups.forEach((cleanup) => cleanup());
+      else unlisteners.push(...cleanups);
+    }).catch((error) => {
+      message.error(getErrorMessage(error));
+    });
+
+    return () => {
+      disposed = true;
+      unlisteners.forEach((cleanup) => cleanup());
+    };
+  }, []);
+
+  useEffect(() => () => {
+    sessionsRef.current.forEach((session) => {
+      void terminalApi.close(session.sessionId);
+    });
+  }, []);
+
   const filteredServers = useMemo(() => {
     const query = search.trim().toLowerCase();
     if (!query) return servers;
@@ -97,11 +164,17 @@ export default function TerminalPage() {
     );
   }, [search, servers]);
 
-  const activeServer = servers.find((server) => server.id === activeSessionId) ?? null;
-  const visibleSessionIds = useMemo(() => {
-    if (splitMode === "single") return activeSessionId ? [activeSessionId] : [];
+  const activeSession = sessions.find((session) => session.sessionId === activeSessionId) ?? null;
+  const activeServer = servers.find((server) => server.id === activeSession?.serverId) ?? null;
+  const visibleSessions = useMemo(() => {
+    if (!activeSessionId) return [];
+    const ordered = [
+      ...sessions.filter((session) => session.sessionId === activeSessionId),
+      ...sessions.filter((session) => session.sessionId !== activeSessionId),
+    ];
+    if (splitMode === "single") return ordered.slice(0, 1);
     const count = splitMode === "quad" ? 4 : 2;
-    return sessions.slice(0, count);
+    return ordered.slice(0, count);
   }, [activeSessionId, sessions, splitMode]);
 
   const openConnection = (server: Server) => {
@@ -110,33 +183,99 @@ export default function TerminalPage() {
     setSshServer(server);
   };
 
-  const openSession = (server: Server) => {
+  const handleVerified = async (
+    _result: SshProbeResult,
+    credentials: SshCredentials,
+  ) => {
+    if (!sshServer) return;
+    const server = sshServer;
+    const session = await terminalApi.open({
+      serverId: server.id,
+      password: credentials.password,
+      privateKeyPath: credentials.privateKeyPath,
+      passphrase: credentials.passphrase,
+    });
+    setSessions((current) => [...current, session]);
+    setSessionMessages((current) => ({
+      ...current,
+      [session.sessionId]: "SSH 终端已连接",
+    }));
+    setActiveSessionId(session.sessionId);
     setActiveServerId(server.id);
-    setSessions((current) => (current.includes(server.id) ? current : [...current, server.id]));
-    setActiveSessionId(server.id);
-  };
-
-  const handleVerified = async (_result: SshProbeResult) => {
-    if (sshServer) openSession(sshServer);
     setSshServer(null);
     await loadServers();
   };
 
-  const closeSession = (id: number) => {
-    setSessions((current) => current.filter((sessionId) => sessionId !== id));
-    if (activeSessionId === id) {
-      const next = sessions.find((sessionId) => sessionId !== id) ?? null;
-      setActiveSessionId(next);
-      setActiveServerId(next);
+  const closeSession = (sessionId: string) => {
+    void terminalApi.close(sessionId).catch((error) => {
+      message.error(getErrorMessage(error));
+    });
+    const remaining = sessions.filter((session) => session.sessionId !== sessionId);
+    setSessions(remaining);
+    setTerminalOutputs((current) => {
+      const next = { ...current };
+      delete next[sessionId];
+      return next;
+    });
+    lineBuffersRef.current.delete(sessionId);
+    if (activeSessionId === sessionId) {
+      const next = remaining[0] ?? null;
+      setActiveSessionId(next?.sessionId ?? null);
+      setActiveServerId(next?.serverId ?? null);
     }
   };
 
-  const runCommand = () => {
-    const value = command.trim();
-    if (!value) return;
-    setCommandHistory((current) => [...current, value]);
-    setCommand("");
-    message.info("终端通道尚未接入命令执行，已记录本次命令");
+  const recordInputHistory = (sessionId: string, data: string) => {
+    let buffer = lineBuffersRef.current.get(sessionId) ?? "";
+    for (const character of data) {
+      if (character === "\r" || character === "\n") {
+        const command = buffer.trim();
+        if (command) {
+          setCommandHistory((current) => [...current.slice(-99), command]);
+        }
+        buffer = "";
+      } else if (character === "\x7f" || character === "\x08") {
+        buffer = buffer.slice(0, -1);
+      } else if (character >= " " && character !== "\x1b") {
+        buffer += character;
+      }
+    }
+    lineBuffersRef.current.set(sessionId, buffer);
+  };
+
+  const writeToSession = (sessionId: string, data: string) => {
+    void terminalApi.write(sessionId, data).catch((error) => {
+      setSessionMessages((current) => ({
+        ...current,
+        [sessionId]: getErrorMessage(error),
+      }));
+      setSessions((current) =>
+        current.map((session) =>
+          session.sessionId === sessionId ? { ...session, status: "error" } : session
+        )
+      );
+    });
+  };
+
+  const handleTerminalInput = (sessionId: string, data: string) => {
+    recordInputHistory(sessionId, data);
+    const targets = syncInput
+      ? visibleSessions.filter((session) => session.status === "connected")
+      : sessions.filter((session) => session.sessionId === sessionId && session.status === "connected");
+    targets.forEach((session) => writeToSession(session.sessionId, data));
+  };
+
+  const insertCommand = (value: string, execute = false) => {
+    if (!activeSession || activeSession.status !== "connected") {
+      message.warning("请先选择一个已连接的终端会话");
+      return;
+    }
+    writeToSession(activeSession.sessionId, `${value}${execute ? "\r" : ""}`);
+  };
+
+  const clearActiveTerminal = () => {
+    if (!activeSessionId) return;
+    setTerminalOutputs((current) => ({ ...current, [activeSessionId]: "" }));
   };
 
   return (
@@ -201,22 +340,26 @@ export default function TerminalPage() {
 
         <div className="ops-terminal-tabs">
           <div className="flex min-w-0 items-center gap-1 overflow-x-auto custom-scrollbar">
-            {sessions.map((id) => {
-              const server = servers.find((item) => item.id === id);
+            {sessions.map((session) => {
+              const server = servers.find((item) => item.id === session.serverId);
               if (!server) return null;
               return (
                 <button
-                  key={id}
+                  key={session.sessionId}
                   type="button"
-                  className={`ops-terminal-tab ${activeSessionId === id ? "active" : ""}`}
+                  className={`ops-terminal-tab ${activeSessionId === session.sessionId ? "active" : ""}`}
                   onClick={() => {
-                    setActiveSessionId(id);
-                    setActiveServerId(id);
+                    setActiveSessionId(session.sessionId);
+                    setActiveServerId(session.serverId);
                   }}
                 >
-                  <Circle size={8} fill="var(--success)" color="var(--success)" />
+                  <Circle
+                    size={8}
+                    fill={session.status === "connected" ? "var(--success)" : "var(--danger)"}
+                    color={session.status === "connected" ? "var(--success)" : "var(--danger)"}
+                  />
                   <span>{server.alias}</span>
-                  <X size={12} onClick={(event) => { event.stopPropagation(); closeSession(id); }} />
+                  <X size={12} onClick={(event) => { event.stopPropagation(); closeSession(session.sessionId); }} />
                 </button>
               );
             })}
@@ -235,7 +378,7 @@ export default function TerminalPage() {
           <div className="ops-terminal-pane-actions">
             <button type="button" title="左右双分屏" onClick={() => setSplitMode("dual-h")}><Columns2 size={14} /></button>
             <button type="button" title="最大化当前窗格" onClick={() => setSplitMode("single")}><Maximize2 size={14} /></button>
-            <button type="button" title="清空终端显示" onClick={() => setCommandHistory([])}><Eraser size={14} /></button>
+            <button type="button" title="清空当前终端显示" onClick={clearActiveTerminal}><Eraser size={14} /></button>
           </div>
         </div>
 
@@ -263,13 +406,20 @@ export default function TerminalPage() {
             ) : (
               <SessionView
                 servers={servers}
-                visibleSessionIds={visibleSessionIds}
-                activeServer={activeServer}
-                command={command}
-                commandHistory={commandHistory}
-                onCommandChange={setCommand}
-                onRunCommand={runCommand}
+                visibleSessions={visibleSessions}
+                terminalOutputs={terminalOutputs}
+                sessionMessages={sessionMessages}
                 splitMode={splitMode}
+                fontSize={fontSize}
+                onInput={handleTerminalInput}
+                onResize={(sessionId, cols, rows) => {
+                  void terminalApi.resize(sessionId, cols, rows);
+                }}
+                onFocus={(sessionId) => {
+                  const session = sessions.find((item) => item.sessionId === sessionId);
+                  setActiveSessionId(sessionId);
+                  setActiveServerId(session?.serverId ?? null);
+                }}
               />
             )}
           </main>
@@ -278,8 +428,14 @@ export default function TerminalPage() {
             <TerminalDrawer
               tab={drawerTab}
               commandHistory={commandHistory}
+              activeSession={activeSession}
+              activeServer={activeServer}
+              fontSize={fontSize}
               onClose={() => setDrawerOpen(false)}
-              onInsertCommand={setCommand}
+              onInsertCommand={(value) => insertCommand(value)}
+              onRunCommand={(value) => insertCommand(value, true)}
+              onFontSizeChange={setFontSize}
+              onOpenSftp={() => navigate("/sftp")}
             />
           )}
           <TerminalToolRail
@@ -289,6 +445,7 @@ export default function TerminalPage() {
               setDrawerOpen(true);
             }}
             onToggle={() => setDrawerOpen((current) => !current)}
+            onTransfer={() => navigate("/sftp")}
           />
         </div>
       </section>
@@ -403,51 +560,47 @@ function ServerCard({ server, compact, onOpen }: { server: Server; compact: bool
 
 function SessionView({
   servers,
-  visibleSessionIds,
-  activeServer,
-  command,
-  commandHistory,
-  onCommandChange,
-  onRunCommand,
+  visibleSessions,
+  terminalOutputs,
+  sessionMessages,
   splitMode,
+  fontSize,
+  onInput,
+  onResize,
+  onFocus,
 }: {
   servers: Server[];
-  visibleSessionIds: number[];
-  activeServer: Server | null;
-  command: string;
-  commandHistory: string[];
-  onCommandChange: (value: string) => void;
-  onRunCommand: () => void;
+  visibleSessions: TerminalSessionInfo[];
+  terminalOutputs: Record<string, string>;
+  sessionMessages: Record<string, string>;
   splitMode: SplitMode;
+  fontSize: number;
+  onInput: (sessionId: string, data: string) => void;
+  onResize: (sessionId: string, cols: number, rows: number) => void;
+  onFocus: (sessionId: string) => void;
 }) {
-  if (!activeServer) return <Empty description="请选择终端会话" />;
+  if (visibleSessions.length === 0) return <Empty description="请选择终端会话" />;
   return (
     <div
       className="ops-terminal-session-grid"
-      data-split-count={visibleSessionIds.length}
+      data-split-count={visibleSessions.length}
       data-split-mode={splitMode}
     >
-      {visibleSessionIds.map((id) => {
-        const server = servers.find((item) => item.id === id) ?? activeServer;
+      {visibleSessions.map((session) => {
+        const server = servers.find((item) => item.id === session.serverId);
+        if (!server) return null;
         return (
-          <div className="ops-terminal-pane" key={id}>
-            <div className="ops-terminal-pane-head">
-              <span><span className="ops-terminal-online-dot" />{server.username}@{server.alias} ({server.hostname}:{server.port})</span>
-              <span>SSH 会话 · UTF-8</span>
-            </div>
-            <div className="ops-terminal-output">
-              <p className="muted">Connected to {server.hostname}</p>
-              <p className="muted">Last login: interactive session</p>
-              <p><span className="cyan">{server.username}@{server.alias}</span>:<span className="indigo">~</span>$ {commandHistory.length > 0 ? commandHistory[commandHistory.length - 1] : ""}</p>
-              {commandHistory.length > 0 && <p className="green">Command queued for the active SSH channel.</p>}
-              <p><span className="cyan">{server.username}@{server.alias}</span>:<span className="indigo">~</span>$ <span className="cursor" /></p>
-            </div>
-            <div className="ops-terminal-commandbar">
-              <span className="cyan">$</span>
-              <input value={command} onChange={(event) => onCommandChange(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") onRunCommand(); }} placeholder="输入命令..." aria-label="终端命令" />
-              <button type="button" title="发送命令" onClick={onRunCommand}><Send size={13} /></button>
-            </div>
-          </div>
+          <TerminalPane
+            key={session.sessionId}
+            session={session}
+            server={server}
+            output={terminalOutputs[session.sessionId] ?? ""}
+            statusMessage={sessionMessages[session.sessionId] ?? ""}
+            fontSize={fontSize}
+            onInput={onInput}
+            onResize={onResize}
+            onFocus={onFocus}
+          />
         );
       })}
     </div>
@@ -458,10 +611,12 @@ function TerminalToolRail({
   active,
   onSelect,
   onToggle,
+  onTransfer,
 }: {
   active: DrawerTab | null;
   onSelect: (tab: DrawerTab) => void;
   onToggle: () => void;
+  onTransfer: () => void;
 }) {
   const tools: { id: DrawerTab; label: string; icon: ReactNode }[] = [
     { id: "monitor", label: "主机实时探针监控", icon: <Activity size={16} /> },
@@ -480,8 +635,8 @@ function TerminalToolRail({
           {tool.icon}
         </button>
       ))}
-      <button type="button" title="上传本地文件到当前终端" onClick={() => message.info("请在 SFTP 模块选择本地文件上传")}><Upload size={16} /></button>
-      <button type="button" title="从当前终端下载文件" onClick={() => message.info("请在 SFTP 模块选择远程文件下载")}><Download size={16} /></button>
+      <button type="button" title="前往 SFTP 上传文件" onClick={onTransfer}><Upload size={16} /></button>
+      <button type="button" title="前往 SFTP 下载文件" onClick={onTransfer}><Download size={16} /></button>
       {tools.slice(3).map((tool) => (
         <button key={tool.id} type="button" className={active === tool.id ? "active" : ""} title={tool.label} onClick={() => onSelect(tool.id)}>
           {tool.icon}
@@ -495,13 +650,25 @@ function TerminalToolRail({
 function TerminalDrawer({
   tab,
   commandHistory,
+  activeSession,
+  activeServer,
+  fontSize,
   onClose,
   onInsertCommand,
+  onRunCommand,
+  onFontSizeChange,
+  onOpenSftp,
 }: {
   tab: DrawerTab;
   commandHistory: string[];
+  activeSession: TerminalSessionInfo | null;
+  activeServer: Server | null;
+  fontSize: number;
   onClose: () => void;
   onInsertCommand: (command: string) => void;
+  onRunCommand: (command: string) => void;
+  onFontSizeChange: (value: number) => void;
+  onOpenSftp: () => void;
 }) {
   const titles: Record<DrawerTab, string> = {
     monitor: "主机实时探针",
@@ -514,9 +681,15 @@ function TerminalDrawer({
   };
   const commands = [
     "systemctl status nginx",
-    "docker ps --format table",
+    "docker ps --format 'table {{.Names}}\\t{{.Status}}\\t{{.Ports}}'",
     "ss -tulwn | grep LISTEN",
     "tail -f -n 100 /var/log/nginx/error.log",
+  ];
+  const monitorCommands = [
+    { label: "CPU / 内存快照", command: "top -b -n 1 | head -n 12" },
+    { label: "磁盘占用", command: "df -h" },
+    { label: "系统负载", command: "uptime" },
+    { label: "监听端口", command: "ss -tulwn" },
   ];
 
   return (
@@ -545,34 +718,67 @@ function TerminalDrawer({
         {tab === "commands" && (
           <div className="space-y-2">
             {commands.map((item) => (
-              <button key={item} type="button" className="ops-terminal-command-item" onClick={() => onInsertCommand(item)}>
-                <span>{item}</span><Copy size={13} />
-              </button>
+              <div className="ops-terminal-command-row" key={item}>
+                <button type="button" className="ops-terminal-command-item" onClick={() => onInsertCommand(item)}>
+                  <span>{item}</span><Copy size={13} />
+                </button>
+                <button type="button" className="ops-terminal-command-run" title="立即执行" onClick={() => onRunCommand(item)}>
+                  <Send size={13} />
+                </button>
+              </div>
             ))}
           </div>
         )}
         {tab === "monitor" && (
-          <div className="ops-terminal-metrics">
-            <Metric label="CPU 使用率" value="--" />
-            <Metric label="内存占用" value="--" />
-            <Metric label="根磁盘" value="--" />
-            <Metric label="系统负载" value="--" />
+          <div className="space-y-2">
+            <div className="ops-terminal-drawer-card">
+              <strong>{activeServer?.alias ?? "未选择会话"}</strong>
+              <p>{activeSession?.status === "connected" ? "终端已连接，可执行实时只读探针" : "请先连接服务器"}</p>
+            </div>
+            {monitorCommands.map((item) => (
+              <button key={item.label} type="button" className="ops-terminal-command-item" onClick={() => onRunCommand(item.command)}>
+                <span>{item.label}</span><Activity size={13} />
+              </button>
+            ))}
           </div>
         )}
-        {tab === "sftp" && <DrawerEmpty icon={<Folder size={18} />} text="选择终端会话后加载远程目录" />}
+        {tab === "sftp" && (
+          <div className="ops-terminal-drawer-empty">
+            <Folder size={18} />
+            <span>在独立 SFTP 工作区管理远程文件</span>
+            <button type="button" className="ops-terminal-drawer-action" onClick={onOpenSftp}>打开 SFTP</button>
+          </div>
+        )}
         {tab === "settings" && (
           <div className="ops-terminal-settings-list">
             <div><span>终端字体</span><strong>Cascadia Code</strong></div>
             <div><span>字符编码</span><strong>UTF-8</strong></div>
-            <div><span>颜色方案</span><strong>跟随主题</strong></div>
+            <div className="ops-terminal-font-setting">
+              <span>字号</span>
+              <strong>{fontSize}px</strong>
+              <Slider min={11} max={20} step={1} value={fontSize} onChange={onFontSizeChange} />
+            </div>
+            <div><span>颜色方案</span><strong>OpsSentry Dark</strong></div>
           </div>
         )}
         {tab === "history" && (
           commandHistory.length > 0
-            ? commandHistory.map((item, index) => <button key={`${item}-${index}`} type="button" className="ops-terminal-history-item" onClick={() => onInsertCommand(item)}>{item}</button>)
+            ? [...commandHistory].reverse().map((item, index) => <button key={`${item}-${index}`} type="button" className="ops-terminal-history-item" onClick={() => onInsertCommand(item)}>{item}</button>)
             : <DrawerEmpty icon={<Clock3 size={18} />} text="暂无命令记录" />
         )}
-        {tab === "snippets" && <DrawerEmpty icon={<Code2 size={18} />} text="暂无已保存的脚本片段" />}
+        {tab === "snippets" && (
+          <div className="space-y-2">
+            {[
+              "journalctl -xeu nginx.service --no-pager | tail -n 80",
+              "find /var/log -type f -size +100M -printf '%s %p\\n' | sort -nr | head",
+              "docker stats --no-stream",
+            ].map((item) => (
+              <button key={item} type="button" className="ops-terminal-command-item" onClick={() => onInsertCommand(item)}>
+                <span>{item}</span><Code2 size={13} />
+              </button>
+            ))}
+          </div>
+        )}
       </div>
     </aside>
   );
@@ -580,8 +786,4 @@ function TerminalDrawer({
 
 function DrawerEmpty({ icon, text }: { icon: ReactNode; text: string }) {
   return <div className="ops-terminal-drawer-empty">{icon}<span>{text}</span></div>;
-}
-
-function Metric({ label, value }: { label: string; value: string }) {
-  return <div><span>{label}</span><strong>{value}</strong></div>;
 }
