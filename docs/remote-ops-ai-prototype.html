@@ -14,19 +14,19 @@
         extend: {
           colors: {
             brand: {
-              50: '#eef2ff',
-              100: '#e0e7ff',
-              400: '#818cf8',
-              500: '#6366f1',
-              600: '#4f46e5',
-              700: '#4338ca',
+              50: 'var(--brand-50, #eef2ff)',
+              100: 'var(--brand-100, #e0e7ff)',
+              400: 'var(--brand-400, #818cf8)',
+              500: 'var(--brand-500, #6366f1)',
+              600: 'var(--brand-600, #4f46e5)',
+              700: 'var(--brand-700, #4338ca)',
             },
             surface: {
-              950: '#090d16',
-              900: '#0f172a',
-              850: '#141e33',
-              800: '#1e293b',
-              700: '#334155',
+              950: 'var(--surface-950, #090d16)',
+              900: 'var(--surface-900, #0f172a)',
+              850: 'var(--surface-850, #141e33)',
+              800: 'var(--surface-800, #1e293b)',
+              700: 'var(--surface-700, #334155)',
             }
           },
           animation: {
@@ -40,29 +40,174 @@
   <!-- Lucide Icons -->
   <script src="https://unpkg.com/lucide@latest"></script>
   <style>
+    :root,
+    html[data-skin="obsidian"] {
+      --surface-950: #090d16;
+      --surface-900: #0f172a;
+      --surface-850: #141e33;
+      --surface-800: #1e293b;
+      --surface-700: #334155;
+      --brand-400: #818cf8;
+      --brand-500: #6366f1;
+      --brand-600: #4f46e5;
+      --glass-card: rgba(30, 41, 59, 0.65);
+      --glass-nav: rgba(15, 23, 42, 0.85);
+      --border-base: rgba(255, 255, 255, 0.08);
+      --border-subtle: rgba(51, 65, 85, 0.6);
+      --scrollbar-thumb: #334155;
+      --scrollbar-track: #0f172a;
+    }
+
+    html[data-skin="graphite"] {
+      --surface-950: #0a0a0b;
+      --surface-900: #18181b;
+      --surface-850: #202023;
+      --surface-800: #27272a;
+      --surface-700: #3f3f46;
+      --brand-400: #a5b4fc;
+      --brand-500: #818cf8;
+      --brand-600: #6366f1;
+      --glass-card: rgba(39, 39, 42, 0.65);
+      --glass-nav: rgba(24, 24, 27, 0.88);
+      --border-base: rgba(255, 255, 255, 0.09);
+      --border-subtle: rgba(63, 63, 70, 0.7);
+      --scrollbar-thumb: #3f3f46;
+      --scrollbar-track: #18181b;
+    }
+
+    html[data-skin="amber"] {
+      --surface-950: #12100e;
+      --surface-900: #1c1917;
+      --surface-850: #241f1c;
+      --surface-800: #292524;
+      --surface-700: #44403c;
+      --brand-400: #fcd34d;
+      --brand-500: #fbbf24;
+      --brand-600: #d97706;
+      --glass-card: rgba(41, 37, 36, 0.65);
+      --glass-nav: rgba(28, 25, 23, 0.88);
+      --border-base: rgba(255, 255, 255, 0.09);
+      --border-subtle: rgba(68, 64, 60, 0.7);
+      --scrollbar-thumb: #44403c;
+      --scrollbar-track: #1c1917;
+    }
+
+    html[data-skin="sky"] {
+      --surface-950: #f1f5f9;
+      --surface-900: #ffffff;
+      --surface-850: #e2e8f0;
+      --surface-800: #cbd5e1;
+      --surface-700: #94a3b8;
+      --brand-400: #60a5fa;
+      --brand-500: #3b82f6;
+      --brand-600: #2563eb;
+      --glass-card: rgba(255, 255, 255, 0.92);
+      --glass-nav: rgba(255, 255, 255, 0.95);
+      --border-base: rgba(203, 213, 225, 0.85);
+      --border-subtle: rgba(226, 232, 240, 0.9);
+      --scrollbar-thumb: #cbd5e1;
+      --scrollbar-track: #f1f5f9;
+    }
+
+    html[data-skin="warm"] {
+      --surface-950: #fffbeb;
+      --surface-900: #ffffff;
+      --surface-850: #fef3c7;
+      --surface-800: #fde68a;
+      --surface-700: #fcd34d;
+      --brand-400: #fb923c;
+      --brand-500: #f97316;
+      --brand-600: #ea580c;
+      --glass-card: rgba(255, 255, 255, 0.92);
+      --glass-nav: rgba(255, 255, 255, 0.95);
+      --border-base: rgba(253, 230, 138, 0.85);
+      --border-subtle: rgba(254, 243, 199, 0.9);
+      --scrollbar-thumb: #fde68a;
+      --scrollbar-track: #fffbeb;
+    }
+
+    html[data-skin="aurora"] {
+      --surface-950: #f0fdfa;
+      --surface-900: #ffffff;
+      --surface-850: #ccfbf1;
+      --surface-800: #99f6e4;
+      --surface-700: #5eead4;
+      --brand-400: #2dd4bf;
+      --brand-500: #14b8a6;
+      --brand-600: #0d9488;
+      --glass-card: rgba(255, 255, 255, 0.92);
+      --glass-nav: rgba(255, 255, 255, 0.95);
+      --border-base: rgba(153, 246, 228, 0.85);
+      --border-subtle: rgba(204, 251, 241, 0.9);
+      --scrollbar-thumb: #99f6e4;
+      --scrollbar-track: #f0fdfa;
+    }
+
+    /* 亮色模式通用覆盖 */
+    html:not(.dark) {
+      color-scheme: light;
+      color: #0f172a;
+    }
+    html:not(.dark) body {
+      background-color: var(--surface-950) !important;
+      color: #0f172a !important;
+    }
+    html:not(.dark) .text-white {
+      color: #0f172a !important;
+    }
+    html:not(.dark) .text-slate-200,
+    html:not(.dark) .text-slate-300 {
+      color: #1e293b !important;
+    }
+    html:not(.dark) .text-slate-400 {
+      color: #475569 !important;
+    }
+    html:not(.dark) .text-slate-500 {
+      color: #64748b !important;
+    }
+    html:not(.dark) .border-slate-800,
+    html:not(.dark) .border-slate-700,
+    html:not(.dark) .border-slate-800\/80,
+    html:not(.dark) .border-slate-700\/60,
+    html:not(.dark) .border-slate-800\/60,
+    html:not(.dark) .border-slate-700\/40 {
+      border-color: var(--border-base) !important;
+    }
+    html:not(.dark) input,
+    html:not(.dark) select,
+    html:not(.dark) textarea {
+      background-color: var(--surface-900) !important;
+      color: #0f172a !important;
+      border-color: var(--border-base) !important;
+    }
+    html:not(.dark) .bg-slate-900,
+    html:not(.dark) .bg-slate-950 {
+      background-color: var(--surface-850) !important;
+    }
+
     ::-webkit-scrollbar {
       width: 6px;
       height: 6px;
     }
     ::-webkit-scrollbar-track {
-      background: #0f172a;
+      background: var(--scrollbar-track, #0f172a);
     }
     ::-webkit-scrollbar-thumb {
-      background: #334155;
+      background: var(--scrollbar-thumb, #334155);
       border-radius: 3px;
     }
     ::-webkit-scrollbar-thumb:hover {
-      background: #475569;
+      filter: brightness(1.2);
     }
     .glass-card {
-      background: rgba(30, 41, 59, 0.65);
+      background: var(--glass-card, rgba(30, 41, 59, 0.65));
       backdrop-filter: blur(12px);
-      border: 1px solid rgba(255, 255, 255, 0.08);
+      border: 1px solid var(--border-base, rgba(255, 255, 255, 0.08));
     }
     .glass-nav {
-      background: rgba(15, 23, 42, 0.85);
+      background: var(--glass-nav, rgba(15, 23, 42, 0.85));
       backdrop-filter: blur(16px);
-      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      border-bottom: 1px solid var(--border-base, rgba(255, 255, 255, 0.08));
     }
     .badge-glow-critical {
       box-shadow: 0 0 12px rgba(239, 68, 68, 0.4);
@@ -105,7 +250,15 @@
       background: #475569;
     }
 
-  
+    /* 确保右上角下拉卡片（皮肤调色盘、AI锁等）绝对不透明，防止下方内容透出重叠 */
+    #skinDropdown,
+    #aiLockDropdown {
+      background-color: var(--surface-900) !important;
+      opacity: 1 !important;
+      box-shadow: 0 20px 45px -10px rgba(0, 0, 0, 0.7), 0 0 0 1px var(--border-base) !important;
+      z-index: 60 !important;
+    }
+
     /* 侧边栏固定紧凑 Dock 模式 (宽 68px，上图标下文字) */
     #appSidebar {
       width: 68px;
@@ -228,7 +381,7 @@
         </button>
 
         <!-- AI 解锁与时长设置浮动卡片 (100% 还原截图 1789613652724 交互) -->
-        <div id="aiLockDropdown" class="hidden absolute right-0 top-11 z-50 w-80 p-4 rounded-2xl bg-surface-900/95 border border-slate-700 shadow-2xl backdrop-blur-xl text-xs space-y-3.5 animate-in fade-in zoom-in-95 font-sans">
+        <div id="aiLockDropdown" class="hidden absolute right-0 top-11 z-50 w-80 p-4 rounded-2xl bg-surface-900 border border-slate-700 shadow-2xl text-xs space-y-3.5 animate-in fade-in zoom-in-95 font-sans">
           <!-- 顶部总开关行 -->
           <div class="flex items-center justify-between pb-1 border-b border-slate-800">
             <div class="flex items-center space-x-2">
@@ -269,7 +422,7 @@
         </button>
 
         <!-- 皮肤快捷切换气泡下拉卡片 -->
-        <div id="skinDropdown" class="hidden absolute right-0 top-11 z-50 w-72 p-3.5 rounded-2xl bg-surface-900/95 border border-slate-700 shadow-2xl backdrop-blur-xl text-xs space-y-3 animate-in fade-in zoom-in-95 font-sans">
+        <div id="skinDropdown" class="hidden absolute right-0 top-11 z-50 w-72 p-3.5 rounded-2xl bg-surface-900 border border-slate-700 shadow-2xl text-xs space-y-3 animate-in fade-in zoom-in-95 font-sans">
           <div class="flex items-center justify-between pb-2 border-b border-slate-800">
             <span class="font-bold text-white flex items-center space-x-1.5">
               <i data-lucide="palette" class="w-3.5 h-3.5 text-emerald-400"></i>
@@ -546,50 +699,72 @@
                 <i data-lucide="folder-tree" class="w-3.5 h-3.5 text-brand-400"></i>
                 <span>服务器分组</span>
               </span>
-              <!-- 新建分组按钮 (唤起 modalAddGroup 弹窗) -->
-              <button onclick="openAddGroupModal()" class="p-1 rounded hover:bg-surface-800 text-slate-400 hover:text-white transition cursor-pointer" title="新建服务器分组">
-                <i data-lucide="plus" class="w-3.5 h-3.5"></i>
-              </button>
             </div>
             
             <!-- 分组选项列表 (自适应纵向滚动) -->
             <div id="serverGroupList" class="flex-1 overflow-y-auto custom-scrollbar py-2 space-y-1 text-xs select-none pr-0.5">
-              <div onclick="selectServerGroup('all')" id="grp-all" class="p-2 rounded-lg bg-brand-500/15 text-brand-300 font-medium flex items-center justify-between cursor-pointer transition">
-                <span class="flex items-center space-x-2">
-                  <i data-lucide="layers" class="w-3.5 h-3.5 text-brand-400"></i>
-                  <span>全部主机</span>
-                </span>
-                <span id="grpCount-all" class="text-[11px] font-bold text-brand-400 font-mono">4</span>
+              
+              <!-- 顶部固定分组 (系统预设视图，内置只读，不可删除/不可重命名) -->
+              <div class="space-y-1">
+                <!-- 预设视图专属标头 -->
+                <div class="px-1.5 pt-0.5 pb-1 flex items-center justify-between text-[11px]">
+                  <span class="flex items-center space-x-1.5 font-semibold text-slate-400">
+                    <i data-lucide="compass" class="w-3.5 h-3.5 text-brand-400"></i>
+                    <span class="text-slate-300">系统视图</span>
+                  </span>
+                  <span class="text-[9px] px-1.5 py-0.5 rounded bg-slate-800/90 text-slate-400 border border-slate-700/60 font-medium" title="系统内置筛选视图，不可重命名或解散">
+                    🔒 内置固定
+                  </span>
+                </div>
+
+                <!-- 1. 全部主机 -->
+                <div onclick="selectServerGroup('all')" oncontextmenu="openGroupContextMenu(event, 'all', '全部主机')" id="grp-all" class="p-2 rounded-lg bg-brand-500/15 border border-brand-500/40 text-brand-300 font-medium flex items-center justify-between cursor-pointer transition select-none group/item" title="系统固定分组 (不可删除/重命名)">
+                  <span class="flex items-center space-x-2">
+                    <i data-lucide="layers" class="w-3.5 h-3.5 text-indigo-400"></i>
+                    <span>全部主机</span>
+                  </span>
+                  <span id="grpCount-all" class="text-[10px] font-bold font-mono px-1.5 py-0.5 rounded-full bg-brand-500/25 text-brand-300 border border-brand-500/35">4</span>
+                </div>
+
+                <!-- 2. 我的收藏 -->
+                <div onclick="selectServerGroup('starred')" oncontextmenu="openGroupContextMenu(event, 'starred', '我的收藏')" id="grp-starred" class="p-2 rounded-lg hover:bg-surface-800 text-slate-300 border border-transparent flex items-center justify-between cursor-pointer transition select-none group/item" title="系统固定分组 (不可删除/重命名)">
+                  <span class="flex items-center space-x-2">
+                    <i data-lucide="star" class="w-3.5 h-3.5 text-amber-400 fill-amber-400/20"></i>
+                    <span>我的收藏</span>
+                  </span>
+                  <span id="grpCount-starred" class="text-[10px] font-mono px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/25">1</span>
+                </div>
+
+                <!-- 3. 最近用过 -->
+                <div onclick="selectServerGroup('recent')" oncontextmenu="openGroupContextMenu(event, 'recent', '最近用过')" id="grp-recent" class="p-2 rounded-lg hover:bg-surface-800 text-slate-300 border border-transparent flex items-center justify-between cursor-pointer transition select-none group/item" title="系统固定分组 (不可删除/重命名)">
+                  <span class="flex items-center space-x-2">
+                    <i data-lucide="history" class="w-3.5 h-3.5 text-cyan-400"></i>
+                    <span>最近用过</span>
+                  </span>
+                  <span id="grpCount-recent" class="text-[10px] font-mono px-1.5 py-0.5 rounded-full bg-cyan-500/15 text-cyan-300 border border-cyan-500/25">4</span>
+                </div>
               </div>
-              <div onclick="selectServerGroup('starred')" id="grp-starred" class="p-2 rounded-lg hover:bg-surface-800 text-slate-300 flex items-center justify-between cursor-pointer transition">
-                <span class="flex items-center space-x-2">
-                  <i data-lucide="star" class="w-3.5 h-3.5 text-amber-400"></i>
-                  <span>我的收藏</span>
+
+              <!-- 醒目的分界线与自定义分组标题区 (支持拖拽移至顶级根目录) -->
+              <div id="customGroupHeaderZone"
+                   ondragover="handleRootDropOver(event)"
+                   ondragleave="handleRootDropLeave(event)"
+                   ondrop="handleRootDrop(event)"
+                   class="pt-2.5 pb-1 px-1 flex items-center justify-between text-[11px] font-medium border-t border-dashed border-slate-800 mt-2 transition-all rounded-lg"
+                   title="可拖拽子分组到此处移至根目录 (顶级)">
+                <span class="flex items-center space-x-1.5 font-semibold text-slate-300">
+                  <i data-lucide="folder" class="w-3.5 h-3.5 text-amber-400"></i>
+                  <span class="tracking-wide">业务分组</span>
+                  <span id="customGroupCountBadge" class="text-[10px] font-normal text-slate-500">(3)</span>
+                  <span id="rootDropHint" class="hidden text-[10px] font-medium text-brand-300 ml-1">↳ 移至根目录</span>
                 </span>
-                <span id="grpCount-starred" class="text-[11px] text-slate-500 font-mono">1</span>
+                <button onclick="openAddGroupModal()" class="flex items-center space-x-1 px-1.5 py-0.5 rounded bg-brand-500/15 hover:bg-brand-500/25 text-brand-300 border border-brand-500/30 transition cursor-pointer text-[10px] font-medium" title="新建业务分组">
+                  <i data-lucide="plus" class="w-3 h-3"></i>
+                  <span>新建</span>
+                </button>
               </div>
-              <div onclick="selectServerGroup('recent')" id="grp-recent" class="p-2 rounded-lg hover:bg-surface-800 text-slate-300 flex items-center justify-between cursor-pointer transition">
-                <span class="flex items-center space-x-2">
-                  <i data-lucide="history" class="w-3.5 h-3.5 text-cyan-400"></i>
-                  <span>最近用过</span>
-                </span>
-                <span id="grpCount-recent" class="text-[11px] text-slate-500 font-mono">4</span>
-              </div>
-              <div onclick="selectServerGroup('prod')" id="grp-prod" class="p-2 rounded-lg hover:bg-surface-800 text-slate-300 flex items-center justify-between cursor-pointer transition">
-                <span class="flex items-center space-x-2">
-                  <i data-lucide="shield" class="w-3.5 h-3.5 text-rose-400"></i>
-                  <span>生产集群</span>
-                </span>
-                <span id="grpCount-prod" class="text-[11px] text-slate-500 font-mono">2</span>
-              </div>
-              <div onclick="selectServerGroup('test')" id="grp-test" class="p-2 rounded-lg hover:bg-surface-800 text-slate-300 flex items-center justify-between cursor-pointer transition">
-                <span class="flex items-center space-x-2">
-                  <i data-lucide="flask-conical" class="w-3.5 h-3.5 text-indigo-400"></i>
-                  <span>开发测试</span>
-                </span>
-                <span id="grpCount-test" class="text-[11px] text-slate-500 font-mono">2</span>
-              </div>
-              <!-- 用户新增的自定义分组将注入此处 -->
+
+              <!-- 用户自定义分组与多级子分组容器 (包含「我的服务器」、「生产集群」、「开发测试」，支持右键快捷管理) -->
               <div id="customGroupContainer" class="space-y-1"></div>
             </div>
 
@@ -617,15 +792,80 @@
 
           <!-- 右侧表格与已保存连接区 (flex-1 撑满剩余空间，直接挨到底部卡片上方) -->
           <div class="glass-card rounded-xl flex-1 min-w-0 overflow-hidden border border-slate-800 flex flex-col relative h-full">
-            <!-- 搜索与筛选工具栏 (shrink-0) -->
+            <!-- 搜索与筛选工具栏 (shrink-0，紧凑胶囊结构对齐红框) -->
             <div class="shrink-0 p-3 border-b border-slate-800/80 flex flex-wrap items-center justify-between gap-3 bg-surface-900/40">
-              <div class="flex items-center space-x-2 flex-1 max-w-md">
-                <div class="relative w-full">
-                  <i data-lucide="search" class="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5"></i>
-                  <input id="serverSearchInput" oninput="handleServerSearch(this.value)" type="text" placeholder="搜索名称、IP、账号、标签、OS架构..." class="w-full bg-surface-900 border border-slate-700/80 rounded-lg pl-8 pr-3 py-1.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-brand-500 transition">
+              <div class="flex items-center space-x-2 flex-1 max-w-2xl">
+                <!-- 1. 单独的搜索输入框 -->
+                <div class="relative flex-1 max-w-xs flex items-center bg-surface-900/90 border border-slate-700/80 rounded-xl px-2.5 py-1.5 space-x-2 focus-within:border-brand-500/80 transition shadow-inner">
+                  <i data-lucide="search" class="w-3.5 h-3.5 text-slate-400 shrink-0"></i>
+                  <input id="serverSearchInput" oninput="handleServerSearch(this.value)" type="text" placeholder="搜索别名 / 主机 / 标签 / 用户..." class="bg-transparent w-full text-xs text-slate-200 placeholder-slate-500 focus:outline-none min-w-[140px]">
                 </div>
+
+                <!-- 2. 全部状态筛选按钮 (自定义暗色药丸浮层) -->
+                <div class="relative shrink-0">
+                  <button id="btnServerStatusFilter" type="button" onclick="toggleStatusFilterDropdown(event)" class="h-8 px-3 rounded-xl border border-slate-700/80 bg-surface-900/90 hover:border-slate-600 text-xs text-slate-200 flex items-center space-x-2 transition shadow-inner cursor-pointer select-none">
+                    <span id="statusFilterDot" class="w-1.5 h-1.5 rounded-full bg-slate-400 shrink-0"></span>
+                    <span id="statusFilterLabel">全部状态</span>
+                    <i data-lucide="chevron-down" class="w-3 h-3 text-slate-400"></i>
+                  </button>
+
+                  <!-- 状态筛选浮动下拉卡片 -->
+                  <div id="statusFilterDropdown" class="hidden absolute left-0 top-10 z-50 w-32 p-1.5 rounded-2xl bg-[#18181c] border border-slate-700/80 shadow-2xl backdrop-blur-xl text-xs space-y-1 animate-in fade-in zoom-in-95">
+                    <button type="button" onclick="selectStatusFilterOption('all', '全部状态')" class="w-full flex items-center space-x-2 px-2.5 py-1.5 rounded-xl hover:bg-slate-800/80 text-slate-300 transition text-left cursor-pointer">
+                      <span class="w-1.5 h-1.5 rounded-full bg-slate-400 shrink-0"></span>
+                      <span>全部状态</span>
+                    </button>
+                    <button type="button" onclick="selectStatusFilterOption('online', '在线')" class="w-full flex items-center space-x-2 px-2.5 py-1.5 rounded-xl hover:bg-emerald-950/40 text-emerald-400 transition text-left cursor-pointer">
+                      <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0 shadow-[0_0_6px_rgba(52,211,153,0.6)]"></span>
+                      <span>在线</span>
+                    </button>
+                    <button type="button" onclick="selectStatusFilterOption('offline', '离线')" class="w-full flex items-center space-x-2 px-2.5 py-1.5 rounded-xl hover:bg-slate-800/80 text-slate-400 transition text-left cursor-pointer">
+                      <span class="w-1.5 h-1.5 rounded-full bg-slate-400 shrink-0"></span>
+                      <span>离线</span>
+                    </button>
+                  </div>
+                </div>
+
+                <!-- 3. 全部策略筛选按钮 (自定义 5 档药丸浮层) -->
+                <div class="relative shrink-0">
+                  <button id="btnServerPolicyFilter" type="button" onclick="togglePolicyFilterDropdown(event)" class="h-8 px-3 rounded-xl border border-slate-700/80 bg-surface-900/90 hover:border-slate-600 text-xs text-slate-200 flex items-center space-x-2 transition shadow-inner cursor-pointer select-none">
+                    <span id="policyFilterDot" class="w-1.5 h-1.5 rounded-full bg-slate-400 shrink-0"></span>
+                    <span id="policyFilterLabel">全部策略</span>
+                    <i data-lucide="chevron-down" class="w-3 h-3 text-slate-400"></i>
+                  </button>
+
+                  <!-- 策略筛选浮动下拉卡片 (对齐截图 media_1790004662510.png 5 档药丸) -->
+                  <div id="policyFilterDropdown" class="hidden absolute left-0 top-10 z-50 w-36 p-1.5 rounded-2xl bg-[#18181c] border border-slate-700/80 shadow-2xl backdrop-blur-xl text-xs space-y-1.5 animate-in fade-in zoom-in-95">
+                    <button type="button" onclick="selectPolicyFilterOption('all', '全部策略', '#94a3b8', 'text-slate-300')" class="w-full flex items-center space-x-2 px-2.5 py-1.5 rounded-full border border-slate-700 bg-slate-800/40 text-slate-300 hover:bg-slate-700/60 transition text-left cursor-pointer">
+                      <span class="w-1.5 h-1.5 rounded-full bg-slate-400 shrink-0"></span>
+                      <span>全部策略</span>
+                    </button>
+                    <button type="button" onclick="selectPolicyFilterOption('disabled', '禁用', '#94a3b8', 'text-slate-300', 'border-slate-600/70', 'bg-slate-800/40')" class="w-full flex items-center space-x-2 px-2.5 py-1 rounded-full border border-slate-600/70 bg-slate-800/40 text-slate-300 hover:bg-slate-700/60 transition text-left cursor-pointer">
+                      <span class="w-1.5 h-1.5 rounded-full bg-slate-400 shrink-0"></span>
+                      <span>禁用</span>
+                    </button>
+                    <button type="button" onclick="selectPolicyFilterOption('readonly', '只读', '#34d399', 'text-emerald-400', 'border-emerald-500/50', 'bg-emerald-950/40')" class="w-full flex items-center space-x-2 px-2.5 py-1 rounded-full border border-emerald-500/50 bg-emerald-950/40 text-emerald-400 hover:bg-emerald-900/60 transition text-left cursor-pointer">
+                      <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0 shadow-[0_0_6px_rgba(52,211,153,0.5)]"></span>
+                      <span>只读</span>
+                    </button>
+                    <button type="button" onclick="selectPolicyFilterOption('approval', '审批', '#22d3ee', 'text-cyan-300', 'border-cyan-500/50', 'bg-cyan-950/40')" class="w-full flex items-center space-x-2 px-2.5 py-1 rounded-full border border-cyan-500/50 bg-cyan-950/40 text-cyan-300 hover:bg-cyan-900/60 transition text-left cursor-pointer">
+                      <span class="w-1.5 h-1.5 rounded-full bg-cyan-400 shrink-0 shadow-[0_0_6px_rgba(34,211,238,0.5)]"></span>
+                      <span>审批</span>
+                    </button>
+                    <button type="button" onclick="selectPolicyFilterOption('allowlist', '白名单', '#fbbf24', 'text-amber-300', 'border-amber-500/50', 'bg-amber-950/40')" class="w-full flex items-center space-x-2 px-2.5 py-1 rounded-full border border-amber-500/50 bg-amber-950/40 text-amber-300 hover:bg-amber-900/60 transition text-left cursor-pointer">
+                      <span class="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0 shadow-[0_0_6px_rgba(251,191,36,0.5)]"></span>
+                      <span>白名单</span>
+                    </button>
+                    <button type="button" onclick="selectPolicyFilterOption('trusted', '信任', '#fb7185', 'text-rose-300', 'border-rose-500/50', 'bg-rose-950/40')" class="w-full flex items-center space-x-2 px-2.5 py-1 rounded-full border border-rose-500/50 bg-rose-950/40 text-rose-300 hover:bg-rose-900/60 transition text-left cursor-pointer">
+                      <span class="w-1.5 h-1.5 rounded-full bg-rose-400 shrink-0 shadow-[0_0_6px_rgba(251,113,133,0.5)]"></span>
+                      <span>信任</span>
+                    </button>
+                  </div>
+                </div>
+
               </div>
 
+              <!-- 右侧辅助分类与标签 (保留 OS 与标签筛选入口) -->
               <div class="flex items-center space-x-1.5 text-xs">
                 <!-- OS 状态切换标签 -->
                 <button onclick="filterByOS('all')" id="btnFilterOSAll" class="os-filter-btn px-2.5 py-1 rounded-lg bg-brand-600/20 text-brand-300 border border-brand-500/30 font-medium transition cursor-pointer">全部 (<span id="countOSAll">4</span>)</button>
@@ -656,17 +896,38 @@
             <!-- 主机动态表格 (自适应纵向滚动，表头 sticky 吸顶，内容直通底部) -->
             <div class="flex-1 overflow-x-auto overflow-y-auto min-h-0 custom-scrollbar relative">
               <table class="w-full text-left text-xs">
-                <thead class="bg-surface-900/95 backdrop-blur-md sticky top-0 z-10 text-slate-400 uppercase text-[11px] border-b border-slate-800 select-none shadow-sm">
+                <thead class="bg-surface-900/95 backdrop-blur-md sticky top-0 z-10 text-slate-400 text-[11px] border-b border-slate-800 select-none shadow-sm">
                   <tr>
-                    <th class="p-3 w-8">
+                    <th class="p-3 w-10 text-center">
                       <input type="checkbox" id="selectAllCheckbox" onchange="toggleSelectAll(this.checked)" class="rounded bg-surface-800 border-slate-700 cursor-pointer" title="全选 / 反选">
                     </th>
-                    <th class="p-3">服务器名称 / 标签</th>
-                    <th class="p-3">连接地址 (IP & 端口)</th>
-                    <th class="p-3">系统 / 架构</th>
-                    <th class="p-3">认证方式</th>
-                    <th class="p-3">AI 策略档位</th>
-                    <th class="p-3 text-right">操作</th>
+                    <th class="p-3 min-w-[200px] cursor-pointer hover:text-slate-200 transition" onclick="toggleServerSort('name')">
+                      <div class="flex items-center space-x-1">
+                        <span>别名 / 主机</span>
+                        <span class="text-slate-500 text-[10px]">⬍</span>
+                      </div>
+                    </th>
+                    <th class="p-3 w-32">
+                      <span>分组</span>
+                    </th>
+                    <th class="p-3 w-32 cursor-pointer hover:text-slate-200 transition" onclick="toggleServerSort('policy')">
+                      <div class="flex items-center space-x-1">
+                        <span>AI 策略</span>
+                        <span class="text-slate-500 text-[10px]">⬍</span>
+                      </div>
+                    </th>
+                    <th class="p-3 w-12 text-center" title="凭证安全与主密钥托管">
+                      <i data-lucide="key" class="w-3.5 h-3.5 mx-auto text-slate-400"></i>
+                    </th>
+                    <th class="p-3 w-28 cursor-pointer hover:text-slate-200 transition" onclick="toggleServerSort('status')">
+                      <div class="flex items-center space-x-1">
+                        <span>状态</span>
+                        <span class="text-slate-500 text-[10px]">⬍</span>
+                      </div>
+                    </th>
+                    <th class="p-3 text-right pr-4">
+                      <span>操作</span>
+                    </th>
                   </tr>
                 </thead>
                 <tbody id="serverTableBody" class="divide-y divide-slate-800/60 text-slate-300">
@@ -4631,16 +4892,16 @@ Filesystem      Size  Used Avail Use% Mounted on
   <!-- 弹窗 1: 新增纳管服务器节点 (Agentless - 全功能增强版) -->
   <!-- =================================================================================== -->
   <div id="modalAddServer" class="hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 font-sans animate-in fade-in duration-150">
-    <div class="glass-card bg-surface-900 border border-slate-700 w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+    <div class="glass-card bg-surface-900 border border-slate-700 w-full max-w-xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
       <!-- 头部 -->
-      <div class="p-4 border-b border-slate-800 flex items-center justify-between bg-surface-950/70">
+      <div class="px-5 py-3.5 border-b border-slate-800 flex items-center justify-between bg-surface-950/70 shrink-0">
         <div class="flex items-center space-x-2.5">
           <div class="w-8 h-8 rounded-lg bg-brand-500/20 text-brand-300 flex items-center justify-center">
             <i data-lucide="server" class="w-4 h-4"></i>
           </div>
           <div>
-            <h3 class="font-bold text-sm text-white">新增纳管服务器节点</h3>
-            <p class="text-[11px] text-slate-400">Agentless 无侵入架构 · 支持原生 SSH、WinRM 与跳板机 ProxyJump</p>
+            <h3 class="font-bold text-sm text-white">新增服务器</h3>
+            <p id="addServerSubtitle" class="text-[11px] text-slate-400">SSH 连接与 AI 运维策略</p>
           </div>
         </div>
         <button onclick="closeAddServerModal()" class="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-surface-800 transition">
@@ -4649,135 +4910,224 @@ Filesystem      Size  Used Avail Use% Mounted on
       </div>
 
       <!-- 表单主体 -->
-      <div class="p-5 space-y-4 text-xs overflow-y-auto custom-scrollbar flex-1">
-        <!-- 协议与平台切换 Tabs -->
+      <div class="p-5 space-y-3.5 text-xs overflow-y-auto custom-scrollbar flex-1">
+        <!-- 目标平台切换 -->
         <div>
-          <label class="text-slate-400 block mb-1.5 font-medium">目标平台与协议类型</label>
-          <div class="grid grid-cols-3 gap-2">
-            <div onclick="switchAddServerProto('linux')" id="proto-opt-linux" class="p-2.5 rounded-xl border-2 border-brand-500 bg-brand-500/10 cursor-pointer flex items-center space-x-2.5 transition">
-              <i data-lucide="terminal" class="w-4 h-4 text-brand-400"></i>
+          <div class="flex items-center justify-between mb-1.5">
+            <label class="text-slate-300 font-medium flex items-center space-x-1.5">
+              <i data-lucide="terminal" class="w-3.5 h-3.5 text-brand-400"></i>
+              <span>目标平台</span>
+            </label>
+            <button id="addServerWinGuideBtn" onclick="openWindowsGuideModal()" class="hidden text-[11px] text-blue-400 hover:text-blue-300 flex items-center space-x-1 transition cursor-pointer">
+              <i data-lucide="monitor" class="w-3 h-3"></i>
+              <span>Windows 接入向导</span>
+            </button>
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <div onclick="switchAddServerPlatform('linux')" id="proto-card-linux" class="p-3 rounded-xl border-2 border-brand-500 bg-brand-500/10 cursor-pointer flex items-center space-x-3 transition shadow-sm">
+              <div class="w-8 h-8 rounded-lg bg-brand-500/25 text-brand-300 flex items-center justify-center shrink-0">
+                <i data-lucide="terminal" class="w-4 h-4"></i>
+              </div>
               <div>
-                <div class="font-bold text-white text-xs">Linux (OpenSSH)</div>
-                <div class="text-[10px] text-slate-400">主流发行版 端口 22</div>
+                <div class="font-bold text-white text-xs">Linux</div>
+                <div class="text-[10px] text-slate-400">OpenSSH</div>
               </div>
             </div>
-            <div onclick="switchAddServerProto('windows')" id="proto-opt-windows" class="p-2.5 rounded-xl border border-slate-700 bg-surface-950 cursor-pointer flex items-center space-x-2.5 hover:border-slate-500 transition">
-              <i data-lucide="monitor" class="w-4 h-4 text-blue-400"></i>
-              <div>
-                <div class="font-bold text-white text-xs">Windows (WinRM/SSH)</div>
-                <div class="text-[10px] text-slate-400">原生 PowerShell 免代理</div>
+            <div onclick="switchAddServerPlatform('windows')" id="proto-card-windows" class="p-3 rounded-xl border border-slate-700 bg-surface-950 hover:border-slate-500 cursor-pointer flex items-center space-x-3 transition">
+              <div class="w-8 h-8 rounded-lg bg-surface-800 text-slate-400 flex items-center justify-center shrink-0">
+                <i data-lucide="monitor" class="w-4 h-4 text-blue-400"></i>
               </div>
-            </div>
-            <div onclick="switchAddServerProto('bastion')" id="proto-opt-bastion" class="p-2.5 rounded-xl border border-slate-700 bg-surface-950 cursor-pointer flex items-center space-x-2.5 hover:border-slate-500 transition">
-              <i data-lucide="split" class="w-4 h-4 text-amber-400"></i>
               <div>
-                <div class="font-bold text-white text-xs">跳板机穿透</div>
-                <div class="text-[10px] text-slate-400">Bastion / ProxyJump</div>
+                <div class="font-bold text-white text-xs">Windows</div>
+                <div class="text-[10px] text-slate-400">OpenSSH for Windows</div>
               </div>
             </div>
           </div>
         </div>
 
-        <!-- 基础连接参数 -->
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <div class="sm:col-span-2">
-            <label class="text-slate-300 block mb-1 font-medium">主机别名 <span class="text-rose-400">*</span></label>
+        <!-- 主机别名与归属分组 -->
+        <div class="grid grid-cols-12 gap-3">
+          <div class="col-span-7">
+            <label class="text-slate-300 block mb-1 font-medium"><span class="text-rose-400">*</span> 主机别名</label>
             <input id="newHostAlias" type="text" placeholder="如: prod-k8s-master-01" class="w-full bg-surface-950 border border-slate-700 rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:border-brand-500 transition">
           </div>
-          <div>
+          <div class="col-span-5">
             <label class="text-slate-300 block mb-1 font-medium">归属分组</label>
-            <select id="newHostGroup" class="w-full bg-surface-950 border border-slate-700 rounded-lg px-2.5 py-2 text-slate-200 focus:outline-none focus:border-brand-500 transition">
-              <option value="prod">生产集群</option>
-              <option value="test">开发测试</option>
-              <option value="all">未分组</option>
-            </select>
+            <input id="newHostGroup" list="groupSuggestions" type="text" placeholder="默认" class="w-full bg-surface-950 border border-slate-700 rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:border-brand-500 transition">
+            <datalist id="groupSuggestions">
+              <option value="生产集群"></option>
+              <option value="开发测试"></option>
+            </datalist>
           </div>
         </div>
 
-        <div class="grid grid-cols-1 sm:grid-cols-4 gap-3">
-          <div class="sm:col-span-3">
-            <label class="text-slate-300 block mb-1 font-medium">连接地址 (IPv4 / IPv6 / 域名) <span class="text-rose-400">*</span></label>
-            <input id="newHostIp" type="text" placeholder="如: 192.168.1.120 或 api.internal.corp" class="w-full bg-surface-950 border border-slate-700 rounded-lg px-3 py-2 text-slate-200 font-mono focus:outline-none focus:border-brand-500 transition">
+        <!-- 连接地址与端口 -->
+        <div class="grid grid-cols-12 gap-3">
+          <div class="col-span-9">
+            <label class="text-slate-300 block mb-1 font-medium"><span class="text-rose-400">*</span> 连接地址</label>
+            <div class="relative">
+              <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 font-mono text-xs">>_</span>
+              <input id="newHostIp" type="text" placeholder="192.168.1.120 或 api.internal" class="w-full bg-surface-950 border border-slate-700 rounded-lg pl-8 pr-3 py-2 text-slate-200 font-mono focus:outline-none focus:border-brand-500 transition">
+            </div>
           </div>
-          <div>
-            <label class="text-slate-300 block mb-1 font-medium">端口</label>
-            <input id="newHostPort" type="number" value="22" class="w-full bg-surface-950 border border-slate-700 rounded-lg px-3 py-2 text-slate-200 font-mono focus:outline-none focus:border-brand-500 transition">
+          <div class="col-span-3">
+            <label class="text-slate-300 block mb-1 font-medium"><span class="text-rose-400">*</span> 端口</label>
+            <input id="newHostPort" type="number" value="22" placeholder="22" class="w-full bg-surface-950 border border-slate-700 rounded-lg px-2.5 py-2 text-slate-200 font-mono text-center focus:outline-none focus:border-brand-500 transition">
           </div>
         </div>
 
-        <!-- 认证凭据配置 -->
+        <!-- 登录凭据配置卡片 -->
         <div class="p-3.5 rounded-xl bg-surface-950 border border-slate-800 space-y-3">
           <div class="flex items-center justify-between">
             <span class="font-bold text-slate-200 flex items-center space-x-1.5">
               <i data-lucide="key" class="w-3.5 h-3.5 text-brand-400"></i>
-              <span>登录鉴权凭据</span>
+              <span>登录凭据</span>
             </span>
-            <span class="text-[10px] text-slate-500">密码与私钥受系统本地安全金库硬件加密</span>
+            <span class="text-[10px] px-2 py-0.5 rounded bg-blue-950/40 text-blue-300 border border-blue-800/40">不写入资产库</span>
           </div>
 
-          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div class="grid grid-cols-2 gap-3">
             <div>
-              <label class="text-slate-400 block mb-1">登录用户名</label>
-              <input id="newHostUser" type="text" value="root" class="w-full bg-surface-900 border border-slate-700 rounded-lg px-3 py-1.5 text-slate-200 font-mono">
+              <label class="text-slate-400 block mb-1"><span class="text-rose-400">*</span> 登录用户名</label>
+              <input id="newHostUser" type="text" value="root" class="w-full bg-surface-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-200 font-mono focus:outline-none focus:border-brand-500 transition">
             </div>
-            <div class="sm:col-span-2">
-              <label class="text-slate-400 block mb-1">凭据类型与密钥来源</label>
-              <select id="newHostAuthType" onchange="handleAuthTypeChange(this.value)" class="w-full bg-surface-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-slate-200">
-                <option value="key_ed25519">系统金库私钥 (id_ed25519 - 推荐)</option>
-                <option value="key_rsa">系统金库私钥 (id_rsa 4096)</option>
-                <option value="password">静态密码认证</option>
-                <option value="agent">SSH-Agent 动态代理转发</option>
+            <div>
+              <label class="text-slate-400 block mb-1"><span class="text-rose-400">*</span> 认证方式</label>
+              <select id="newHostAuthType" onchange="handleAuthTypeChange(this.value)" class="w-full bg-surface-900 border border-slate-700 rounded-lg px-2.5 py-2 text-slate-200 focus:outline-none focus:border-brand-500 transition">
+                <option value="password">密码</option>
+                <option value="key">私钥</option>
               </select>
             </div>
           </div>
 
-          <div id="newHostPasswordField" class="hidden">
-            <label class="text-slate-400 block mb-1">主机密码</label>
-            <input id="newHostPassword" type="password" placeholder="请输入服务器 SSH/WinRM 登录密码" class="w-full bg-surface-900 border border-slate-700 rounded-lg px-3 py-1.5 text-slate-200 font-mono">
+          <div id="newHostPasswordField">
+            <label id="labelPwdField" class="text-slate-400 block mb-1"><span class="text-rose-400">*</span> SSH 登录密码</label>
+            <div class="relative">
+              <input id="newHostPassword" type="password" placeholder="输入本次连接凭据" class="w-full bg-surface-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-200 font-mono focus:outline-none focus:border-brand-500 transition pr-9">
+              <button type="button" onclick="togglePasswordVisibility('newHostPassword', this)" class="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 cursor-pointer">
+                👁️
+              </button>
+            </div>
+          </div>
+
+          <div id="newHostKeyField" class="hidden space-y-2">
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="text-slate-400 block mb-1"><span class="text-rose-400">*</span> 私钥路径</label>
+                <input id="newHostKeyPath" type="text" placeholder="~/.ssh/id_ed25519" class="w-full bg-surface-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-200 font-mono focus:outline-none focus:border-brand-500 transition">
+              </div>
+              <div>
+                <label class="text-slate-400 block mb-1">私钥口令</label>
+                <input id="newHostKeyPassphrase" type="password" placeholder="未加密私钥可留空" class="w-full bg-surface-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-200 font-mono focus:outline-none focus:border-brand-500 transition">
+              </div>
+            </div>
           </div>
         </div>
 
-        <!-- 标签与 AI 策略档位 -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div>
-            <label class="text-slate-300 block mb-1 font-medium">业务标签 (英文逗号分隔)</label>
-            <input id="newHostTags" type="text" placeholder="如: 生产环境, K8s, 华东一区" value="生产环境, K8s" class="w-full bg-surface-950 border border-slate-700 rounded-lg px-3 py-1.5 text-slate-200">
+        <!-- AI 运维策略卡片 -->
+        <div class="p-3.5 rounded-xl bg-surface-950 border border-slate-800 space-y-3">
+          <div class="flex items-center space-x-1.5 pb-0.5">
+            <i data-lucide="shield" class="w-3.5 h-3.5 text-brand-400"></i>
+            <span class="font-bold text-slate-200">AI 运维策略</span>
           </div>
-          <div>
-            <label class="text-slate-300 block mb-1 font-medium">AI 运维执行权限策略</label>
-            <select id="newHostAIPolicy" class="w-full bg-surface-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-slate-200">
-              <option value="strict">Strict Approval (高危写操作需人工审批 · 默认)</option>
-              <option value="readonly">Read-Only (纯只读探测 · 拒绝一切修改)</option>
-              <option value="autonomous">Autonomous (完全自主排障 · 放行安全脚本)</option>
-              <option value="disabled">Disabled (对本主机完全禁用 AI)</option>
-            </select>
+
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="text-slate-400 block mb-1 font-medium"><span class="text-rose-400">*</span> 操作策略</label>
+              <select id="newHostAIPolicy" class="w-full bg-surface-900 border border-slate-700 rounded-lg px-2.5 py-2 text-slate-200 focus:outline-none focus:border-brand-500 transition">
+                <option value="trusted" selected>已信任 - AI 命中策略直接执行，仅记录审计日...</option>
+                <option value="strict">需审批 - 高危执行需工程师人工裁决放行</option>
+                <option value="readonly">白名单 - 仅限执行只读探测命令</option>
+                <option value="disabled">已锁定 - 完全禁止 AI 执行任何操作</option>
+              </select>
+            </div>
+            <div>
+              <label class="text-slate-400 block mb-1 font-medium">业务标签</label>
+              <input id="newHostTags" type="text" placeholder="生产环境, K8s, 华东一区" class="w-full bg-surface-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:border-brand-500 transition">
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <!-- AI 专用账号 -->
+            <div>
+              <label class="text-slate-400 block mb-1 font-medium flex items-center justify-between">
+                <span class="flex items-center space-x-1">
+                  <span>AI 专用账号</span>
+                  <span id="tipAiUser" title="留空 = AI 也用主账号；填了保存后会自动远程 useradd -m -s /bin/bash (不会装任何 agent)" class="cursor-help text-slate-400 hover:text-slate-300">🛈</span>
+                </span>
+              </label>
+              <div class="flex items-center space-x-1.5">
+                <input id="newHostAiUser" type="text" placeholder="留空则使用登录用户名" class="flex-1 bg-surface-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-200 font-mono focus:outline-none focus:border-brand-500 transition">
+                <button type="button" onclick="fillDefaultAiUser()" class="px-2.5 py-2 rounded-lg bg-surface-800 hover:bg-surface-700 border border-slate-700 text-slate-300 hover:text-white shrink-0 flex items-center space-x-1 transition cursor-pointer">
+                  <span>🪄</span>
+                  <span>默认</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- 跳板机 -->
+            <div>
+              <label class="text-slate-400 block mb-1 font-medium flex items-center space-x-1">
+                <span>跳板机</span>
+                <span title="留空 = 直连。支持多级 (跳板机自己也能有跳板机，最多 5 跳)；配成环会在连接时报错。" class="cursor-help text-slate-400 hover:text-slate-300">🛈</span>
+              </label>
+              <select id="newHostBastion" class="w-full bg-surface-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:border-brand-500 transition">
+                <option value="">直连 (不经跳板机)</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- 提权与代理开关 -->
+          <div class="grid grid-cols-2 gap-3 pt-2 border-t border-slate-800">
+            <div class="flex items-center justify-between">
+              <span id="labelSudoField" class="text-slate-300 flex items-center space-x-1">
+                <span>允许 sudo 提权</span>
+                <span title="允许 AI 执行特权命令时使用 sudo 提权" class="cursor-help text-slate-400 hover:text-slate-300">🛈</span>
+              </span>
+              <label class="relative inline-flex items-center cursor-pointer">
+                <input id="newHostAllowSudo" type="checkbox" class="sr-only peer">
+                <div class="w-9 h-5 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-brand-600"></div>
+              </label>
+            </div>
+
+            <div class="flex items-center justify-between">
+              <span class="text-slate-300 flex items-center space-x-1">
+                <span>借用本机代理</span>
+                <span title="需先在「设置 › 网络代理」配置本机代理地址才生效" class="cursor-help text-slate-400 hover:text-slate-300">🛈</span>
+              </span>
+              <label class="relative inline-flex items-center cursor-pointer">
+                <input id="newHostUseLocalProxy" type="checkbox" class="sr-only peer">
+                <div class="w-9 h-5 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-brand-600"></div>
+              </label>
+            </div>
           </div>
         </div>
 
         <!-- 连通性测试即时反馈条 -->
-        <div id="addServerPingFeedback" class="hidden p-2.5 rounded-xl border border-slate-800 bg-surface-950 flex items-center justify-between text-xs">
+        <div id="addServerPingFeedback" class="hidden p-2.5 rounded-xl border border-slate-800 bg-surface-950 flex items-center justify-between text-xs mt-2">
           <div class="flex items-center space-x-2">
             <span id="addServerPingDot" class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
-            <span id="addServerPingMsg" class="text-slate-300 font-mono">正在发起 SSH 协议握手探测...</span>
+            <span id="addServerPingMsg" class="text-slate-300 font-mono">正在发起连接握手探测...</span>
           </div>
-          <span id="addServerPingLatency" class="font-mono font-bold text-emerald-400">16ms</span>
+          <span id="addServerPingLatency" class="font-mono font-bold text-emerald-400">15ms</span>
         </div>
       </div>
 
       <!-- 底部操作按钮 -->
-      <div class="p-4 border-t border-slate-800 flex items-center justify-between bg-surface-950/80">
+      <div class="p-4 border-t border-slate-800 flex items-center justify-between bg-surface-950/80 shrink-0">
         <button type="button" onclick="testNewServerConnection()" id="btnTestNewServer" class="px-3 py-1.5 rounded-lg bg-surface-800 hover:bg-surface-700 text-slate-200 border border-slate-700 flex items-center space-x-1.5 transition cursor-pointer">
           <i data-lucide="zap" class="w-3.5 h-3.5 text-amber-400"></i>
-          <span>连通性测试</span>
+          <span>⚡ 测试连接</span>
         </button>
         <div class="flex items-center space-x-2">
           <button type="button" onclick="closeAddServerModal()" class="px-3.5 py-1.5 rounded-lg bg-surface-800 hover:bg-surface-700 text-slate-300 transition cursor-pointer">取消</button>
           <button type="button" onclick="saveNewServer()" class="px-4 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-500 text-white font-bold flex items-center space-x-1.5 shadow transition cursor-pointer">
-            <i data-lucide="check" class="w-3.5 h-3.5"></i>
-            <span>保存并纳管</span>
+            确定
           </button>
         </div>
       </div>
+    </div>
+  </div>
     </div>
   </div>
 
@@ -4991,6 +5341,143 @@ Filesystem      Size  Used Avail Use% Mounted on
       <div class="p-4 border-t border-slate-800 flex justify-end space-x-2 bg-surface-950/60">
         <button onclick="closeAddGroupModal()" class="px-3 py-1.5 rounded-lg bg-surface-800 text-slate-300 text-xs">取消</button>
         <button onclick="saveNewGroup()" class="px-4 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-500 text-white text-xs font-bold shadow">确认创建</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- =================================================================================== -->
+  <!-- ★ 服务器分组右键上下文菜单 (Group Context Menu) -->
+  <!-- =================================================================================== -->
+  <div id="groupContextMenu" class="hidden fixed z-[999] w-48 bg-surface-900/95 backdrop-blur-md border border-slate-700/80 rounded-xl shadow-2xl p-1 text-xs select-none animate-in fade-in zoom-in-95 duration-100 font-sans">
+    <!-- 固定分组提示条 (当右键全部主机/我的收藏/最近用过时显示) -->
+    <div id="ctxSystemNotice" class="hidden px-2.5 py-1.5 text-[10px] text-amber-400 font-medium flex items-center space-x-1.5 border-b border-slate-800 mb-1 bg-amber-500/10 rounded-lg">
+      <i data-lucide="lock" class="w-3.5 h-3.5 text-amber-400 shrink-0"></i>
+      <span>系统固定分组 (不可修改/删除)</span>
+    </div>
+
+    <!-- 1. 新建子分组 (系统分组时显示为 "新建自定义分组") -->
+    <button id="ctxBtnAddSub" onclick="handleContextAddSubGroup()" class="w-full px-2.5 py-1.5 rounded-lg flex items-center space-x-2 text-slate-300 hover:text-white hover:bg-surface-800 transition cursor-pointer text-left">
+      <i data-lucide="plus" class="w-3.5 h-3.5 text-slate-400"></i>
+      <span id="ctxBtnAddSubLabel">新建子分组</span>
+    </button>
+    <!-- 2. 重命名 -->
+    <button id="ctxBtnRename" onclick="handleContextRenameGroup()" class="w-full px-2.5 py-1.5 rounded-lg flex items-center space-x-2 text-slate-300 hover:text-white hover:bg-surface-800 transition cursor-pointer text-left">
+      <i data-lucide="pencil" class="w-3.5 h-3.5 text-slate-400"></i>
+      <span>重命名</span>
+    </button>
+    <!-- 3. 移动到 (含级联悬浮子菜单) -->
+    <div id="groupMoveMenuItem" class="relative group/move">
+      <button id="ctxBtnMove" class="w-full px-2.5 py-1.5 rounded-lg flex items-center justify-between text-slate-300 hover:text-white hover:bg-surface-800 transition cursor-pointer text-left">
+        <span class="flex items-center space-x-2">
+          <i data-lucide="arrow-right-left" class="w-3.5 h-3.5 text-slate-400"></i>
+          <span>移动到</span>
+        </span>
+        <i data-lucide="chevron-right" class="w-3.5 h-3.5 text-slate-500"></i>
+      </button>
+      <!-- 级联子菜单 -->
+      <div id="groupMoveSubMenu" class="hidden group-hover/move:block absolute left-full top-0 -ml-1 pl-2 w-40 py-1 z-50">
+        <div class="bg-surface-900/98 backdrop-blur-md border border-slate-700/80 rounded-xl shadow-2xl p-1 space-y-0.5" id="groupMoveTargetList">
+          <!-- 动态注入目标分组列表 -->
+        </div>
+      </div>
+    </div>
+    <!-- 分割线 -->
+    <div id="ctxDivider" class="my-1 border-t border-slate-700/60"></div>
+    <!-- 4. 解散分组 (危险红标) -->
+    <button id="ctxBtnDissolve" onclick="handleContextDissolveGroup()" class="w-full px-2.5 py-1.5 rounded-lg flex items-center space-x-2 text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 transition cursor-pointer text-left">
+      <i data-lucide="folder-minus" class="w-3.5 h-3.5 text-rose-400"></i>
+      <span>解散分组</span>
+    </button>
+  </div>
+
+  <!-- =================================================================================== -->
+  <!-- 弹窗 4.1: 新建子分组 (modalAddSubGroup) -->
+  <!-- =================================================================================== -->
+  <div id="modalAddSubGroup" class="hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 font-sans animate-in fade-in duration-150">
+    <div class="glass-card bg-surface-900 border border-slate-700 w-full max-w-md rounded-2xl shadow-2xl overflow-hidden flex flex-col">
+      <div class="p-4 border-b border-slate-800 flex items-center justify-between bg-surface-950/70">
+        <div class="flex items-center space-x-2">
+          <i data-lucide="folder-plus" class="w-4 h-4 text-brand-400"></i>
+          <span class="font-bold text-sm text-white">新建子分组</span>
+        </div>
+        <button onclick="closeAddSubGroupModal()" class="text-slate-400 hover:text-white"><i data-lucide="x" class="w-4 h-4"></i></button>
+      </div>
+      <div class="p-5 space-y-3.5 text-xs">
+        <div>
+          <label class="text-slate-400 block mb-1">所属上级分组</label>
+          <div class="w-full bg-surface-950/80 border border-slate-800 rounded-lg px-3 py-2 text-brand-300 font-medium flex items-center space-x-2">
+            <i data-lucide="folder" class="w-3.5 h-3.5 text-brand-400"></i>
+            <span id="subGroupParentText">我的服务器</span>
+          </div>
+        </div>
+        <div>
+          <label class="text-slate-400 block mb-1">子分组名称 <span class="text-rose-400">*</span></label>
+          <input id="newSubGroupName" type="text" placeholder="如: 华南节点、海外边缘 CDN、高防专区" class="w-full bg-surface-950 border border-slate-700 rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:border-brand-500 transition" onkeydown="if(event.key==='Enter') confirmAddSubGroup()">
+        </div>
+      </div>
+      <div class="p-4 border-t border-slate-800 flex justify-end space-x-2 bg-surface-950/60">
+        <button onclick="closeAddSubGroupModal()" class="px-3 py-1.5 rounded-lg bg-surface-800 text-slate-300 text-xs">取消</button>
+        <button onclick="confirmAddSubGroup()" class="px-4 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-500 text-white text-xs font-bold shadow">确认创建</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- =================================================================================== -->
+  <!-- 弹窗 4.2: 重命名分组 (modalRenameGroup) -->
+  <!-- =================================================================================== -->
+  <div id="modalRenameGroup" class="hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 font-sans animate-in fade-in duration-150">
+    <div class="glass-card bg-surface-900 border border-slate-700 w-full max-w-md rounded-2xl shadow-2xl overflow-hidden flex flex-col">
+      <div class="p-4 border-b border-slate-800 flex items-center justify-between bg-surface-950/70">
+        <div class="flex items-center space-x-2">
+          <i data-lucide="pencil" class="w-4 h-4 text-brand-400"></i>
+          <span class="font-bold text-sm text-white">重命名分组</span>
+        </div>
+        <button onclick="closeRenameGroupModal()" class="text-slate-400 hover:text-white"><i data-lucide="x" class="w-4 h-4"></i></button>
+      </div>
+      <div class="p-5 space-y-3.5 text-xs">
+        <div>
+          <label class="text-slate-400 block mb-1">当前分组原名称</label>
+          <div id="renameOriginalGroupDisplay" class="w-full bg-surface-950/80 border border-slate-800 rounded-lg px-3 py-2 text-slate-400 font-mono">我的服务器</div>
+        </div>
+        <div>
+          <label class="text-slate-400 block mb-1">新分组名称 <span class="text-rose-400">*</span></label>
+          <input id="renameGroupNewName" type="text" placeholder="请输入新的分组名称" class="w-full bg-surface-950 border border-slate-700 rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:border-brand-500 transition" onkeydown="if(event.key==='Enter') confirmRenameGroup()">
+        </div>
+      </div>
+      <div class="p-4 border-t border-slate-800 flex justify-end space-x-2 bg-surface-950/60">
+        <button onclick="closeRenameGroupModal()" class="px-3 py-1.5 rounded-lg bg-surface-800 text-slate-300 text-xs">取消</button>
+        <button onclick="confirmRenameGroup()" class="px-4 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-500 text-white text-xs font-bold shadow">确认修改</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- =================================================================================== -->
+  <!-- 弹窗 4.3: 解散分组确认 (modalDissolveGroup) -->
+  <!-- =================================================================================== -->
+  <div id="modalDissolveGroup" class="hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 font-sans animate-in fade-in duration-150">
+    <div class="glass-card bg-surface-900 border border-rose-500/40 w-full max-w-md rounded-2xl shadow-2xl overflow-hidden flex flex-col">
+      <div class="p-4 bg-rose-500/10 border-b border-rose-500/30 flex items-center justify-between">
+        <div class="flex items-center space-x-2">
+          <i data-lucide="alert-triangle" class="w-4 h-4 text-rose-400"></i>
+          <span class="font-bold text-sm text-white">解散分组确认</span>
+        </div>
+        <button onclick="closeDissolveGroupModal()" class="text-slate-400 hover:text-white"><i data-lucide="x" class="w-4 h-4"></i></button>
+      </div>
+      <div class="p-5 space-y-3 text-xs text-slate-300">
+        <p>确认要解散分组 <span id="dissolveTargetGroupName" class="font-bold text-white px-2 py-0.5 rounded bg-surface-800 border border-slate-700">我的服务器</span> 吗？</p>
+        <div class="p-3 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-300 space-y-1">
+          <div class="font-semibold flex items-center space-x-1.5">
+            <i data-lucide="shield-alert" class="w-4 h-4 text-rose-400 shrink-0"></i>
+            <span>资产安全保障提示：</span>
+          </div>
+          <p class="text-[11px] leading-relaxed text-rose-200/90 pl-5.5">
+            解散分组仅移除分组层级目录，组内的 <span id="dissolveServerCount" class="font-bold text-white underline">4</span> 台服务器资产将<strong>完整保留</strong>，并自动归入「全部主机」，不会删除任何服务器或连接凭据。
+          </p>
+        </div>
+      </div>
+      <div class="p-4 border-t border-slate-800 flex justify-end space-x-2 bg-surface-950/60">
+        <button onclick="closeDissolveGroupModal()" class="px-3 py-1.5 rounded-lg bg-surface-800 text-slate-300 text-xs">取消</button>
+        <button onclick="confirmDissolveGroup()" class="px-4 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold shadow">确认解散分组</button>
       </div>
     </div>
   </div>
@@ -5633,6 +6120,8 @@ REDIS_AUTH="${****@}" [已拦截脱敏]</div>
     document.addEventListener('DOMContentLoaded', () => {
       lucide.createIcons();
       switchTab('tab-servers');
+      const savedSkin = localStorage.getItem('ops_sentry_skin') || 'obsidian';
+      selectThemeSkin(savedSkin, true);
     });
 
     function switchTab(tabId) {
@@ -6334,56 +6823,56 @@ REDIS_AUTH="${****@}" [已拦截脱敏]</div>
     // =========================================================================
     let serverList = [
       {
-        id: 'prod-api-01',
-        name: 'prod-api-01 (我的腾讯云0209)',
+        id: 'tx-0209',
+        name: '我的腾讯云0209',
         osType: 'linux',
         osDesc: 'Ubuntu 22.04.4 LTS',
-        arch: 'x86_64 · 4 vCPU 8GB',
+        arch: 'x86_64 · 2 vCPU 4GB',
         user: 'root',
-        ip: '192.168.1.102',
+        ip: '111.231.166.192',
         port: 22,
-        authType: '私钥 (id_ed25519)',
+        authType: '密码 (已托管)',
         status: 'online',
-        latency: '18ms',
-        group: 'prod',
-        tags: ['生产环境', 'Node/Nginx', '腾讯云'],
+        latency: '205ms',
+        group: 'myserver',
+        tags: ['腾讯云', '生产环境', 'Node/Nginx'],
         aiPolicy: 'Strict Approval (需审批)',
         aiPolicyCode: 'strict',
         isStarred: true,
         hasDb: true
       },
       {
-        id: 'prod-db-master',
-        name: 'prod-db-master',
+        id: 'ali-main',
+        name: '我的阿里云',
         osType: 'linux',
-        osDesc: 'Ubuntu 22.04 LTS',
-        arch: 'x86_64 · 8 vCPU 32GB',
-        user: 'admin',
-        ip: '10.0.0.88',
-        port: 54322,
-        authType: '密码 (Vault托管)',
+        osDesc: 'Alibaba Cloud Linux 3',
+        arch: 'x86_64 · 4 vCPU 8GB',
+        user: 'root',
+        ip: '106.14.39.78',
+        port: 22,
+        authType: '密码 (已托管)',
         status: 'online',
-        latency: '12ms',
-        group: 'prod',
-        tags: ['核心库', 'PostgreSQL 15'],
+        latency: '270ms',
+        group: 'myserver',
+        tags: ['核心库', '开发测试'],
         aiPolicy: 'Read-Only (纯只读探测)',
         aiPolicyCode: 'readonly',
         isStarred: false,
         hasDb: true
       },
       {
-        id: 'test-gateway-hk',
-        name: 'test-gateway-hk',
+        id: 'ali-3045',
+        name: '我的阿里云3045',
         osType: 'linux',
-        osDesc: 'Debian 12 Bookworm',
+        osDesc: 'Ubuntu 20.04.6 LTS',
         arch: 'x86_64 · 2 vCPU 4GB',
-        user: 'ubuntu',
-        ip: '47.242.8.19',
+        user: 'root',
+        ip: '8.145.62.223',
         port: 22,
-        authType: '私钥 (id_rsa)',
+        authType: '密码 (已托管)',
         status: 'online',
-        latency: '45ms',
-        group: 'test',
+        latency: '309ms',
+        group: 'myserver',
         tags: ['开发测试', 'Kong / Redis'],
         aiPolicy: 'Strict Approval (需审批)',
         aiPolicyCode: 'strict',
@@ -6391,19 +6880,19 @@ REDIS_AUTH="${****@}" [已拦截脱敏]</div>
         hasDb: true
       },
       {
-        id: 'win-build-01',
-        name: 'win-build-01',
-        osType: 'windows',
-        osDesc: 'Windows Server 2022',
-        arch: 'x86_64 · 8 vCPU 16GB',
-        user: 'builder',
-        ip: '10.0.2.15',
-        port: 22,
-        authType: '密码 / WinRM',
+        id: 'vanilla-01',
+        name: '我的香草云',
+        osType: 'linux',
+        osDesc: 'Debian 11 Bullseye',
+        arch: 'x86_64 · 1 vCPU 2GB',
+        user: 'root',
+        ip: '156.226.177.226',
+        port: 22800,
+        authType: '密码 (已托管)',
         status: 'online',
-        latency: '32ms',
-        group: 'test',
-        tags: ['WinServer', 'OpenSSH/PowerShell'],
+        latency: '497ms',
+        group: 'myserver',
+        tags: ['海外边缘', 'WinServer'],
         aiPolicy: 'Disabled (已禁用AI)',
         aiPolicyCode: 'disabled',
         isStarred: false,
@@ -6413,14 +6902,320 @@ REDIS_AUTH="${****@}" [已拦截脱敏]</div>
 
     let currentServerGroup = 'all';
     let currentOSFilter = 'all';
+    let currentStatusFilter = 'all';
+    let currentPolicyFilter = 'all';
     let currentSearchKeyword = '';
+    let currentSortColumn = null;
+    let currentSortAsc = true;
     let currentSelectedTags = new Set();
     let selectedServerIds = new Set();
-    let customServerGroups = [];
+    let customServerGroups = [
+      { id: 'myserver', name: '我的服务器', parentId: null, icon: 'folder' },
+      { id: 'prod', name: '生产集群', parentId: null, icon: 'shield' },
+      { id: 'test', name: '开发测试', parentId: null, icon: 'flask-conical' }
+    ];
+    let currentContextGroup = { id: null, name: '', isSystem: false };
     let targetBindDbHostId = null;
     let pendingDeleteIds = [];
 
-    // 初始化渲染表格
+    // 切换状态过滤
+    function handleServerStatusFilter(val) {
+      currentStatusFilter = val;
+      renderServerTable();
+    }
+
+    function toggleStatusFilterDropdown(event) {
+      if (event) event.stopPropagation();
+      const dd = document.getElementById('statusFilterDropdown');
+      const policyDd = document.getElementById('policyFilterDropdown');
+      if (policyDd) policyDd.classList.add('hidden');
+      if (dd) {
+        dd.classList.toggle('hidden');
+        lucide.createIcons();
+      }
+    }
+
+    function selectStatusFilterOption(val, label) {
+      currentStatusFilter = val;
+      const labelEl = document.getElementById('statusFilterLabel');
+      const dotEl = document.getElementById('statusFilterDot');
+      const btnEl = document.getElementById('btnServerStatusFilter');
+      if (labelEl) labelEl.innerText = label;
+      if (dotEl) {
+        if (val === 'online') {
+          dotEl.className = 'w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0 shadow-[0_0_6px_rgba(52,211,153,0.6)]';
+        } else if (val === 'offline') {
+          dotEl.className = 'w-1.5 h-1.5 rounded-full bg-slate-400 shrink-0';
+        } else {
+          dotEl.className = 'w-1.5 h-1.5 rounded-full bg-slate-400 shrink-0';
+        }
+      }
+      if (btnEl) {
+        if (val === 'online') {
+          btnEl.style.borderColor = 'rgba(16, 185, 129, 0.5)';
+          btnEl.style.color = '#34d399';
+        } else if (val === 'offline') {
+          btnEl.style.borderColor = 'rgba(100, 116, 139, 0.5)';
+          btnEl.style.color = '#cbd5e1';
+        } else {
+          btnEl.style.borderColor = '';
+          btnEl.style.color = '';
+        }
+      }
+      const dd = document.getElementById('statusFilterDropdown');
+      if (dd) dd.classList.add('hidden');
+      renderServerTable();
+    }
+
+    // 切换策略过滤
+    function handleServerPolicyFilter(val) {
+      currentPolicyFilter = val;
+      renderServerTable();
+    }
+
+    function togglePolicyFilterDropdown(event) {
+      if (event) event.stopPropagation();
+      const dd = document.getElementById('policyFilterDropdown');
+      const statusDd = document.getElementById('statusFilterDropdown');
+      if (statusDd) statusDd.classList.add('hidden');
+      if (dd) {
+        dd.classList.toggle('hidden');
+        lucide.createIcons();
+      }
+    }
+
+    function selectPolicyFilterOption(val, label, dotColor, textColor, borderColor, bgColor) {
+      currentPolicyFilter = val;
+      const labelEl = document.getElementById('policyFilterLabel');
+      const dotEl = document.getElementById('policyFilterDot');
+      const btnEl = document.getElementById('btnServerPolicyFilter');
+      if (labelEl) labelEl.innerText = label;
+      if (dotEl) {
+        dotEl.style.backgroundColor = dotColor || '#94a3b8';
+        if (val !== 'all' && val !== 'disabled') {
+          dotEl.style.boxShadow = `0 0 6px ${dotColor}80`;
+        } else {
+          dotEl.style.boxShadow = 'none';
+        }
+      }
+      if (btnEl) {
+        if (val !== 'all') {
+          btnEl.style.borderColor = borderColor ? '' : 'rgba(99, 102, 241, 0.5)';
+          if (borderColor && borderColor.includes('emerald')) btnEl.style.borderColor = 'rgba(16, 185, 129, 0.5)';
+          else if (borderColor && borderColor.includes('cyan')) btnEl.style.borderColor = 'rgba(6, 182, 212, 0.5)';
+          else if (borderColor && borderColor.includes('amber')) btnEl.style.borderColor = 'rgba(245, 158, 11, 0.5)';
+          else if (borderColor && borderColor.includes('rose')) btnEl.style.borderColor = 'rgba(244, 63, 94, 0.5)';
+          else if (borderColor && borderColor.includes('slate')) btnEl.style.borderColor = 'rgba(100, 116, 139, 0.6)';
+          btnEl.style.color = dotColor || '';
+        } else {
+          btnEl.style.borderColor = '';
+          btnEl.style.color = '';
+        }
+      }
+      const dd = document.getElementById('policyFilterDropdown');
+      if (dd) dd.classList.add('hidden');
+      renderServerTable();
+    }
+
+
+    // 表头点击排序
+    function toggleServerSort(column) {
+      if (currentSortColumn === column) {
+        currentSortAsc = !currentSortAsc;
+      } else {
+        currentSortColumn = column;
+        currentSortAsc = true;
+      }
+      renderServerTable();
+      showToast(`已按 ${column === 'name' ? '别名/主机' : (column === 'policy' ? 'AI 策略' : '延迟状态')} ${currentSortAsc ? '升序' : '降序'} 排序`);
+    }
+
+    // 表格行内快捷修改分组
+    function changeServerGroup(id, newGroup) {
+      const s = serverList.find(x => x.id === id);
+      if (!s) return;
+      s.group = newGroup;
+      const matched = customServerGroups.find(g => g.id === newGroup);
+      const grpName = matched ? matched.name : newGroup;
+      showToast(`✓ 已将主机 [${s.name}] 移入分组: ${grpName}`);
+      updateServerCounts();
+      renderServerTable();
+    }
+
+    // 5 档 AI 策略配置 (完全对齐用户截图 media_1790004662510.png)
+    const AI_POLICY_CONFIG = {
+      disabled: {
+        code: 'disabled',
+        label: '禁用',
+        dot: 'bg-slate-400',
+        text: 'text-slate-300',
+        border: 'border-slate-600/70',
+        bg: 'bg-slate-800/40 hover:bg-slate-700/60',
+        btnBg: 'bg-slate-800/40 text-slate-300 border-slate-600/60'
+      },
+      readonly: {
+        code: 'readonly',
+        label: '只读',
+        dot: 'bg-emerald-400',
+        text: 'text-emerald-400',
+        border: 'border-emerald-500/50',
+        bg: 'bg-emerald-950/40 hover:bg-emerald-900/50',
+        btnBg: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+      },
+      approval: {
+        code: 'approval',
+        label: '审批',
+        dot: 'bg-cyan-400',
+        text: 'text-cyan-300',
+        border: 'border-cyan-500/50',
+        bg: 'bg-cyan-950/40 hover:bg-cyan-900/50',
+        btnBg: 'bg-cyan-500/10 text-cyan-300 border-cyan-500/30'
+      },
+      allowlist: {
+        code: 'allowlist',
+        label: '白名单',
+        dot: 'bg-amber-400',
+        text: 'text-amber-400',
+        border: 'border-amber-500/50',
+        bg: 'bg-amber-950/40 hover:bg-amber-900/50',
+        btnBg: 'bg-amber-500/10 text-amber-400 border-amber-500/30'
+      },
+      trusted: {
+        code: 'trusted',
+        label: '信任',
+        dot: 'bg-rose-400',
+        text: 'text-rose-300',
+        border: 'border-rose-500/50',
+        bg: 'bg-rose-950/40 hover:bg-rose-900/50',
+        btnBg: 'bg-rose-500/10 text-rose-300 border-rose-500/30'
+      }
+    };
+
+    function toggleServerAIPolicyMenu(event, id) {
+      event.stopPropagation();
+      const menu = document.getElementById('aiPolicyMenu-' + id);
+      const isHidden = menu ? menu.classList.contains('hidden') : true;
+      closeAllAIPolicyMenus();
+      if (menu && isHidden) {
+        menu.classList.remove('hidden');
+        lucide.createIcons();
+      }
+    }
+
+    function closeAllAIPolicyMenus() {
+      document.querySelectorAll('.ai-policy-menu-pop').forEach(el => el.classList.add('hidden'));
+      document.querySelectorAll('.ai-bypass-menu-pop').forEach(el => el.classList.add('hidden'));
+      const statusDd = document.getElementById('statusFilterDropdown');
+      const policyDd = document.getElementById('policyFilterDropdown');
+      if (statusDd) statusDd.classList.add('hidden');
+      if (policyDd) policyDd.classList.add('hidden');
+    }
+
+    // AI 免审批限时规则管理 (完全还原截图 media_1790005504904.png)
+    const serverAIBypassRules = {};
+
+    function toggleServerAIBypassMenu(event, id) {
+      if (event) event.stopPropagation();
+      const menu = document.getElementById('aiBypassMenu-' + id);
+      const isHidden = menu ? menu.classList.contains('hidden') : true;
+      closeAllAIPolicyMenus();
+      if (menu && isHidden) {
+        menu.classList.remove('hidden');
+        lucide.createIcons();
+      }
+    }
+
+    function setServerAIBypass(id, durationType) {
+      const now = Date.now();
+      let expiresAt = null;
+      let label = '';
+      if (durationType === '30m') {
+        expiresAt = now + 30 * 60 * 1000;
+        label = '30 分钟';
+      } else if (durationType === '2h') {
+        expiresAt = now + 2 * 3600 * 1000;
+        label = '2 小时';
+      } else if (durationType === '4h') {
+        expiresAt = now + 4 * 3600 * 1000;
+        label = '4 小时';
+      } else if (durationType === 'permanent') {
+        expiresAt = null;
+        label = '永久有效';
+      }
+
+      serverAIBypassRules[id] = {
+        type: durationType,
+        expiresAt: expiresAt,
+        startedAt: now
+      };
+
+      const s = serverList.find(x => x.id === id);
+      const name = s ? s.name : id;
+      showToast(`⚡ 已为 [${name}] 开启 AI 免审批（${label}）`);
+      closeAllAIPolicyMenus();
+      renderServerTable();
+    }
+
+    function closeServerAIBypass(id) {
+      delete serverAIBypassRules[id];
+      const s = serverList.find(x => x.id === id);
+      const name = s ? s.name : id;
+      showToast(`🔒 已关闭 [${name}] 的 AI 免审批，恢复常规审批模式`);
+      closeAllAIPolicyMenus();
+      renderServerTable();
+    }
+
+    document.addEventListener('click', closeAllAIPolicyMenus);
+
+
+    // 表格行内快捷修改 AI 策略
+    function changeServerAIPolicy(id, newPolicy) {
+      const s = serverList.find(x => x.id === id);
+      if (!s) return;
+      s.aiPolicyCode = newPolicy;
+      const policyLabels = {
+        disabled: '禁用 (Disabled)',
+        readonly: '只读 (Read-Only)',
+        approval: '审批 (Approval)',
+        strict: '审批 (Strict)',
+        allowlist: '白名单 (Allowlist)',
+        trusted: '信任 (Trusted)',
+        autonomous: '信任 (Autonomous)'
+      };
+      s.aiPolicy = policyLabels[newPolicy] || newPolicy;
+      showToast(`✓ 已将主机 [${s.name}] AI 策略更新为: ${policyLabels[newPolicy] || newPolicy}`);
+      closeAllAIPolicyMenus();
+      renderServerTable();
+    }
+
+    // 操作列：发起终端连接
+    function connectServer(id) {
+      switchHost(id);
+      switchTab('tab-terminal');
+      showToast(`⚡ 正在连接远程终端 [${id}]...`);
+    }
+
+    // 操作列：在 SFTP 中打开
+    function openServerSFTP(id) {
+      switchHost(id);
+      switchTab('tab-sftp');
+      showToast(`📁 正在打开 [${id}] SFTP 文件管理器...`);
+    }
+
+    // 操作列：打开隧道端口转发弹窗
+    function openTunnelModal(id) {
+      const s = serverList.find(x => x.id === id);
+      const name = s ? s.name : id;
+      showToast(`🌐 已开启 [${name}] SSH 隧道与端口转发管理器`);
+    }
+
+    // 操作列：打开服务凭证与数据库管理
+    function openServerCredentialsModal(id) {
+      const s = serverList.find(x => x.id === id);
+      openBindDatabaseModal(id);
+    }
+
+    // 初始化渲染表格 (按照截图完全对齐列排布与纯图标操作)
     function renderServerTable() {
       const tbody = document.getElementById('serverTableBody');
       const emptyNotice = document.getElementById('emptyServerNotice');
@@ -6430,15 +7225,30 @@ REDIS_AUTH="${****@}" [已拦截脱敏]</div>
       let filtered = serverList.filter(s => {
         // 分组过滤
         if (currentServerGroup === 'starred' && !s.isStarred) return false;
-        if (currentServerGroup === 'prod' && s.group !== 'prod') return false;
-        if (currentServerGroup === 'test' && s.group !== 'test') return false;
-        if (currentServerGroup !== 'all' && currentServerGroup !== 'starred' && currentServerGroup !== 'recent' && currentServerGroup !== 'prod' && currentServerGroup !== 'test') {
-          if (s.group !== currentServerGroup) return false;
+        if (currentServerGroup !== 'all' && currentServerGroup !== 'starred' && currentServerGroup !== 'recent') {
+          const matchedGroup = customServerGroups.find(g => g.id === currentServerGroup);
+          const grpName = matchedGroup ? matchedGroup.name : '';
+          if (s.group !== currentServerGroup && s.group !== grpName) return false;
         }
 
         // 平台/系统过滤
         if (currentOSFilter === 'linux' && s.osType !== 'linux') return false;
         if (currentOSFilter === 'windows' && s.osType !== 'windows') return false;
+
+        // 快速状态过滤
+        if (currentStatusFilter === 'online' && s.status !== 'online') return false;
+        if (currentStatusFilter === 'offline' && s.status === 'online') return false;
+
+        // 快速 AI 策略过滤 (支持 5 档及历史代码兼容)
+        if (currentPolicyFilter !== 'all') {
+          const mapToNorm = (code) => {
+            if (code === 'strict') return 'approval';
+            if (code === 'autonomous') return 'trusted';
+            if (code === 'denied') return 'disabled';
+            return code || 'trusted';
+          };
+          if (mapToNorm(s.aiPolicyCode) !== mapToNorm(currentPolicyFilter)) return false;
+        }
 
         // 标签过滤 (必须包含所有或任一选中的标签)
         if (currentSelectedTags.size > 0) {
@@ -6446,7 +7256,7 @@ REDIS_AUTH="${****@}" [已拦截脱敏]</div>
           if (!hasTag) return false;
         }
 
-        // 关键字过滤
+        // 关键字过滤 (别名 / 主机 / 标签 / 用户 / 系统)
         if (currentSearchKeyword) {
           const kw = currentSearchKeyword.toLowerCase();
           const matchName = s.name.toLowerCase().includes(kw);
@@ -6460,10 +7270,23 @@ REDIS_AUTH="${****@}" [已拦截脱敏]</div>
         return true;
       });
 
-      // 2. 更新徽标计数
+      // 2. 排序逻辑
+      if (currentSortColumn === 'name') {
+        filtered.sort((a, b) => currentSortAsc ? a.name.localeCompare(b.name, 'zh-CN') : b.name.localeCompare(a.name, 'zh-CN'));
+      } else if (currentSortColumn === 'policy') {
+        filtered.sort((a, b) => currentSortAsc ? a.aiPolicyCode.localeCompare(b.aiPolicyCode) : b.aiPolicyCode.localeCompare(a.aiPolicyCode));
+      } else if (currentSortColumn === 'status') {
+        filtered.sort((a, b) => {
+          const latA = parseInt(a.latency) || 999;
+          const latB = parseInt(b.latency) || 999;
+          return currentSortAsc ? latA - latB : latB - latA;
+        });
+      }
+
+      // 3. 更新徽标计数
       updateServerCounts();
 
-      // 3. 空状态展示
+      // 4. 空状态展示
       if (filtered.length === 0) {
         tbody.innerHTML = '';
         if (emptyNotice) emptyNotice.classList.remove('hidden');
@@ -6472,81 +7295,225 @@ REDIS_AUTH="${****@}" [已拦截脱敏]</div>
         if (emptyNotice) emptyNotice.classList.add('hidden');
       }
 
-      // 4. 动态组装每行 HTML
+      // 5. 动态组装每行 HTML (对齐用户红框截图)
       tbody.innerHTML = filtered.map(s => {
         const isChecked = selectedServerIds.has(s.id);
-        const starClass = s.isStarred ? 'text-amber-400 fill-amber-400' : 'text-slate-500 hover:text-amber-400';
-        
-        // 策略徽章样式
-        let policyBadge = '';
-        if (s.aiPolicyCode === 'strict') {
-          policyBadge = `<span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-amber-500/15 text-amber-300 border border-amber-500/30">Strict Approval (需审批)</span>`;
-        } else if (s.aiPolicyCode === 'readonly') {
-          policyBadge = `<span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-blue-500/15 text-blue-300 border border-blue-500/30">Read-Only (只读探测)</span>`;
-        } else if (s.aiPolicyCode === 'autonomous') {
-          policyBadge = `<span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">Autonomous (自主排障)</span>`;
+
+        // 标签小微标
+        const tagPills = s.tags.map(t => `<span class="px-1.5 py-0.2 rounded text-[10px] bg-surface-800 text-slate-300 border border-slate-700/60 font-sans">${t}</span>`).join(' ');
+
+        // OS 图标徽章 (圆角方形带彩色背景与专用 Logo)
+        let osBadgeHtml = '';
+        if (s.osType === 'windows') {
+          osBadgeHtml = `
+            <div class="w-8 h-8 rounded-lg shrink-0 flex items-center justify-center bg-sky-500/20 text-sky-400 border border-sky-500/30 shadow-sm" title="${s.osDesc}">
+              <i data-lucide="monitor" class="w-4 h-4"></i>
+            </div>`;
+        } else if (s.osDesc.includes('Debian')) {
+          osBadgeHtml = `
+            <div class="w-8 h-8 rounded-lg shrink-0 flex items-center justify-center bg-rose-600 text-white shadow-sm" title="${s.osDesc}">
+              <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2.2"/><circle cx="12" cy="6.5" r="1.6" fill="currentColor"/><circle cx="7.2" cy="14.8" r="1.6" fill="currentColor"/><circle cx="16.8" cy="14.8" r="1.6" fill="currentColor"/></svg>
+            </div>`;
         } else {
-          policyBadge = `<span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-slate-700 text-slate-300">Disabled (已禁用AI)</span>`;
+          // Ubuntu 经典橙色圆角徽章 (截图红框标准样式)
+          osBadgeHtml = `
+            <div class="w-8 h-8 rounded-lg shrink-0 flex items-center justify-center bg-gradient-to-br from-orange-500 to-amber-600 text-white shadow-sm" title="${s.osDesc}">
+              <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2.2"/><circle cx="12" cy="6.5" r="1.6" fill="currentColor"/><circle cx="7.2" cy="14.8" r="1.6" fill="currentColor"/><circle cx="16.8" cy="14.8" r="1.6" fill="currentColor"/></svg>
+            </div>`;
         }
 
-        // 标签徽标
-        const tagPills = s.tags.map(t => `<span class="px-1.5 py-0.2 rounded text-[10px] bg-slate-800 text-slate-300 border border-slate-700/60">${t}</span>`).join(' ');
+        // 策略配置解析 (完全对齐5档: 禁用/只读/审批/白名单/信任)
+        const normPolicy = (s.aiPolicyCode === 'strict' ? 'approval' : (s.aiPolicyCode === 'autonomous' ? 'trusted' : s.aiPolicyCode)) || 'trusted';
+        const curPolicyCfg = AI_POLICY_CONFIG[normPolicy] || AI_POLICY_CONFIG.trusted;
 
-        // 数据库按钮状态
-        const dbBtn = s.hasDb ? 
-          `<button onclick="switchHost('${s.id}'); switchTab('tab-database')" class="px-2 py-1 rounded bg-cyan-500/20 hover:bg-cyan-600 text-cyan-300 hover:text-white transition text-[11px] font-medium" title="进入该主机的数据库工作台">数据库</button>` :
-          `<button onclick="openBindDatabaseModal('${s.id}')" class="px-2 py-1 rounded bg-surface-800 hover:bg-cyan-500/20 text-slate-400 hover:text-cyan-300 transition text-[11px] font-medium" title="该主机未挂载数据库，点击即刻关联">+ 数据库</button>`;
+        // 免审批规则计算 (完全对齐截图 media_1790005504904.png)
+        const bypassRule = serverAIBypassRules[s.id];
+        let bypassActive = false;
+        let bypassStatusText = '未开启';
+        if (bypassRule) {
+          if (bypassRule.type === 'permanent') {
+            bypassActive = true;
+            bypassStatusText = '已开启 (永久有效)';
+          } else if (bypassRule.expiresAt && Date.now() < bypassRule.expiresAt) {
+            bypassActive = true;
+            const diffMin = Math.ceil((bypassRule.expiresAt - Date.now()) / (60 * 1000));
+            if (diffMin < 60) {
+              bypassStatusText = `已开启 (剩余 ${diffMin} 分钟)`;
+            } else {
+              const h = Math.floor(diffMin / 60);
+              const m = diffMin % 60;
+              bypassStatusText = `已开启 (剩余 ${h} 小时${m > 0 ? ' ' + m + ' 分钟' : ''})`;
+            }
+          }
+        }
+        const bypassTooltip = bypassActive ? `AI免审批：${bypassStatusText}，点击修改` : 'AI免审批：点击设置';
 
-        // 系统图标
-        const osIcon = s.osType === 'windows' ? 
-          `<i data-lucide="monitor" class="w-3.5 h-3.5 text-blue-400" title="Windows 平台"></i>` :
-          `<i data-lucide="server" class="w-3.5 h-3.5 text-slate-400" title="Linux 平台"></i>`;
-
+        // 当前所属分组名称与胶囊下拉
         return `
-          <tr class="hover:bg-surface-850/60 transition group">
-            <td class="p-3">
-              <input type="checkbox" onchange="handleRowSelectChange('${s.id}', this.checked)" ${isChecked ? 'checked' : ''} class="server-row-chk rounded bg-surface-800 border-slate-700 cursor-pointer">
+          <tr class="hover:bg-surface-850/60 transition group border-b border-slate-800/40">
+            <!-- 1. 选择框 + 收藏星标 -->
+            <td class="p-3 text-center">
+              <div class="flex items-center justify-center space-x-1.5">
+                <input type="checkbox" onchange="handleRowSelectChange('${s.id}', this.checked)" ${isChecked ? 'checked' : ''} class="server-row-chk rounded bg-surface-800 border-slate-700 cursor-pointer">
+                <button onclick="toggleStarServer('${s.id}')" class="p-0.5 rounded cursor-pointer transition text-slate-500 hover:text-amber-400" title="${s.isStarred ? '取消收藏' : '加入收藏'}">
+                  <i data-lucide="star" class="w-3.5 h-3.5 ${s.isStarred ? 'text-amber-400 fill-amber-400' : 'text-slate-500'}"></i>
+                </button>
+              </div>
             </td>
+
+            <!-- 2. 别名 / 主机 (左侧系统图标，第一行别名+锁标，第二行连接地址+标签) -->
             <td class="p-3">
-              <div class="flex items-center space-x-2">
-                <span class="w-2 h-2 rounded-full bg-emerald-500 shrink-0" title="在线延迟 ${s.latency}"></span>
-                <div>
-                  <div class="font-bold text-white flex items-center space-x-1.5">
-                    <span>${s.name}</span>
-                    ${osIcon}
-                    <button onclick="toggleStarServer('${s.id}')" class="p-0.5 rounded cursor-pointer transition" title="${s.isStarred ? '取消收藏' : '收藏此服务器'}">
-                      <i data-lucide="star" class="w-3 h-3 ${starClass}"></i>
-                    </button>
+              <div class="flex items-center space-x-2.5">
+                ${osBadgeHtml}
+                <div class="min-w-0">
+                  <div class="flex items-center space-x-1.5 font-bold text-slate-100">
+                    <span class="truncate hover:text-brand-300 cursor-pointer transition text-xs" onclick="switchHost('${s.id}'); switchTab('tab-workbench')">${s.name}</span>
+                    <i data-lucide="lock" class="w-3 h-3 text-slate-500 shrink-0" title="AES-256 主密钥安全托管"></i>
                   </div>
-                  <div class="flex flex-wrap gap-1 mt-0.5">${tagPills}</div>
+                  <div class="flex flex-wrap items-center gap-1.5 mt-0.5">
+                    <span class="font-mono text-[11px] text-slate-400">${s.user}@${s.ip}${s.port !== 22 ? ':' + s.port : ''}</span>
+                    ${tagPills}
+                  </div>
                 </div>
               </div>
             </td>
-            <td class="p-3 font-mono text-slate-300">
-              <div>${s.user}@${s.ip}:${s.port}</div>
-              <div onclick="openPingTestModal('${s.id}')" class="text-[10px] text-emerald-400 flex items-center space-x-1 cursor-pointer hover:underline" title="点击查看深度连通性与握手诊断报告">
-                <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block"></span>
-                <span id="latency-text-${s.id}">${s.latency} · 稳定在线</span>
+
+            <!-- 3. 分组 (绿色微光胶囊下拉选择) -->
+            <td class="p-3">
+              <div class="relative inline-flex items-center">
+                <select onchange="changeServerGroup('${s.id}', this.value)" class="appearance-none bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-full pl-2.5 pr-5 py-0.5 text-[11px] font-medium cursor-pointer focus:outline-none transition" title="点击更改所属分组">
+                  ${customServerGroups.map(g => `<option value="${g.id}" class="bg-surface-900 text-slate-200" ${s.group === g.id || s.group === g.name ? 'selected' : ''}>${g.name}</option>`).join('')}
+                </select>
+                <i data-lucide="chevron-down" class="w-3 h-3 text-emerald-400 pointer-events-none absolute right-1.5"></i>
               </div>
             </td>
-            <td class="p-3">
-              <div class="text-slate-200">${s.osDesc}</div>
-              <div class="text-[10px] text-slate-500 font-mono">${s.arch}</div>
+
+            <!-- 4. AI 策略 (完全对齐截图 media_1790004662510.png 胶囊下拉选择 + 5个彩色胶囊药丸选项) -->
+            <td class="p-3 relative">
+              <div class="flex items-center space-x-1.5">
+                <div class="relative">
+                  <button onclick="toggleServerAIPolicyMenu(event, '${s.id}')" class="px-2.5 py-0.5 rounded-full text-[11px] font-medium ${curPolicyCfg.btnBg} border flex items-center space-x-1.5 transition cursor-pointer hover:opacity-90 shadow-sm" title="点击切换 AI 策略">
+                    <span class="w-1.5 h-1.5 rounded-full ${curPolicyCfg.dot}"></span>
+                    <span>${curPolicyCfg.label}</span>
+                    <i data-lucide="chevron-down" class="w-3 h-3 opacity-70"></i>
+                  </button>
+
+                  <!-- 浮层下拉框 (5个胶囊药丸: 禁用/只读/审批/白名单/信任) -->
+                  <div id="aiPolicyMenu-${s.id}" class="hidden ai-policy-menu-pop absolute left-0 top-7 z-50 p-2 rounded-2xl bg-surface-900/98 border border-slate-700/90 shadow-2xl backdrop-blur-xl space-y-1.5 min-w-[100px] animate-in fade-in zoom-in-95">
+                    <button onclick="changeServerAIPolicy('${s.id}', 'disabled')" class="w-full flex items-center space-x-2 px-3 py-1 rounded-full text-xs font-medium bg-slate-800/40 hover:bg-slate-700/60 border border-slate-600/70 text-slate-300 transition cursor-pointer">
+                      <span class="w-2 h-2 rounded-full bg-slate-400 shrink-0"></span>
+                      <span>禁用</span>
+                    </button>
+                    <button onclick="changeServerAIPolicy('${s.id}', 'readonly')" class="w-full flex items-center space-x-2 px-3 py-1 rounded-full text-xs font-medium bg-emerald-950/40 hover:bg-emerald-900/50 border border-emerald-500/50 text-emerald-400 transition cursor-pointer">
+                      <span class="w-2 h-2 rounded-full bg-emerald-400 shrink-0"></span>
+                      <span>只读</span>
+                    </button>
+                    <button onclick="changeServerAIPolicy('${s.id}', 'approval')" class="w-full flex items-center space-x-2 px-3 py-1 rounded-full text-xs font-medium bg-cyan-950/40 hover:bg-cyan-900/50 border border-cyan-500/50 text-cyan-300 transition cursor-pointer">
+                      <span class="w-2 h-2 rounded-full bg-cyan-400 shrink-0"></span>
+                      <span>审批</span>
+                    </button>
+                    <button onclick="changeServerAIPolicy('${s.id}', 'allowlist')" class="w-full flex items-center space-x-2 px-3 py-1 rounded-full text-xs font-medium bg-amber-950/40 hover:bg-amber-900/50 border border-amber-500/50 text-amber-400 transition cursor-pointer">
+                      <span class="w-2 h-2 rounded-full bg-amber-400 shrink-0"></span>
+                      <span>白名单</span>
+                    </button>
+                    <button onclick="changeServerAIPolicy('${s.id}', 'trusted')" class="w-full flex items-center space-x-2 px-3 py-1 rounded-full text-xs font-medium bg-rose-950/40 hover:bg-rose-900/50 border border-rose-500/50 text-rose-300 transition cursor-pointer">
+                      <span class="w-2 h-2 rounded-full bg-rose-400 shrink-0"></span>
+                      <span>信任</span>
+                    </button>
+                  </div>
+                </div>
+
+                <!-- AI 限时免审批机器人头像按钮与浮层卡片 (完全还原用户截图 media_1790005504904.png) -->
+                <div class="relative">
+                  <button type="button" onclick="toggleServerAIBypassMenu(event, '${s.id}')" class="p-0.5 rounded transition cursor-pointer hover:bg-slate-700/30 flex items-center justify-center select-none" title="${bypassTooltip}">
+                    <i data-lucide="bot" class="w-3.5 h-3.5 ${bypassActive ? 'text-cyan-400 drop-shadow-[0_0_6px_rgba(34,211,238,0.85)]' : 'text-slate-500 hover:text-slate-300'}"></i>
+                  </button>
+
+                  <!-- 弹出免审批设置卡片 -->
+                  <div id="aiBypassMenu-${s.id}" class="hidden ai-bypass-menu-pop absolute left-0 top-7 z-50 p-3.5 rounded-2xl bg-[#18181c] border border-slate-700/90 shadow-2xl backdrop-blur-xl w-72 text-left animate-in fade-in zoom-in-95 select-none" onclick="event.stopPropagation()">
+                    <div class="flex items-center space-x-2 mb-2">
+                      <i data-lucide="bot" class="w-4 h-4 text-cyan-400"></i>
+                      <span class="font-semibold text-xs text-slate-100">AI 限时免审批</span>
+                    </div>
+                    <p class="text-[11px] leading-relaxed text-slate-300/80 mb-3">
+                      窗口内，AI 在本服务器上的命令 / 文件写入 / 部署，凡是「只因需要审批」被拦的自动放行，不再弹窗。仍会拦：危险命令、连白名单外的地址、来源可疑的命令；全局总开关关闭或档位为「禁用 / 只读」时一样不放行。单次最长 4 小时，到点自动失效。
+                    </p>
+                    <div class="flex items-center justify-between text-xs mb-3 pb-2 border-b border-slate-800">
+                      <span class="text-[11px] font-medium ${bypassActive ? 'text-cyan-400' : 'text-slate-400'}">
+                        ${bypassStatusText}
+                      </span>
+                      ${bypassActive ? `<button type="button" onclick="closeServerAIBypass('${s.id}')" class="text-[11px] text-rose-400 hover:text-rose-300 transition cursor-pointer hover:underline">关闭免审批</button>` : ''}
+                    </div>
+                    <div class="flex flex-wrap items-center gap-2">
+                      <button type="button" onclick="setServerAIBypass('${s.id}', '30m')" class="px-2.5 py-1 rounded-lg text-xs transition cursor-pointer border ${bypassRule && bypassRule.type === '30m' ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/50' : 'bg-slate-800 text-slate-200 border-slate-700 hover:bg-slate-700'}">开 30 分钟</button>
+                      <button type="button" onclick="setServerAIBypass('${s.id}', '2h')" class="px-2.5 py-1 rounded-lg text-xs transition cursor-pointer border ${bypassRule && bypassRule.type === '2h' ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/50' : 'bg-slate-800 text-slate-200 border-slate-700 hover:bg-slate-700'}">开 2 小时</button>
+                      <button type="button" onclick="setServerAIBypass('${s.id}', '4h')" class="px-2.5 py-1 rounded-lg text-xs transition cursor-pointer border ${bypassRule && bypassRule.type === '4h' ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/50' : 'bg-slate-800 text-slate-200 border-slate-700 hover:bg-slate-700'}">开 4 小时</button>
+                      <button type="button" onclick="setServerAIBypass('${s.id}', 'permanent')" class="px-2.5 py-1 rounded-lg text-xs transition cursor-pointer border ${bypassRule && bypassRule.type === 'permanent' ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/50' : 'bg-slate-800 text-slate-200 border-slate-700 hover:bg-slate-700'}">永久有效</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </td>
-            <td class="p-3">
-              <span class="px-1.5 py-0.5 rounded text-[10px] bg-surface-800 text-slate-300 border border-slate-700 font-mono">${s.authType}</span>
+
+
+            <!-- 5. 凭证指示 (绿色盾牌图标，主密钥安全托管) -->
+            <td class="p-3 text-center">
+              <i data-lucide="shield-check" class="w-4 h-4 text-emerald-400 mx-auto" title="AES-256 主密钥安全托管于系统钥匙串"></i>
             </td>
+
+            <!-- 6. 状态 (🟢 延迟时间毫秒) -->
             <td class="p-3">
-              ${policyBadge}
+              <div onclick="openPingTestModal('${s.id}')" class="flex items-center space-x-1.5 text-xs text-emerald-400 font-mono font-medium cursor-pointer hover:underline" title="点击查看连通性与握手诊断报告">
+                <span class="w-2 h-2 rounded-full bg-emerald-400 inline-block animate-pulse"></span>
+                <span id="latency-text-${s.id}">${s.latency}</span>
+              </div>
             </td>
-            <td class="p-3 text-right space-x-1 whitespace-nowrap">
-              <button onclick="switchHost('${s.id}'); switchTab('tab-workbench')" class="px-2 py-1 rounded bg-brand-600/30 hover:bg-brand-600 text-brand-300 hover:text-white transition text-[11px] font-medium">工作台</button>
-              <button onclick="switchHost('${s.id}'); switchTab('tab-terminal')" class="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-cyan-300 transition text-[11px] font-medium">终端</button>
-              <button onclick="switchHost('${s.id}'); switchTab('tab-sftp')" class="px-2 py-1 rounded bg-amber-500/20 hover:bg-amber-600 text-amber-300 hover:text-white transition text-[11px] font-medium">SFTP</button>
-              ${dbBtn}
-              <button onclick="testServerPing('${s.id}')" id="btn-quick-ping-${s.id}" class="px-2 py-1 rounded bg-surface-800 hover:bg-emerald-600/30 text-slate-300 hover:text-emerald-300 border border-slate-700 transition text-[11px]" title="快速连通性 Ping 测通">⚡</button>
-              <button onclick="openEditServerModal('${s.id}')" class="px-2 py-1 rounded bg-surface-800 hover:bg-surface-700 text-slate-300 hover:text-white border border-slate-700 transition text-[11px]" title="编辑服务器属性">✏️</button>
-              <button onclick="confirmDeleteServer('${s.id}')" class="px-1.5 py-1 rounded bg-surface-800 hover:bg-rose-500/20 text-slate-400 hover:text-rose-400 border border-slate-700 transition text-[11px]" title="移除此资产">✕</button>
+
+            <!-- 7. 操作列 (连接按钮 + 7个纯图标按钮，鼠标悬停显示文案) -->
+            <td class="p-3 text-right whitespace-nowrap">
+              <div class="flex items-center justify-end space-x-1">
+                <!-- 主操作：连接 -->
+                <button onclick="connectServer('${s.id}')" class="px-2.5 py-1 rounded-lg bg-teal-500/20 hover:bg-teal-500/35 text-teal-300 hover:text-teal-100 border border-teal-500/40 text-xs font-medium flex items-center space-x-1 transition shadow-sm cursor-pointer" title="立即发起终端连接">
+                  <i data-lucide="square-terminal" class="w-3.5 h-3.5"></i>
+                  <span>连接</span>
+                </button>
+
+                <!-- 1. 在 SFTP 中打开 -->
+                <button onclick="openServerSFTP('${s.id}')" class="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-surface-700/80 transition cursor-pointer border border-transparent hover:border-slate-600/50" title="在 SFTP 中打开">
+                  <i data-lucide="folder-sync" class="w-3.5 h-3.5"></i>
+                </button>
+
+                <!-- 2. 打开工作台 -->
+                <button onclick="switchHost('${s.id}'); switchTab('tab-workbench')" class="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-surface-700/80 transition cursor-pointer border border-transparent hover:border-slate-600/50" title="打开工作台">
+                  <i data-lucide="layout-dashboard" class="w-3.5 h-3.5"></i>
+                </button>
+
+                <!-- 3. 连接测试 -->
+                <button onclick="testServerPing('${s.id}')" id="btn-quick-ping-${s.id}" class="p-1.5 rounded-lg text-slate-400 hover:text-emerald-400 hover:bg-surface-700/80 transition cursor-pointer border border-transparent hover:border-slate-600/50" title="连接测试">
+                  <i data-lucide="wifi" class="w-3.5 h-3.5"></i>
+                </button>
+
+                <!-- 4. 隧道 -->
+                <button onclick="openTunnelModal('${s.id}')" class="p-1.5 rounded-lg text-slate-400 hover:text-cyan-400 hover:bg-surface-700/80 transition cursor-pointer border border-transparent hover:border-slate-600/50" title="隧道">
+                  <i data-lucide="network" class="w-3.5 h-3.5"></i>
+                </button>
+
+                <!-- 5. 服务凭证 (显示微标数字 2) -->
+                <button onclick="openServerCredentialsModal('${s.id}')" class="p-1.5 rounded-lg text-slate-400 hover:text-teal-300 hover:bg-surface-700/80 transition cursor-pointer border border-transparent hover:border-slate-600/50 relative" title="服务凭证">
+                  <i data-lucide="database" class="w-3.5 h-3.5"></i>
+                  ${s.hasDb ? '<span class="absolute -top-1 -right-1 min-w-3.5 h-3.5 px-0.5 rounded-full bg-teal-500 text-surface-950 font-bold text-[9px] flex items-center justify-center leading-none">2</span>' : ''}
+                </button>
+
+                <!-- 6. 编辑 -->
+                <button onclick="openEditServerModal('${s.id}')" class="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-surface-700/80 transition cursor-pointer border border-transparent hover:border-slate-600/50" title="编辑">
+                  <i data-lucide="pencil" class="w-3.5 h-3.5"></i>
+                </button>
+
+                <!-- 7. 删除 -->
+                <button onclick="confirmDeleteServer('${s.id}')" class="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-surface-700/80 transition cursor-pointer border border-transparent hover:border-slate-600/50" title="删除">
+                  <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                </button>
+              </div>
             </td>
           </tr>
         `;
@@ -6581,6 +7548,14 @@ REDIS_AUTH="${****@}" [已拦截脱敏]</div>
       setVal('grpCount-prod', prod);
       setVal('grpCount-test', test);
 
+      // 统计所有自定义分组与多级子分组主机计数
+      if (typeof customServerGroups !== 'undefined' && Array.isArray(customServerGroups)) {
+        customServerGroups.forEach(g => {
+          const count = serverList.filter(s => s.group === g.id || s.group === g.name).length;
+          setVal('grpCount-' + g.id, count);
+        });
+      }
+
       setVal('countOSAll', total);
       setVal('countOSLinux', linux);
       setVal('countOSWindows', windows);
@@ -6593,12 +7568,16 @@ REDIS_AUTH="${****@}" [已拦截脱敏]</div>
     // 切换左侧分组
     function selectServerGroup(grpId) {
       currentServerGroup = grpId;
-      document.querySelectorAll('#serverGroupList > div').forEach(div => {
-        div.className = 'p-2 rounded-lg hover:bg-surface-800 text-slate-300 flex items-center justify-between cursor-pointer transition';
+      document.querySelectorAll('#serverGroupList [id^="grp-"]').forEach(div => {
+        div.classList.remove('bg-brand-500/15', 'text-brand-300', 'font-medium', 'border-brand-500/40');
+        div.classList.add('border-transparent');
+        if (!div.classList.contains('hover:bg-surface-800')) div.classList.add('hover:bg-surface-800');
+        if (!div.classList.contains('text-slate-300')) div.classList.add('text-slate-300');
       });
       const activeDiv = document.getElementById('grp-' + grpId);
       if (activeDiv) {
-        activeDiv.className = 'p-2 rounded-lg bg-brand-500/15 text-brand-300 font-medium flex items-center justify-between cursor-pointer transition';
+        activeDiv.classList.remove('hover:bg-surface-800', 'text-slate-300', 'border-transparent');
+        activeDiv.classList.add('bg-brand-500/15', 'text-brand-300', 'font-medium', 'border-brand-500/40');
       }
       renderServerTable();
     }
@@ -6763,7 +7742,7 @@ REDIS_AUTH="${****@}" [已拦截脱敏]</div>
         const randLatency = Math.floor(Math.random() * 20) + 10;
         const s = serverList.find(x => x.id === id);
         if (s) s.latency = randLatency + 'ms';
-        if (btn) btn.innerHTML = '⚡';
+        if (btn) btn.innerHTML = '<i data-lucide="wifi" class="w-3.5 h-3.5"></i>';
         if (textEl) textEl.innerText = `${randLatency}ms · 稳定在线`;
         showToast(`🟢 主机 [${id}] Ping 探测正常，延迟 ${randLatency}ms (握手耗时 3.4ms)`);
         lucide.createIcons();
@@ -6792,8 +7771,82 @@ REDIS_AUTH="${****@}" [已拦截脱敏]</div>
       }, 800);
     }
 
+    let currentAddServerPlatform = 'linux';
+
+    function switchAddServerPlatform(platform) {
+      currentAddServerPlatform = platform;
+      const cardLinux = document.getElementById('proto-card-linux');
+      const cardWindows = document.getElementById('proto-card-windows');
+      const subtitle = document.getElementById('addServerSubtitle');
+      const winGuideBtn = document.getElementById('addServerWinGuideBtn');
+      const userInput = document.getElementById('newHostUser');
+      const aliasInput = document.getElementById('newHostAlias');
+      const ipInput = document.getElementById('newHostIp');
+      const labelPwd = document.getElementById('labelPwdField');
+      const pwdInput = document.getElementById('newHostPassword');
+      const labelSudo = document.getElementById('labelSudoField');
+      const tipAi = document.getElementById('tipAiUser');
+
+      if (platform === 'windows') {
+        if (cardLinux) cardLinux.className = 'p-3 rounded-xl border border-slate-700 bg-surface-950 hover:border-slate-500 cursor-pointer flex items-center space-x-3 transition';
+        if (cardWindows) cardWindows.className = 'p-3 rounded-xl border-2 border-brand-500 bg-brand-500/10 cursor-pointer flex items-center space-x-3 transition shadow-sm';
+        if (subtitle) subtitle.innerText = 'OpenSSH / PowerShell 与 AI 运维策略';
+        if (winGuideBtn) winGuideBtn.classList.remove('hidden');
+
+        if (userInput && (!userInput.value || userInput.value === 'root')) {
+          userInput.value = 'Administrator';
+        }
+        if (aliasInput) aliasInput.placeholder = '如: win-server-01';
+        if (ipInput) ipInput.placeholder = '192.168.1.120 或 win-pc.corp';
+        if (labelPwd) labelPwd.innerHTML = '<span class="text-rose-400">*</span> Windows 登录密码';
+        if (pwdInput) pwdInput.placeholder = '输入 Windows 登录密码 (如 Administrator 密码)';
+        if (labelSudo) labelSudo.innerHTML = '<span>以管理员权限运行 (UAC 提权)</span><span title="允许 AI 在执行 PowerShell / CMD 命令时请求管理员特权" class="cursor-help text-slate-400 hover:text-slate-300">🛈</span>';
+        if (tipAi) tipAi.title = '留空 = AI 也用主账号；填了保存后会通过 PowerShell New-LocalUser 自动创建受限本地运维账号 (免装 agent)';
+      } else {
+        if (cardLinux) cardLinux.className = 'p-3 rounded-xl border-2 border-brand-500 bg-brand-500/10 cursor-pointer flex items-center space-x-3 transition shadow-sm';
+        if (cardWindows) cardWindows.className = 'p-3 rounded-xl border border-slate-700 bg-surface-950 hover:border-slate-500 cursor-pointer flex items-center space-x-3 transition';
+        if (subtitle) subtitle.innerText = 'SSH 连接与 AI 运维策略';
+        if (winGuideBtn) winGuideBtn.classList.add('hidden');
+
+        if (userInput && userInput.value.toLowerCase() === 'administrator') {
+          userInput.value = 'root';
+        }
+        if (aliasInput) aliasInput.placeholder = '如: prod-k8s-master-01';
+        if (ipInput) ipInput.placeholder = '192.168.1.120 或 api.internal';
+        if (labelPwd) labelPwd.innerHTML = '<span class="text-rose-400">*</span> SSH 登录密码';
+        if (pwdInput) pwdInput.placeholder = '输入本次连接凭据';
+        if (labelSudo) labelSudo.innerHTML = '<span>允许 sudo 提权</span><span title="允许 AI 执行特权命令时使用 sudo 提权" class="cursor-help text-slate-400 hover:text-slate-300">🛈</span>';
+        if (tipAi) tipAi.title = '留空 = AI 也用主账号；填了保存后会自动远程 useradd -m -s /bin/bash (不会装任何 agent)';
+      }
+      lucide.createIcons();
+    }
+
     // 新增服务器弹窗交互 (modalAddServer)
     function openAddServerModal() {
+      // 动态填充跳板机下拉项与分组建议
+      const bastionSelect = document.getElementById('newHostBastion');
+      if (bastionSelect) {
+        bastionSelect.innerHTML = '<option value="">直连 (不经跳板机)</option>';
+        serverList.forEach(s => {
+          const opt = document.createElement('option');
+          opt.value = s.id;
+          opt.textContent = `${s.name} (${s.ip}:${s.port || 22})`;
+          bastionSelect.appendChild(opt);
+        });
+      }
+
+      const groupDatalist = document.getElementById('groupSuggestions');
+      if (groupDatalist) {
+        const groups = Array.from(new Set(serverList.map(s => s.group).filter(Boolean)));
+        groupDatalist.innerHTML = '';
+        groups.forEach(g => {
+          const opt = document.createElement('option');
+          opt.value = g;
+          groupDatalist.appendChild(opt);
+        });
+      }
+
+      switchAddServerPlatform('linux');
       document.getElementById('modalAddServer').classList.remove('hidden');
       lucide.createIcons();
     }
@@ -6804,40 +7857,45 @@ REDIS_AUTH="${****@}" [已拦截脱敏]</div>
       if (feedback) feedback.classList.add('hidden');
     }
 
-    function switchAddServerProto(proto) {
-      ['linux', 'windows', 'bastion'].forEach(p => {
-        const el = document.getElementById('proto-opt-' + p);
-        if (el) {
-          el.className = 'p-2.5 rounded-xl border border-slate-700 bg-surface-950 cursor-pointer flex items-center space-x-2.5 hover:border-slate-500 transition';
-        }
-      });
-      const activeEl = document.getElementById('proto-opt-' + proto);
-      if (activeEl) {
-        activeEl.className = 'p-2.5 rounded-xl border-2 border-brand-500 bg-brand-500/10 cursor-pointer flex items-center space-x-2.5 transition';
+    function fillDefaultAiUser() {
+      const input = document.getElementById('newHostAiUser');
+      if (input) {
+        const defaultName = currentAddServerPlatform === 'windows' ? 'ai_ops' : 'ai-ops';
+        input.value = defaultName;
+        showToast(`🪄 已填入默认 AI 运维专用账号: ${defaultName}`);
       }
-      const portInput = document.getElementById('newHostPort');
-      const userInput = document.getElementById('newHostUser');
-      if (proto === 'windows') {
-        portInput.value = '22';
-        userInput.value = 'administrator';
+    }
+
+    function togglePasswordVisibility(inputId, btn) {
+      const input = document.getElementById(inputId);
+      if (!input) return;
+      if (input.type === 'password') {
+        input.type = 'text';
+        btn.textContent = '🔒';
       } else {
-        portInput.value = '22';
-        userInput.value = 'root';
+        input.type = 'password';
+        btn.textContent = '👁️';
       }
     }
 
     function handleAuthTypeChange(authType) {
       const pwdField = document.getElementById('newHostPasswordField');
-      if (pwdField) {
-        if (authType === 'password') pwdField.classList.remove('hidden');
-        else pwdField.classList.add('hidden');
+      const keyField = document.getElementById('newHostKeyField');
+      if (authType === 'password') {
+        if (pwdField) pwdField.classList.remove('hidden');
+        if (keyField) keyField.classList.add('hidden');
+      } else {
+        if (pwdField) pwdField.classList.add('hidden');
+        if (keyField) keyField.classList.remove('hidden');
       }
     }
 
     function testNewServerConnection() {
       const ip = document.getElementById('newHostIp').value.trim();
+      const port = document.getElementById('newHostPort').value.trim() || '22';
       if (!ip) {
-        showToast('⚠️ 请先填写连接地址 (IP / 域名)');
+        showToast('⚠️ 请先填写连接地址 (主机)');
+        document.getElementById('newHostIp').focus();
         return;
       }
       const feedback = document.getElementById('addServerPingFeedback');
@@ -6846,25 +7904,30 @@ REDIS_AUTH="${****@}" [已拦截脱敏]</div>
       const lat = document.getElementById('addServerPingLatency');
       feedback.classList.remove('hidden');
       dot.className = 'w-2 h-2 rounded-full bg-amber-400 animate-ping';
-      msg.innerText = `正在连接 ${ip}:22 进行 SSH 协议握手...`;
+      msg.innerText = `正在连接 ${ip}:${port} 进行 TCP 握手探测...`;
       lat.innerText = '--';
 
       setTimeout(() => {
         dot.className = 'w-2 h-2 rounded-full bg-emerald-400';
-        msg.innerText = '🟢 握手探测成功！(OpenSSH_8.9p1 · 鉴权通道正常)';
-        lat.innerText = '15ms';
-        showToast('✓ 连通性测试通过！该服务器随时可被安全纳管。');
-      }, 900);
+        msg.innerText = '🟢 TCP 握手探测成功！(端口响应正常 · 鉴权通道可达)';
+        lat.innerText = '12ms';
+        showToast(`✓ 连通性测试通过！[${currentAddServerPlatform === 'windows' ? 'Windows' : 'Linux'}] 服务器随时可被纳管。`);
+      }, 700);
     }
 
     function saveNewServer() {
       const alias = document.getElementById('newHostAlias').value.trim();
       const ip = document.getElementById('newHostIp').value.trim();
       const port = parseInt(document.getElementById('newHostPort').value) || 22;
-      const user = document.getElementById('newHostUser').value.trim() || 'root';
-      const group = document.getElementById('newHostGroup').value;
+      const user = document.getElementById('newHostUser').value.trim() || (currentAddServerPlatform === 'windows' ? 'Administrator' : 'root');
+      const authType = document.getElementById('newHostAuthType').value;
+      const aiUser = (document.getElementById('newHostAiUser')?.value || '').trim();
+      const group = (document.getElementById('newHostGroup')?.value || '').trim() || '默认';
       const tagsStr = document.getElementById('newHostTags').value.trim();
       const aiPolicyCode = document.getElementById('newHostAIPolicy').value;
+      const allowSudo = document.getElementById('newHostAllowSudo')?.checked || false;
+      const useLocalProxy = document.getElementById('newHostUseLocalProxy')?.checked || false;
+      const bastionId = document.getElementById('newHostBastion')?.value || null;
 
       if (!alias) {
         showToast('⚠️ 请输入主机别名！');
@@ -6872,7 +7935,7 @@ REDIS_AUTH="${****@}" [已拦截脱敏]</div>
         return;
       }
       if (!ip) {
-        showToast('⚠️ 请输入连接地址 (IP / 域名)！');
+        showToast('⚠️ 请输入连接地址！');
         document.getElementById('newHostIp').focus();
         return;
       }
@@ -6880,27 +7943,32 @@ REDIS_AUTH="${****@}" [已拦截脱敏]</div>
       const policyMap = {
         'strict': 'Strict Approval (需审批)',
         'readonly': 'Read-Only (纯只读探测)',
-        'autonomous': 'Autonomous (自主排障)',
+        'trusted': 'Autonomous (完全信任)',
         'disabled': 'Disabled (已禁用AI)'
       };
 
-      const tags = tagsStr ? tagsStr.split(/[,，]/).map(t => t.trim()).filter(Boolean) : ['生产环境'];
+      const defaultTags = currentAddServerPlatform === 'windows' ? ['Windows', '生产环境'] : ['自用'];
+      const tags = tagsStr ? tagsStr.split(/[,，、]/).map(t => t.trim()).filter(Boolean) : defaultTags;
       const newHost = {
         id: alias.toLowerCase().replace(/\s+/g, '-'),
         name: alias,
-        osType: ip.includes('win') ? 'windows' : 'linux',
-        osDesc: 'Ubuntu 22.04 LTS',
+        osType: currentAddServerPlatform,
+        osDesc: currentAddServerPlatform === 'windows' ? 'Windows Server 2022 / 11' : 'Ubuntu 22.04 LTS',
         arch: 'x86_64 · 4 vCPU 8GB',
         user: user,
         ip: ip,
         port: port,
-        authType: '私钥 (id_ed25519)',
+        authType: authType === 'password' ? '密码认证' : '私钥认证',
         status: 'online',
-        latency: '15ms',
+        latency: '12ms',
         group: group,
         tags: tags,
-        aiPolicy: policyMap[aiPolicyCode] || 'Strict Approval (需审批)',
+        aiPolicy: policyMap[aiPolicyCode] || 'Autonomous (完全信任)',
         aiPolicyCode: aiPolicyCode,
+        allowSudo: allowSudo,
+        useLocalProxy: useLocalProxy,
+        bastionId: bastionId,
+        aiUsername: aiUser,
         isStarred: false,
         hasDb: false
       };
@@ -6908,10 +7976,13 @@ REDIS_AUTH="${****@}" [已拦截脱敏]</div>
       serverList.unshift(newHost);
       closeAddServerModal();
       renderServerTable();
-      showToast(`🎉 成功纳管新服务器节点 [${newHost.name}]！`);
+      showToast(`🎉 成功纳管新服务器节点 [${newHost.name}] (${newHost.osType === 'windows' ? 'Windows' : 'Linux'})！`);
       // 重置输入框
       document.getElementById('newHostAlias').value = '';
       document.getElementById('newHostIp').value = '';
+      document.getElementById('newHostAiUser').value = '';
+      document.getElementById('newHostAllowSudo').checked = false;
+      document.getElementById('newHostUseLocalProxy').checked = false;
     }
 
     // 编辑服务器弹窗交互 (modalEditServer)
@@ -7077,44 +8148,626 @@ REDIS_AUTH="${****@}" [已拦截脱敏]</div>
       document.getElementById('modalAddGroup').classList.add('hidden');
     }
 
+    // 新建分组弹窗交互 (modalAddGroup)
+    function openAddGroupModal() {
+      document.getElementById('modalAddGroup').classList.remove('hidden');
+      lucide.createIcons();
+    }
+
+    function closeAddGroupModal() {
+      document.getElementById('modalAddGroup').classList.add('hidden');
+    }
+
     function saveNewGroup() {
       const name = document.getElementById('newGroupName').value.trim();
+      const parent = document.getElementById('newGroupParent')?.value || 'root';
       if (!name) {
         showToast('⚠️ 请输入分组名称');
         return;
       }
       const grpId = 'custom-' + Date.now();
-      customServerGroups.push({ id: grpId, name: name });
+      customServerGroups.push({
+        id: grpId,
+        name: name,
+        parentId: parent === 'root' ? null : parent,
+        icon: 'folder'
+      });
 
-      // 动态追加到左侧分组列表
-      const container = document.getElementById('customGroupContainer');
-      const div = document.createElement('div');
-      div.id = 'grp-' + grpId;
-      div.onclick = () => selectServerGroup(grpId);
-      div.className = 'p-2 rounded-lg hover:bg-surface-800 text-slate-300 flex items-center justify-between cursor-pointer transition';
-      div.innerHTML = `
-        <span class="flex items-center space-x-2 min-w-0 pr-1">
-          <i data-lucide="folder" class="w-3.5 h-3.5 text-brand-400 shrink-0"></i>
-          <span class="truncate max-w-[95px]" title="${name}">${name}</span>
-        </span>
-        <span id="grpCount-${grpId}" class="text-[11px] text-slate-500 font-mono">0</span>
-      `;
-      container.appendChild(div);
-
-      // 追加到新增服务器的分组下拉列表
-      const addSel = document.getElementById('newHostGroup');
-      if (addSel) {
-        const opt = document.createElement('option');
-        opt.value = grpId;
-        opt.innerText = name;
-        addSel.appendChild(opt);
-      }
-
+      renderServerGroupList();
       closeAddGroupModal();
       document.getElementById('newGroupName').value = '';
-      lucide.createIcons();
       showToast(`✓ 已成功创建新分组 [${name}]`);
     }
+
+    // 拖拽移动分组建立父子级与同级排序状态
+    let draggedGroupId = null;
+    let currentDropTargetId = null;
+    let currentDropPosition = 'inside'; // 'before' | 'inside' | 'after'
+
+    function isGroupDescendant(parentGrpId, testGrpId) {
+      let curr = customServerGroups.find(g => g.id === testGrpId);
+      while (curr && curr.parentId && curr.parentId !== 'root') {
+        if (curr.parentId === parentGrpId) return true;
+        curr = customServerGroups.find(g => g.id === curr.parentId);
+      }
+      return false;
+    }
+
+    function handleGroupDragStart(e, grpId) {
+      draggedGroupId = grpId;
+      e.dataTransfer.setData('text/plain', grpId);
+      e.dataTransfer.effectAllowed = 'move';
+      const el = document.getElementById('grp-' + grpId);
+      if (el) el.classList.add('opacity-40');
+    }
+
+    function clearDragIndicators(el) {
+      if (!el) return;
+      el.classList.remove(
+        'ring-2', 'ring-brand-500', 'bg-brand-500/20',
+        'border-t-2', 'border-t-brand-400', 'bg-brand-500/10',
+        'border-b-2', 'border-b-brand-400'
+      );
+    }
+
+    function handleGroupDragOver(e, targetId) {
+      if (!draggedGroupId || draggedGroupId === targetId) return;
+      if (isGroupDescendant(draggedGroupId, targetId)) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+
+      const targetEl = document.getElementById('grp-' + targetId);
+      if (!targetEl) return;
+
+      const rect = targetEl.getBoundingClientRect();
+      const ratio = (e.clientY - rect.top) / rect.height;
+
+      let pos = 'inside';
+      if (ratio < 0.25) pos = 'before';
+      else if (ratio > 0.75) pos = 'after';
+      else pos = 'inside';
+
+      currentDropTargetId = targetId;
+      currentDropPosition = pos;
+
+      clearDragIndicators(targetEl);
+      const hint = document.getElementById('dragHint-' + targetId);
+
+      if (pos === 'before') {
+        targetEl.classList.add('border-t-2', 'border-t-brand-400', 'bg-brand-500/10');
+        if (hint) {
+          hint.innerText = '↑ 移至上方 (排序)';
+          hint.classList.remove('hidden');
+        }
+      } else if (pos === 'after') {
+        targetEl.classList.add('border-b-2', 'border-b-brand-400', 'bg-brand-500/10');
+        if (hint) {
+          hint.innerText = '↓ 移至下方 (排序)';
+          hint.classList.remove('hidden');
+        }
+      } else {
+        targetEl.classList.add('ring-2', 'ring-brand-500', 'bg-brand-500/20');
+        if (hint) {
+          hint.innerText = '↳ 移入成为子分组';
+          hint.classList.remove('hidden');
+        }
+      }
+    }
+
+    function handleGroupDragLeave(e, targetId) {
+      const targetEl = document.getElementById('grp-' + targetId);
+      if (targetEl) {
+        clearDragIndicators(targetEl);
+        const hint = document.getElementById('dragHint-' + targetId);
+        if (hint) hint.classList.add('hidden');
+      }
+    }
+
+    function handleGroupDrop(e, targetId) {
+      e.preventDefault();
+      const targetEl = document.getElementById('grp-' + targetId);
+      if (targetEl) {
+        clearDragIndicators(targetEl);
+        const hint = document.getElementById('dragHint-' + targetId);
+        if (hint) hint.classList.add('hidden');
+      }
+      if (!draggedGroupId || draggedGroupId === targetId) return;
+
+      const draggedGrp = customServerGroups.find(g => g.id === draggedGroupId);
+      const targetGrp = customServerGroups.find(g => g.id === targetId);
+      if (!draggedGrp || !targetGrp) return;
+
+      if (currentDropPosition === 'inside') {
+        // 拖到文件夹主体区域：建立子父级关系
+        if (isGroupDescendant(draggedGroupId, targetId)) {
+          showToast('⚠️ 无法将分组移入其自身的子分组中');
+          draggedGroupId = null;
+          return;
+        }
+
+        if (draggedGrp.parentId === targetId) {
+          showToast(`ℹ️ 分组【${draggedGrp.name}】已在【${targetGrp.name}】下`);
+          draggedGroupId = null;
+          return;
+        }
+
+        draggedGrp.parentId = targetId;
+        renderServerGroupList();
+        showToast(`✓ 已将分组【${draggedGrp.name}】移入【${targetGrp.name}】作为子分组`);
+      } else {
+        // 拖到两个文件夹中间：同级重新排序 (before / after)
+        draggedGrp.parentId = targetGrp.parentId;
+        const dragIdx = customServerGroups.findIndex(g => g.id === draggedGroupId);
+        if (dragIdx > -1) {
+          const [removed] = customServerGroups.splice(dragIdx, 1);
+          const targetIdx = customServerGroups.findIndex(g => g.id === targetId);
+          const insertIdx = currentDropPosition === 'before' ? targetIdx : targetIdx + 1;
+          customServerGroups.splice(insertIdx, 0, removed);
+        }
+        renderServerGroupList();
+        showToast(`✓ 已调整分组【${draggedGrp.name}】的显示顺序`);
+      }
+      draggedGroupId = null;
+    }
+
+    function handleGroupDragEnd(e) {
+      if (draggedGroupId) {
+        const el = document.getElementById('grp-' + draggedGroupId);
+        if (el) el.classList.remove('opacity-40');
+      }
+      draggedGroupId = null;
+      document.querySelectorAll('#serverGroupList [id^="grp-"]').forEach(el => {
+        clearDragIndicators(el);
+        el.classList.remove('opacity-40');
+      });
+      document.querySelectorAll('[id^="dragHint-"]').forEach(h => h.classList.add('hidden'));
+      const rootZone = document.getElementById('customGroupHeaderZone');
+      if (rootZone) {
+        rootZone.classList.remove('ring-2', 'ring-brand-500/70', 'bg-brand-500/20');
+        const rootHint = document.getElementById('rootDropHint');
+        if (rootHint) rootHint.classList.add('hidden');
+      }
+    }
+
+    function handleRootDropOver(e) {
+      if (!draggedGroupId) return;
+      const draggedGrp = customServerGroups.find(g => g.id === draggedGroupId);
+      if (!draggedGrp || !draggedGrp.parentId || draggedGrp.parentId === 'root') return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      const rootZone = document.getElementById('customGroupHeaderZone');
+      if (rootZone) {
+        rootZone.classList.add('ring-2', 'ring-brand-500/70', 'bg-brand-500/20');
+        const rootHint = document.getElementById('rootDropHint');
+        if (rootHint) rootHint.classList.remove('hidden');
+      }
+    }
+
+    function handleRootDropLeave(e) {
+      const rootZone = document.getElementById('customGroupHeaderZone');
+      if (rootZone) {
+        rootZone.classList.remove('ring-2', 'ring-brand-500/70', 'bg-brand-500/20');
+        const rootHint = document.getElementById('rootDropHint');
+        if (rootHint) rootHint.classList.add('hidden');
+      }
+    }
+
+    function handleRootDrop(e) {
+      e.preventDefault();
+      handleRootDropLeave(e);
+      if (!draggedGroupId) return;
+      const draggedGrp = customServerGroups.find(g => g.id === draggedGroupId);
+      if (!draggedGrp || !draggedGrp.parentId || draggedGrp.parentId === 'root') return;
+      draggedGrp.parentId = null;
+      renderServerGroupList();
+      showToast(`✓ 已将分组【${draggedGrp.name}】移至根目录 (顶级)`);
+      draggedGroupId = null;
+    }
+
+    // 动态渲染所有自定义分组与多级子分组树（递归渲染，子集永久保留不丢失）
+    function renderServerGroupList() {
+      const container = document.getElementById('customGroupContainer');
+      if (!container) return;
+
+      const badge = document.getElementById('customGroupCountBadge');
+      if (badge) badge.textContent = `(${customServerGroups.length})`;
+
+      const roots = customServerGroups.filter(g => !g.parentId || g.parentId === 'root');
+      const childrenMap = {};
+      customServerGroups.forEach(g => {
+        if (g.parentId && g.parentId !== 'root') {
+          if (!childrenMap[g.parentId]) childrenMap[g.parentId] = [];
+          childrenMap[g.parentId].push(g);
+        }
+      });
+
+      let html = '';
+
+      const renderItem = (g, depth = 0) => {
+        const count = serverList.filter(s => s.group === g.id || s.group === g.name).length;
+        const isActive = currentServerGroup === g.id;
+        const activeClass = isActive
+          ? 'bg-brand-500/15 border-brand-500/40 text-brand-300 font-medium'
+          : 'hover:bg-surface-800 border-transparent text-slate-300';
+        const indentClass = depth > 0 ? 'border-l-2 border-slate-800' : '';
+        const paddingLeftStyle = depth > 0 ? `style="padding-left: ${8 + depth * 14}px;"` : '';
+
+        return `
+          <div draggable="true"
+               ondragstart="handleGroupDragStart(event, '${g.id}')"
+               ondragover="handleGroupDragOver(event, '${g.id}')"
+               ondragleave="handleGroupDragLeave(event, '${g.id}')"
+               ondrop="handleGroupDrop(event, '${g.id}')"
+               ondragend="handleGroupDragEnd(event)"
+               onclick="selectServerGroup('${g.id}')"
+               oncontextmenu="openGroupContextMenu(event, '${g.id}', '${g.name}')"
+               id="grp-${g.id}"
+               ${paddingLeftStyle}
+               class="p-2 ${indentClass} rounded-lg border ${activeClass} flex items-center justify-between cursor-grab active:cursor-grabbing transition select-none group/item relative"
+               title="拖到中间移入作为子分组 / 拖到上下边缘调整排序">
+            <span class="flex items-center space-x-1 min-w-0 pr-1">
+              <span title="按住拖拽" class="inline-flex items-center cursor-grab">
+                <i data-lucide="grip-vertical" class="w-3 h-3 opacity-0 group-hover/item:opacity-40 hover:opacity-100 text-slate-400 -ml-1 transition shrink-0"></i>
+              </span>
+              ${depth > 0 ? '<i data-lucide="corner-down-right" class="w-3 h-3 text-slate-500 shrink-0"></i>' : ''}
+              <i data-lucide="folder" class="w-3.5 h-3.5 text-amber-400/90 shrink-0"></i>
+              <span class="truncate max-w-[76px] group-name-label" title="${g.name}">${g.name}</span>
+              <span id="dragHint-${g.id}" class="hidden text-[9px] text-brand-300 font-medium shrink-0 ml-0.5"></span>
+            </span>
+            <span class="flex items-center space-x-1 shrink-0">
+              <span id="grpCount-${g.id}" class="text-[11px] text-slate-400 font-mono">${count}</span>
+              <button onclick="event.stopPropagation(); openGroupContextMenu(event, '${g.id}', '${g.name}')"
+                      class="opacity-0 group-hover/item:opacity-100 p-0.5 rounded hover:bg-surface-700 text-slate-400 hover:text-white transition cursor-pointer"
+                      title="分组管理菜单">
+                <i data-lucide="more-vertical" class="w-3 h-3"></i>
+              </button>
+            </span>
+          </div>
+        `;
+      };
+
+      // 递归树形渲染：确保多层子分组、父级被嵌套后其下属所有子孙均完整展现不丢失
+      const renderNodeTree = (node, depth = 0) => {
+        let nodeHtml = renderItem(node, depth);
+        if (childrenMap[node.id]) {
+          childrenMap[node.id].forEach(child => {
+            nodeHtml += renderNodeTree(child, depth + 1);
+          });
+        }
+        return nodeHtml;
+      };
+
+      roots.forEach(root => {
+        html += renderNodeTree(root, 0);
+      });
+
+      if (customServerGroups.length === 0) {
+        html = `
+          <div class="py-3 px-2 text-center text-[10px] text-slate-500 border border-dashed border-slate-800/80 rounded-lg my-1">
+            <span>暂无业务分组</span>
+            <button onclick="openAddGroupModal()" class="mt-1 block mx-auto text-xs text-brand-400 hover:text-brand-300 hover:underline cursor-pointer font-medium">+ 新建业务分组</button>
+          </div>
+        `;
+      }
+
+      container.innerHTML = html;
+
+      // 同步更新新建分组弹窗的上级分组下拉框
+      const parentSelect = document.getElementById('newGroupParent');
+      if (parentSelect) {
+        parentSelect.innerHTML = `
+          <option value="root">根目录 (顶层分组)</option>
+          ${roots.map(r => `<option value="${r.id}">${r.name}</option>`).join('')}
+        `;
+      }
+
+      // 同步更新新建主机的分组建议
+      const datalist = document.getElementById('groupSuggestions');
+      if (datalist) {
+        datalist.innerHTML = customServerGroups.map(g => `<option value="${g.name}"></option>`).join('');
+      }
+
+      updateServerCounts();
+      lucide.createIcons();
+    }
+
+    // ★ 打开分组右键快捷菜单
+    function openGroupContextMenu(e, grpId, grpName) {
+      e.preventDefault();
+      e.stopPropagation();
+
+      const isSys = ['all', 'starred', 'recent'].includes(grpId);
+      currentContextGroup = {
+        id: grpId,
+        name: grpName,
+        isSystem: isSys
+      };
+
+      const menu = document.getElementById('groupContextMenu');
+      if (!menu) return;
+
+      const notice = document.getElementById('ctxSystemNotice');
+      const btnAddSubLabel = document.getElementById('ctxBtnAddSubLabel');
+      const btnRename = document.getElementById('ctxBtnRename');
+      const btnMove = document.getElementById('groupMoveMenuItem');
+      const divider = document.getElementById('ctxDivider');
+      const btnDissolve = document.getElementById('ctxBtnDissolve');
+
+      if (isSys) {
+        if (notice) notice.classList.remove('hidden');
+        if (btnAddSubLabel) btnAddSubLabel.innerText = '新建业务分组';
+        if (btnRename) {
+          btnRename.classList.add('opacity-30', 'cursor-not-allowed', 'pointer-events-none');
+          btnRename.title = '系统固定分组不允许修改';
+        }
+        if (btnMove) {
+          btnMove.classList.add('opacity-30', 'cursor-not-allowed', 'pointer-events-none');
+          btnMove.title = '系统固定分组不允许移动';
+        }
+        if (divider) divider.classList.add('hidden');
+        if (btnDissolve) btnDissolve.classList.add('hidden');
+      } else {
+        if (notice) notice.classList.add('hidden');
+        if (btnAddSubLabel) btnAddSubLabel.innerText = '新建子分组';
+        if (btnRename) {
+          btnRename.classList.remove('opacity-30', 'cursor-not-allowed', 'pointer-events-none');
+          btnRename.title = '';
+        }
+        if (btnMove) {
+          btnMove.classList.remove('opacity-30', 'cursor-not-allowed', 'pointer-events-none');
+          btnMove.title = '';
+        }
+        if (divider) divider.classList.remove('hidden');
+        if (btnDissolve) btnDissolve.classList.remove('hidden');
+        populateMoveToSubMenu(grpId);
+      }
+
+      menu.classList.remove('hidden');
+
+      // 计算位置防止超出屏幕
+      const menuWidth = 195;
+      const menuHeight = isSys ? 100 : 180;
+      let left = e.clientX;
+      let top = e.clientY;
+      if (left + menuWidth > window.innerWidth) {
+        left = window.innerWidth - menuWidth - 10;
+      }
+      if (top + menuHeight > window.innerHeight) {
+        top = window.innerHeight - menuHeight - 10;
+      }
+      menu.style.left = left + 'px';
+      menu.style.top = top + 'px';
+
+      lucide.createIcons();
+    }
+
+    function closeGroupContextMenu() {
+      const menu = document.getElementById('groupContextMenu');
+      if (menu) menu.classList.add('hidden');
+    }
+
+    // 级联子菜单：移动到目标列表
+    function populateMoveToSubMenu(grpId) {
+      const container = document.getElementById('groupMoveTargetList');
+      const subMenuBox = document.getElementById('groupMoveSubMenu');
+      if (!container) return;
+
+      // 视口边缘检查：如果右侧空间不足，子菜单往左侧展开
+      const menu = document.getElementById('groupContextMenu');
+      const rect = menu ? menu.getBoundingClientRect() : { right: 0 };
+      if (rect.right + 170 > window.innerWidth) {
+        subMenuBox.className = "hidden group-hover/move:block absolute right-full top-0 -mr-1 pr-2 w-40 py-1 z-50";
+      } else {
+        subMenuBox.className = "hidden group-hover/move:block absolute left-full top-0 -ml-1 pl-2 w-40 py-1 z-50";
+      }
+
+      let html = `
+        <button onclick="executeMoveGroupTo('root')" class="w-full px-2.5 py-1.5 rounded-md flex items-center space-x-2 text-slate-300 hover:text-white hover:bg-surface-800 transition text-xs text-left cursor-pointer">
+          <i data-lucide="folder-tree" class="w-3.5 h-3.5 text-brand-400 shrink-0"></i>
+          <span class="truncate">根目录 (顶级)</span>
+        </button>
+      `;
+
+      // 目标候选分组（排除自身及系统分组）
+      const candidates = customServerGroups.filter(g => g.id !== grpId);
+
+      candidates.forEach(t => {
+        html += `
+          <button onclick="executeMoveGroupTo('${t.id}')" class="w-full px-2.5 py-1.5 rounded-md flex items-center space-x-2 text-slate-300 hover:text-white hover:bg-surface-800 transition text-xs text-left cursor-pointer">
+            <i data-lucide="folder" class="w-3.5 h-3.5 text-brand-400 shrink-0"></i>
+            <span class="truncate">${t.name}</span>
+          </button>
+        `;
+      });
+
+      container.innerHTML = html;
+      lucide.createIcons();
+    }
+
+    // 1. 右键菜单交互：新建子分组
+    function handleContextAddSubGroup() {
+      closeGroupContextMenu();
+      if (currentContextGroup.isSystem) {
+        // 系统分组下右击点击新建，直接呼出新建分组弹窗
+        openAddGroupModal();
+        return;
+      }
+      const parentName = currentContextGroup.name || '我的服务器';
+      document.getElementById('subGroupParentText').innerText = parentName;
+      document.getElementById('newSubGroupName').value = '';
+      document.getElementById('modalAddSubGroup').classList.remove('hidden');
+      document.getElementById('newSubGroupName').focus();
+      lucide.createIcons();
+    }
+
+    function closeAddSubGroupModal() {
+      document.getElementById('modalAddSubGroup').classList.add('hidden');
+    }
+
+    function confirmAddSubGroup() {
+      const name = document.getElementById('newSubGroupName').value.trim();
+      if (!name) {
+        showToast('⚠️ 请输入子分组名称');
+        return;
+      }
+      const subId = 'grp-' + Date.now();
+      const parentId = currentContextGroup.id || 'myserver';
+      
+      customServerGroups.push({
+        id: subId,
+        name: name,
+        parentId: parentId,
+        icon: 'folder'
+      });
+
+      renderServerGroupList();
+      closeAddSubGroupModal();
+      showToast(`✓ 已在【${currentContextGroup.name}】下成功创建子分组 [${name}]`);
+    }
+
+    // 2. 右键菜单交互：重命名
+    function handleContextRenameGroup() {
+      closeGroupContextMenu();
+      if (currentContextGroup.isSystem) {
+        showToast('⚠️ 系统固定分组不允许重命名');
+        return;
+      }
+      document.getElementById('renameOriginalGroupDisplay').innerText = currentContextGroup.name;
+      const input = document.getElementById('renameGroupNewName');
+      input.value = currentContextGroup.name;
+      document.getElementById('modalRenameGroup').classList.remove('hidden');
+      input.focus();
+      input.select();
+      lucide.createIcons();
+    }
+
+    function closeRenameGroupModal() {
+      document.getElementById('modalRenameGroup').classList.add('hidden');
+    }
+
+    function confirmRenameGroup() {
+      const newName = document.getElementById('renameGroupNewName').value.trim();
+      if (!newName) {
+        showToast('⚠️ 分组名称不能为空');
+        return;
+      }
+      if (currentContextGroup.isSystem) {
+        showToast('⚠️ 系统固定分组不允许重命名');
+        return;
+      }
+      const oldName = currentContextGroup.name;
+      const grpId = currentContextGroup.id;
+
+      const grp = customServerGroups.find(g => g.id === grpId);
+      if (grp) {
+        grp.name = newName;
+      }
+
+      // 同步更新归属于该分组的主机资产 group 字段
+      serverList.forEach(s => {
+        if (s.group === grpId || s.group === oldName) {
+          s.group = grpId;
+        }
+      });
+
+      renderServerGroupList();
+      renderServerTable();
+      closeRenameGroupModal();
+      showToast(`✓ 分组已成功重命名为 [${newName}]`);
+    }
+
+    // 3. 右键菜单交互：移动分组
+    function executeMoveGroupTo(targetParentId) {
+      closeGroupContextMenu();
+      if (currentContextGroup.isSystem) {
+        showToast('⚠️ 系统固定分组不可移动');
+        return;
+      }
+      const grpId = currentContextGroup.id;
+      const grp = customServerGroups.find(g => g.id === grpId);
+      if (grp) {
+        grp.parentId = targetParentId === 'root' ? null : targetParentId;
+        renderServerGroupList();
+        const targetName = targetParentId === 'root'
+          ? '根目录 (顶级)'
+          : (customServerGroups.find(g => g.id === targetParentId)?.name || targetParentId);
+        showToast(`✓ 已将分组【${grp.name}】移动到【${targetName}】`);
+      } else {
+        showToast(`✓ 已移动分组层级`);
+      }
+    }
+
+    // 4. 右键菜单交互：解散分组
+    function handleContextDissolveGroup() {
+      closeGroupContextMenu();
+      if (currentContextGroup.isSystem) {
+        showToast('⚠️ 系统固定分组不可解散');
+        return;
+      }
+      const grpId = currentContextGroup.id;
+      const grpName = currentContextGroup.name;
+      const count = serverList.filter(s => s.group === grpId || s.group === grpName).length;
+
+      document.getElementById('dissolveTargetGroupName').innerText = grpName;
+      document.getElementById('dissolveServerCount').innerText = count;
+      document.getElementById('modalDissolveGroup').classList.remove('hidden');
+      lucide.createIcons();
+    }
+
+    function closeDissolveGroupModal() {
+      document.getElementById('modalDissolveGroup').classList.add('hidden');
+    }
+
+    function confirmDissolveGroup() {
+      if (currentContextGroup.isSystem) {
+        showToast('⚠️ 系统固定分组不可解散');
+        return;
+      }
+      const grpId = currentContextGroup.id;
+      const grpName = currentContextGroup.name;
+
+      // 解散分组：组内服务器资产完全保留，自动归入全部主机
+      serverList.forEach(s => {
+        if (s.group === grpId || s.group === grpName) {
+          s.group = 'all';
+        }
+      });
+
+      // 如果有子分组挂在它下面，自动提升为顶级分组
+      customServerGroups.forEach(g => {
+        if (g.parentId === grpId) g.parentId = null;
+      });
+
+      // 从 customServerGroups 移除
+      customServerGroups = customServerGroups.filter(g => g.id !== grpId);
+
+      // 如果当前正选在该分组，自动切回 'all'
+      if (currentServerGroup === grpId) {
+        selectServerGroup('all');
+      }
+
+      renderServerGroupList();
+      renderServerTable();
+      closeDissolveGroupModal();
+      showToast(`🗑️ 分组【${grpName}】已解散，组内主机资产已安全归入全部主机`);
+    }
+
+    // 全局点击与按键监听：关闭分组右键上下文菜单
+    document.addEventListener('click', (e) => {
+      const menu = document.getElementById('groupContextMenu');
+      if (menu && !menu.contains(e.target)) {
+        menu.classList.add('hidden');
+      }
+    });
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        closeGroupContextMenu();
+        closeAddSubGroupModal();
+        closeRenameGroupModal();
+        closeDissolveGroupModal();
+      }
+    });
 
     // 绑定数据库弹窗交互 (modalBindDatabase)
     function openBindDatabaseModal(id) {
@@ -7258,10 +8911,14 @@ REDIS_AUTH="${****@}" [已拦截脱敏]</div>
       });
     }
 
-    // 页面加载完成后立即渲染服务器资产表格
+    // 页面加载完成后立即渲染服务器分组与服务器资产表格
     window.addEventListener('DOMContentLoaded', () => {
+      renderServerGroupList();
       renderServerTable();
     });
+    if (document.readyState !== 'loading') {
+      try { renderServerGroupList(); } catch (e) {}
+    }
 
 
     function sendQuickPrompt(t) {
@@ -7949,16 +9606,35 @@ REDIS_AUTH="${****@}" [已拦截脱敏]</div>
       lucide.createIcons();
     }
 
-    function selectThemeSkin(themeKey) {
-      document.querySelectorAll('#skinDropdown .border-2').forEach(el => {
+    function selectThemeSkin(themeKey, quiet = false) {
+      const isLight = ['sky', 'warm', 'aurora'].includes(themeKey);
+      document.documentElement.setAttribute('data-skin', themeKey);
+      if (isLight) {
+        document.documentElement.classList.remove('dark');
+        document.documentElement.setAttribute('data-theme', 'light');
+      } else {
+        document.documentElement.classList.add('dark');
+        document.documentElement.setAttribute('data-theme', 'dark');
+      }
+      try {
+        localStorage.setItem('ops_sentry_skin', themeKey);
+      } catch (e) {}
+
+      document.querySelectorAll('#skinDropdown [id^="skin-opt-"]').forEach(el => {
         el.classList.remove('border-2', 'border-emerald-500', 'border-indigo-500', 'border-amber-500', 'border-blue-500');
         el.classList.add('border', 'border-slate-700');
+        const badge = el.querySelector('.skin-current-badge');
+        if (badge) badge.remove();
       });
 
       const activeEl = document.getElementById('skin-opt-' + themeKey);
       if (activeEl) {
         activeEl.classList.remove('border', 'border-slate-700');
         activeEl.classList.add('border-2', 'border-emerald-500');
+        const badge = document.createElement('span');
+        badge.className = 'skin-current-badge text-[9px] text-emerald-400 font-mono';
+        badge.innerText = '✓ 当前';
+        activeEl.appendChild(badge);
       }
 
       const names = {
@@ -7969,8 +9645,13 @@ REDIS_AUTH="${****@}" [已拦截脱敏]</div>
         'warm': '活力晨光 (暖调亮色)',
         'aurora': '极光浅葱 (清爽青绿)'
       };
-      showToast('🎨 已切换外观主题皮肤为: ' + (names[themeKey] || themeKey));
-      toggleSkinDropdown();
+      if (!quiet) {
+        showToast('🎨 已切换外观主题皮肤为: ' + (names[themeKey] || themeKey));
+        const skinDd = document.getElementById('skinDropdown');
+        if (skinDd && !skinDd.classList.contains('hidden')) {
+          skinDd.classList.add('hidden');
+        }
+      }
     }
 
     // ==========================================
