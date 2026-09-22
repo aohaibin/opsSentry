@@ -36,6 +36,7 @@ import { SshConnectModal } from "@/components/server/SshConnectModal";
 import { TerminalPane } from "@/components/terminal/TerminalPane";
 import { getErrorMessage } from "@/lib/api/client";
 import { serverApi } from "@/lib/api/server";
+import { ServerFormModal } from "@/pages/servers/components/ServerFormModal";
 import {
   TERMINAL_OUTPUT_EVENT,
   TERMINAL_STATUS_EVENT,
@@ -44,6 +45,7 @@ import {
 import { useAppStore } from "@/store/app";
 import type {
   Server,
+  ServerPayload,
   SshCredentials,
   SshProbeResult,
   TerminalOutputEvent,
@@ -76,6 +78,8 @@ export default function TerminalPage() {
   const [terminalOutputs, setTerminalOutputs] = useState<Record<string, string>>({});
   const [sessionMessages, setSessionMessages] = useState<Record<string, string>>({});
   const [sshServer, setSshServer] = useState<Server | null>(null);
+  const [sshInitialCredentials, setSshInitialCredentials] = useState<SshCredentials>();
+  const [createServerOpen, setCreateServerOpen] = useState(false);
   const [drawerTab, setDrawerTab] = useState<DrawerTab>("ai");
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [commandHistory, setCommandHistory] = useState<string[]>([]);
@@ -86,7 +90,7 @@ export default function TerminalPage() {
 
   sessionsRef.current = sessions;
 
-  const loadServers = useCallback(async () => {
+  const loadServers = useCallback(async (): Promise<Server[]> => {
     setLoading(true);
     try {
       const data = await serverApi.list();
@@ -95,8 +99,10 @@ export default function TerminalPage() {
       if (current === null || !data.some((server) => server.id === current)) {
         setActiveServerId(data[0]?.id ?? null);
       }
+      return data;
     } catch (error) {
       message.error(getErrorMessage(error));
+      return [];
     } finally {
       setLoading(false);
     }
@@ -183,6 +189,26 @@ export default function TerminalPage() {
     setSshServer(server);
   };
 
+  const handleCreateServer = async (
+    payload: ServerPayload,
+    credentials?: SshCredentials,
+  ) => {
+    try {
+      const serverId = await serverApi.add(payload);
+      message.success("服务器已纳管");
+      setCreateServerOpen(false);
+
+      const nextServers = await loadServers();
+      const savedServer = nextServers.find((server) => server.id === serverId);
+      if (credentials && savedServer) {
+        setSshInitialCredentials(credentials);
+        setSshServer(savedServer);
+      }
+    } catch (error) {
+      message.error(getErrorMessage(error));
+    }
+  };
+
   const handleVerified = async (
     _result: SshProbeResult,
     credentials: SshCredentials,
@@ -203,6 +229,7 @@ export default function TerminalPage() {
     setActiveSessionId(session.sessionId);
     setActiveServerId(server.id);
     setSshServer(null);
+    setSshInitialCredentials(undefined);
     await loadServers();
   };
 
@@ -330,7 +357,7 @@ export default function TerminalPage() {
                   </button>
                 ))}
                 {servers.length === 0 && <div className="ops-terminal-empty">暂无纳管服务器</div>}
-                <button className="create" type="button" onClick={() => message.info("请先在服务器菜单新增连接") }>
+                <button className="create" type="button" onClick={() => { setDropdownOpen(false); setCreateServerOpen(true); }}>
                   <Plus size={14} /> 新建服务器连接...
                 </button>
               </div>
@@ -401,7 +428,7 @@ export default function TerminalPage() {
                 onSearch={setSearch}
                 onLayout={setLayout}
                 onOpen={openConnection}
-                onCreate={() => navigate("/servers")}
+                onCreate={() => setCreateServerOpen(true)}
               />
             ) : (
               <SessionView
@@ -453,9 +480,23 @@ export default function TerminalPage() {
       <SshConnectModal
         open={sshServer !== null}
         server={sshServer}
-        onCancel={() => setSshServer(null)}
+        initialCredentials={sshInitialCredentials}
+        onCancel={() => {
+          setSshServer(null);
+          setSshInitialCredentials(undefined);
+        }}
         onVerified={handleVerified}
-        onStatusChanged={loadServers}
+        onStatusChanged={() => {
+          void loadServers();
+        }}
+      />
+
+      <ServerFormModal
+        open={createServerOpen}
+        server={null}
+        existingServers={servers}
+        onCancel={() => setCreateServerOpen(false)}
+        onSubmit={handleCreateServer}
       />
     </div>
   );

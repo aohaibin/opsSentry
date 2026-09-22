@@ -181,8 +181,10 @@
 .ops-server-page {
   display: flex;
   flex-direction: column;
-  min-height: calc(100vh - var(--header-height) - 40px);
+  height: calc(100vh - var(--header-height) - 40px);
+  min-height: 0;
   gap: 12px;
+  overflow: hidden;
 }
 
 .ops-server-page .ops-page-head {
@@ -192,8 +194,9 @@
 .ops-server-main {
   display: flex;
   gap: 6px;
-  flex: 1 1 auto;
+  flex: 1 1 0;
   min-height: 0;
+  height: 0;
   align-items: stretch;
 }
 
@@ -205,6 +208,11 @@
 
 .ops-server-main > div:first-child {
   min-height: 0;
+  height: 100%;
+}
+
+.ops-server-group-slot {
+  height: 100%;
 }
 
 .ops-server-resizer {
@@ -251,6 +259,7 @@
   flex-direction: column;
   overflow: hidden;
   position: relative;
+  height: 100%;
 }
 
 .ops-server-table-panel .ant-table-wrapper {
@@ -274,12 +283,229 @@
 }
 
 .ops-server-table-panel .ant-table-container {
+  flex: 1 1 auto;
+  min-height: 0;
   overflow: auto;
 }
 
 .ops-server-table-panel .ant-table-body {
   min-height: 0;
   overflow-y: auto !important;
+}
+
+.ops-server-table-panel .ant-table-thead > tr > th {
+  white-space: nowrap;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.ops-server-table-panel .ant-table-tbody > tr > td {
+  padding-block: 12px;
+  vertical-align: middle;
+}
+
+.ops-server-address {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+.ops-server-host-label {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.ops-server-group-select {
+  appearance: none;
+  min-width: 94px;
+  padding: 2px 22px 2px 10px;
+  border: 1px solid color-mix(in srgb, var(--success) 35%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--success) 11%, transparent);
+  color: var(--success);
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.ops-server-group-select:focus {
+  outline: 1px solid color-mix(in srgb, var(--success) 60%, transparent);
+}
+
+.ops-server-credential-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  border: 0;
+  background: transparent;
+  color: var(--success);
+  cursor: pointer;
+}
+
+.ops-server-os-badge {
+  width: 32px;
+  height: 32px;
+  flex: 0 0 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  color: #fff;
+  box-shadow: var(--shadow-sm);
+}
+
+.ops-server-os-badge[data-os="windows"] {
+  color: var(--info);
+  background: color-mix(in srgb, var(--info) 20%, transparent);
+  border: 1px solid color-mix(in srgb, var(--info) 35%, transparent);
+}
+
+.ops-server-os-badge[data-os="debian"] {
+  background: #e11d48;
+}
+
+.ops-server-os-badge[data-os="linux"] {
+  background: linear-gradient(135deg, #f97316, #d97706);
+}
+
+.ops-server-group-select {
+  min-width: 104px;
+}
+
+.ops-server-group-select .ant-select-selector {
+  min-height: 24px !important;
+  padding-inline: 10px 24px !important;
+  border-radius: 999px !important;
+  border-color: color-mix(in srgb, var(--success) 35%, transparent) !important;
+  background: color-mix(in srgb, var(--success) 12%, transparent) !important;
+  box-shadow: none !important;
+}
+
+.ops-server-group-select .ant-select-selection-item,
+.ops-server-group-select .ant-select-arrow {
+  color: var(--success) !important;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.ops-server-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.ops-server-status:not(:disabled):hover {
+  text-decoration: underline;
+}
+
+.ops-server-connect-button {
+  height: 28px;
+  padding: 0 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex: 0 0 auto;
+  border: 1px solid color-mix(in srgb, var(--success) 42%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--success) 20%, transparent);
+  color: var(--success);
+  font-size: 12px;
+  font-weight: 500;
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.ops-server-text-action {
+  height: 28px;
+  padding: 0 9px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex: 0 0 auto;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 500;
+  transition: background var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast);
+}
+
+.ops-server-text-action-normal {
+  color: var(--accent-hover);
+  background: color-mix(in srgb, var(--accent) 25%, transparent);
+}
+
+.ops-server-text-action-info {
+  color: var(--info);
+  background: var(--bg-secondary);
+  border-color: var(--border);
+}
+
+.ops-server-text-action-warning {
+  color: var(--warning);
+  background: color-mix(in srgb, var(--warning) 20%, transparent);
+}
+
+.ops-server-text-action-database {
+  color: var(--info);
+  background: color-mix(in srgb, var(--info) 22%, transparent);
+}
+
+.ops-server-text-action:hover {
+  filter: brightness(1.15);
+}
+
+.ops-server-connect-button:hover {
+  background: color-mix(in srgb, var(--success) 30%, transparent);
+  color: var(--text-primary);
+}
+
+.ops-server-row-icon {
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 28px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-secondary);
+  transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast);
+}
+
+.ops-server-table-panel .ant-table-content { overflow: visible !important; }
+
+.ops-server-row-icon:not(:disabled):hover {
+  color: var(--server-action-hover);
+  background: var(--bg-tertiary);
+  border-color: var(--border);
+}
+
+.ops-server-row-icon:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.ops-server-credential-badge .ant-badge-count {
+  min-width: 14px;
+  height: 14px;
+  padding-inline: 3px;
+  background: var(--success);
+  color: var(--bg-primary);
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 14px;
 }
 
 .ops-server-table-panel .ant-table-wrapper,
@@ -547,7 +773,9 @@
 
 @media (max-width: 1023px) {
   .ops-server-page {
+    height: auto;
     min-height: 0;
+    overflow: visible;
   }
 
   .ops-server-main {
@@ -616,6 +844,9 @@
   border-radius: var(--radius-lg);
   background: var(--surface-900);
   box-shadow: var(--shadow-lg);
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 40px);
 }
 
 .ops-modal .ant-modal-header {
@@ -623,11 +854,32 @@
   padding: 14px 16px;
   background: color-mix(in srgb, var(--surface-950) 72%, transparent);
   border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
 }
 
 .ops-modal .ant-modal-body {
-  padding: 16px;
+  padding: 16px 20px;
   background: var(--surface-900);
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  max-height: calc(100vh - 160px);
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) var(--surface-950);
+}
+
+.ops-modal .ant-modal-body::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+.ops-modal .ant-modal-body::-webkit-scrollbar-track {
+  background: var(--surface-950);
+}
+
+.ops-modal .ant-modal-body::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 3px;
 }
 
 .ops-modal .ant-modal-footer {
@@ -635,6 +887,7 @@
   padding: 12px 16px;
   background: color-mix(in srgb, var(--surface-950) 72%, transparent);
   border-top: 1px solid var(--border);
+  flex-shrink: 0;
 }
 
 /* 自定义滚动条样式（更细更精致） */
@@ -737,6 +990,9 @@
   --accent-hover: #60a5fa;
   --brand-500: #3b82f6;
   --brand-400: #60a5fa;
+  --overlay-bg: rgba(248, 250, 252, 0.9);
+  --glass-nav-bg: rgba(255, 255, 255, 0.92);
+  --glass-card-bg: rgba(255, 255, 255, 0.88);
   --selection-bg: rgba(59, 130, 246, 0.25);
 }
 

@@ -1,4 +1,4 @@
-import { Button, Tooltip } from "antd";
+import { Button } from "antd";
 import { Activity, Loader2, Shield, Tags, Terminal, Trash2, X } from "lucide-react";
 
 interface BatchActionBarProps {
@@ -7,6 +7,7 @@ interface BatchActionBarProps {
   onBatchPing: () => void;
   onOpenTagModal: () => void;
   onOpenPolicyModal: () => void;
+  onBatchExecute: () => void;
   onBatchDelete: () => void;
   onClear: () => void;
 }
@@ -17,6 +18,7 @@ export function BatchActionBar({
   onBatchPing,
   onOpenTagModal,
   onOpenPolicyModal,
+  onBatchExecute,
   onBatchDelete,
   onClear,
 }: BatchActionBarProps) {
@@ -58,12 +60,9 @@ export function BatchActionBar({
         <Button size="small" icon={<Shield size={13} />} onClick={onOpenPolicyModal}>
           AI 策略
         </Button>
-        {/* 批量执行依赖尚未实现的批量执行模块，先禁用而不是给一个点了没反应的按钮 */}
-        <Tooltip title="批量执行模块尚未实现，将在远程终端之后落地">
-          <Button size="small" icon={<Terminal size={13} />} disabled>
-            批量执行
-          </Button>
-        </Tooltip>
+        <Button size="small" icon={<Terminal size={13} />} onClick={onBatchExecute}>
+          批量执行
+        </Button>
         <Button size="small" danger icon={<Trash2 size={13} />} onClick={onBatchDelete}>
           移除
         </Button>

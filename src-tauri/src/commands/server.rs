@@ -26,6 +26,10 @@ pub fn add_server(
     ai_policy: String,
     os_type: String,
     arch: Option<String>,
+    allow_sudo: Option<bool>,
+    use_local_proxy: Option<bool>,
+    bastion_id: Option<i64>,
+    ai_username: Option<String>,
 ) -> Result<i64, CommandError> {
     ServerService::add(
         &state.db,
@@ -39,6 +43,10 @@ pub fn add_server(
         &ai_policy,
         &os_type,
         arch.as_deref().unwrap_or_default(),
+        allow_sudo.unwrap_or(false),
+        use_local_proxy.unwrap_or(false),
+        bastion_id,
+        ai_username.as_deref().unwrap_or_default(),
     )
     .map_err(|e| e.into())
 }
@@ -59,6 +67,10 @@ pub fn update_server(
     ai_policy: String,
     os_type: String,
     arch: Option<String>,
+    allow_sudo: Option<bool>,
+    use_local_proxy: Option<bool>,
+    bastion_id: Option<i64>,
+    ai_username: Option<String>,
 ) -> Result<(), CommandError> {
     ServerService::update(
         &state.db,
@@ -73,6 +85,10 @@ pub fn update_server(
         &ai_policy,
         &os_type,
         arch.as_deref().unwrap_or_default(),
+        allow_sudo.unwrap_or(false),
+        use_local_proxy.unwrap_or(false),
+        bastion_id,
+        ai_username.as_deref().unwrap_or_default(),
     )
     .map_err(|e| e.into())
 }

@@ -1,112 +1,118 @@
 /**
- * AI 策略档位徽章。
+ * AI 策略档位徽章与下拉菜单。
  *
- * 视觉严格对齐原型 renderServerTable() 里的 policyBadge：
- * 10px 小胶囊 + 半透明同色底 + 同色描边（原型是 strict / readonly / autonomous / disabled 四档）。
- *
- * 与原型唯一的行为差异：原型里它是纯展示，这里挂了点击下拉。
- * 理由——策略是这套产品里被调得最频繁的字段，
- * 「先勾选 → 再开批量弹窗」改单台机器的代价太高。
- * 收缩状态下与原型完全一致，不会破坏视觉基线。
- *
- * 配色刻意不写死十六进制：改用 color-mix 从主题令牌派生，
- * 这样 6 套皮肤（含 3 套亮色）切换时徽章文字仍有足够对比度。
- * color-mix 在本项目已有先例（variables.css 的 .ops-modal .ant-modal-header）。
+ * 视觉完全对齐用户截图 media_1790004662510.png：
+ * 5 档彩色胶囊药丸：
+ * 1. 禁用 (灰色)
+ * 2. 只读 (翠绿色)
+ * 3. 审批 (天青色)
+ * 4. 白名单 (金黄色)
+ * 5. 信任 (珊瑚玫红色)
  */
 
-import { Dropdown, type MenuProps } from "antd";
+import { useState } from "react";
+import { Popover } from "antd";
+import { ChevronDown } from "lucide-react";
 import type { AIPolicy } from "@/types";
-import { AI_POLICY_META, AI_POLICY_ORDER } from "../lib/serverMeta";
+import {
+  AI_POLICY_META,
+  AI_POLICY_ORDER,
+  POLICY_STYLES,
+  normalizeAIPolicy,
+} from "../lib/serverMeta";
 
-/**
- * 档位 → 配色。左侧是我们的策略档，右侧括号里是原型对应的档位。
- * 两套梯次都是「越往下越严」的四级，逐级对齐：
- *   trusted ↔ autonomous、allowlist ↔ readonly、approval ↔ strict、denied ↔ disabled
- */
-const TONE: Record<AIPolicy, { bg: string; fg: string; border: string }> = {
-  trusted: {
-    bg: "color-mix(in srgb, var(--success) 16%, transparent)",
-    fg: "var(--success)",
-    border: "color-mix(in srgb, var(--success) 34%, transparent)",
-  },
-  allowlist: {
-    bg: "color-mix(in srgb, var(--info) 16%, transparent)",
-    fg: "var(--info)",
-    border: "color-mix(in srgb, var(--info) 34%, transparent)",
-  },
-  approval: {
-    bg: "color-mix(in srgb, var(--warning) 16%, transparent)",
-    fg: "var(--warning)",
-    border: "color-mix(in srgb, var(--warning) 34%, transparent)",
-  },
-  denied: {
-    bg: "var(--bg-tertiary)",
-    fg: "var(--text-secondary)",
-    border: "var(--border)",
-  },
-};
 
 interface AiPolicyBadgeProps {
   policy: AIPolicy;
-  /** 不传则退化成纯展示（原型形态）；传了才可点 */
+  /** 不传则退化成纯展示；传了才可点 */
   onChange?: (policy: AIPolicy) => void;
 }
 
 export function AiPolicyBadge({ policy, onChange }: AiPolicyBadgeProps) {
-  // 数据库里可能存着历史档位（例如早期写入的未知值），取不到就退到「需审批」这一档，
-  // 宁可显示保守的档位，也不要在表格里渲染一个没有语义的空白
-  const meta = AI_POLICY_META[policy] ?? AI_POLICY_META.approval;
-  const tone = TONE[policy] ?? TONE.approval;
+  const [open, setOpen] = useState(false);
+  const normKey = normalizeAIPolicy(policy);
+  const curStyle = POLICY_STYLES[normKey] || POLICY_STYLES.trusted;
+  const meta = AI_POLICY_META[policy as AIPolicy] || AI_POLICY_META[normKey as AIPolicy] || AI_POLICY_META.trusted;
 
-  const badge = (
-    <span
-      className="inline-flex items-center whitespace-nowrap"
+  const triggerBadge = (
+    <button
+      type="button"
+      onClick={() => onChange && setOpen(!open)}
+      className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium transition cursor-pointer hover:opacity-90 shadow-sm"
       style={{
-        padding: "1px 8px",
-        borderRadius: 4,
-        fontSize: 10,
-        fontWeight: 500,
-        lineHeight: "17px",
-        background: tone.bg,
-        color: tone.fg,
-        border: `1px solid ${tone.border}`,
+        background: curStyle.bg,
+        color: curStyle.fg,
+        border: `1px solid ${curStyle.border}`,
       }}
+      title={`AI 策略：${meta?.label || curStyle.label}（点击切换）`}
     >
-      {meta.label}
-    </span>
+      <span
+        className="w-1.5 h-1.5 rounded-full shrink-0"
+        style={{ background: curStyle.dot }}
+      />
+      <span>{curStyle.label}</span>
+      {onChange && <ChevronDown size={11} className="opacity-70" />}
+    </button>
   );
 
   if (!onChange) {
-    return <span title={meta.hint}>{badge}</span>;
+    return triggerBadge;
   }
 
-  const items: MenuProps["items"] = AI_POLICY_ORDER.map((item) => ({
-    key: item,
-    label: (
-      <div style={{ lineHeight: 1.4 }}>
-        <div style={{ fontSize: 12 }}>{AI_POLICY_META[item].label}</div>
-        <div style={{ fontSize: 10, color: "var(--text-muted)" }}>
-          {AI_POLICY_META[item].hint}
-        </div>
-      </div>
-    ),
-  }));
-
-  return (
-    <Dropdown
-      trigger={["click"]}
-      menu={{
-        items,
-        selectedKeys: [policy],
-        onClick: ({ key }) => onChange(key as AIPolicy),
+  const menuContent = (
+    <div
+      className="p-1.5 rounded-2xl flex flex-col gap-1.5 select-none"
+      style={{
+        minWidth: 104,
+        background: "#18181c",
       }}
     >
-      <span
-        style={{ display: "inline-flex", cursor: "pointer" }}
-        title={`点击调整 AI 策略（当前：${meta.label} — ${meta.hint}）`}
-      >
-        {badge}
-      </span>
-    </Dropdown>
+      {AI_POLICY_ORDER.map((item) => {
+        const itemStyle = POLICY_STYLES[item] || POLICY_STYLES.trusted;
+        const isSelected = normKey === item;
+
+        return (
+          <button
+            key={item}
+            type="button"
+            onClick={() => {
+              onChange(item);
+              setOpen(false);
+            }}
+            className="w-full flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium transition cursor-pointer text-left"
+            style={{
+              background: isSelected ? itemStyle.hoverBg : itemStyle.bg,
+              color: itemStyle.fg,
+              border: `1px solid ${itemStyle.border}`,
+            }}
+          >
+            <span
+              className="w-2 h-2 rounded-full shrink-0"
+              style={{ background: itemStyle.dot }}
+            />
+            <span>{itemStyle.label}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+
+  return (
+    <Popover
+      content={menuContent}
+      trigger="click"
+      open={open}
+      onOpenChange={setOpen}
+      placement="bottomLeft"
+      overlayInnerStyle={{
+        padding: 0,
+        borderRadius: 16,
+        background: "#18181c",
+        border: "1px solid rgba(255, 255, 255, 0.12)",
+        boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5)",
+      }}
+    >
+      {triggerBadge}
+    </Popover>
   );
 }

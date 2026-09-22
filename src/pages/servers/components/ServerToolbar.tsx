@@ -1,28 +1,34 @@
 import { useState } from "react";
 import { Badge, Checkbox, Input, Popover } from "antd";
-import { ChevronDown, Search } from "lucide-react";
-import type { OsType } from "@/types";
+import { ChevronDown, Filter, Search } from "lucide-react";
+import type { AIPolicy, OsType } from "@/types";
 
 export type OsFilter = "all" | OsType;
-
-interface ServerToolbarProps {
-  keyword: string;
-  onKeywordChange: (value: string) => void;
-  osFilter: OsFilter;
-  onOsFilterChange: (value: OsFilter) => void;
-  /** 各系统档位的主机数量，展示在筛选按钮上 */
-  osCounts: Record<OsFilter, number>;
-  tagStats: { tag: string; count: number }[];
-  selectedTags: string[];
-  onToggleTag: (tag: string) => void;
-  onResetTags: () => void;
-}
+export type StatusFilter = "all" | "online" | "offline";
+export type PolicyFilter = "all" | AIPolicy;
 
 const OS_TABS: { key: OsFilter; label: string }[] = [
   { key: "all", label: "全部" },
   { key: "linux", label: "Linux" },
   { key: "windows", label: "Windows" },
 ];
+
+interface ServerToolbarProps {
+  keyword: string;
+  onKeywordChange: (value: string) => void;
+  osFilter: OsFilter;
+  onOsFilterChange: (value: OsFilter) => void;
+  /** 保留这些回调以兼容页面的状态过滤逻辑，原型不再显示对应控件。 */
+  statusFilter?: StatusFilter;
+  onStatusFilterChange?: (value: StatusFilter) => void;
+  policyFilter?: PolicyFilter;
+  onPolicyFilterChange?: (value: PolicyFilter) => void;
+  osCounts: Record<OsFilter, number>;
+  tagStats: { tag: string; count: number }[];
+  selectedTags: string[];
+  onToggleTag: (tag: string) => void;
+  onResetTags: () => void;
+}
 
 export function ServerToolbar({
   keyword,
@@ -69,10 +75,7 @@ export function ServerToolbar({
               style={{ color: "var(--text-primary)" }}
             >
               <span className="flex items-center gap-2 min-w-0">
-                <Checkbox
-                  checked={selectedTags.includes(tag)}
-                  onChange={() => onToggleTag(tag)}
-                />
+                <Checkbox checked={selectedTags.includes(tag)} onChange={() => onToggleTag(tag)} />
                 <span className="truncate">{tag}</span>
               </span>
               <span className="text-[10px] font-mono" style={{ color: "var(--text-muted)" }}>
@@ -87,21 +90,18 @@ export function ServerToolbar({
 
   return (
     <div
-      className="p-3 flex flex-wrap items-center justify-between gap-3"
-      style={{
-        borderBottom: "1px solid var(--border)",
-        background: "var(--bg-secondary)",
-      }}
+      className="px-3 py-3 flex flex-wrap items-center justify-between gap-3"
+      style={{ borderBottom: "1px solid var(--border)", background: "var(--bg-secondary)" }}
     >
-      <div className="flex-1 min-w-[220px] max-w-md">
-        <Input
-          allowClear
-          value={keyword}
-          onChange={(e) => onKeywordChange(e.target.value)}
-          placeholder="搜索名称、IP、账号、标签、系统架构..."
-          prefix={<Search size={13} style={{ color: "var(--text-muted)" }} />}
-        />
-      </div>
+      <Input
+        allowClear
+        value={keyword}
+        onChange={(event) => onKeywordChange(event.target.value)}
+        placeholder="搜索名称、IP、账号、标签、OS架构..."
+        prefix={<Search size={13} style={{ color: "var(--text-muted)" }} />}
+        className="flex-1 min-w-[260px] max-w-xl"
+        style={{ height: 32 }}
+      />
 
       <div className="flex items-center gap-1.5">
         {OS_TABS.map(({ key, label }) => {
@@ -111,17 +111,22 @@ export function ServerToolbar({
               key={key}
               type="button"
               onClick={() => onOsFilterChange(key)}
-              className="px-2.5 py-1 rounded-lg text-xs transition"
+              className="px-2.5 py-1 rounded-lg text-xs transition-all cursor-pointer flex items-center gap-1"
               style={{
                 background: active ? "rgba(99, 102, 241, 0.2)" : "var(--bg-tertiary)",
                 color: active ? "var(--accent-hover)" : "var(--text-secondary)",
-                border: active
-                  ? "1px solid rgba(99, 102, 241, 0.4)"
-                  : "1px solid transparent",
+                border: active ? "1px solid rgba(99, 102, 241, 0.5)" : "1px solid var(--border)",
                 fontWeight: active ? 500 : 400,
+                boxShadow: active ? "0 0 8px rgba(99, 102, 241, 0.25)" : "none",
               }}
             >
-              {label} ({osCounts[key]})
+              <span>{label}</span>
+              <span
+                className="text-[10px] font-mono px-1 py-0.2 rounded-full"
+                style={{ background: active ? "rgba(99, 102, 241, 0.3)" : "rgba(0,0,0,0.15)" }}
+              >
+                {osCounts[key]}
+              </span>
             </button>
           );
         })}
@@ -135,24 +140,17 @@ export function ServerToolbar({
         >
           <button
             type="button"
-            className="px-2.5 py-1 rounded-lg text-xs flex items-center gap-1 transition"
+            className="px-2.5 py-1 rounded-lg text-xs flex items-center gap-1.5 transition-all cursor-pointer"
             style={{
-              background: "var(--bg-tertiary)",
-              color: selectedTags.length
-                ? "var(--accent-hover)"
-                : "var(--text-secondary)",
-              border: "1px solid var(--border)",
+              background: selectedTags.length > 0 ? "rgba(99, 102, 241, 0.15)" : "var(--bg-tertiary)",
+              color: selectedTags.length > 0 ? "var(--accent-hover)" : "var(--text-secondary)",
+              border: selectedTags.length > 0 ? "1px solid rgba(99, 102, 241, 0.4)" : "1px solid var(--border)",
             }}
           >
+            <Filter size={11} className="opacity-70" />
             <span>标签筛选</span>
-            {selectedTags.length > 0 && (
-              <Badge
-                count={selectedTags.length}
-                size="small"
-                style={{ backgroundColor: "var(--accent)" }}
-              />
-            )}
-            <ChevronDown size={12} />
+            {selectedTags.length > 0 && <Badge count={selectedTags.length} size="small" style={{ backgroundColor: "var(--accent)" }} />}
+            <ChevronDown size={11} />
           </button>
         </Popover>
       </div>

@@ -43,6 +43,14 @@ pub struct Server {
     pub last_connection_message: String,
     /// 最近一次 SSH 认证成功时间
     pub last_connected_at: Option<String>,
+    /// 是否允许 sudo 提权
+    pub allow_sudo: bool,
+    /// 是否借用本机本地代理连接
+    pub use_local_proxy: bool,
+    /// 跳板机服务器 ID，None 表示直连
+    pub bastion_id: Option<i64>,
+    /// AI 专用 SSH 账号（留空则与主账号一致）
+    pub ai_username: String,
     pub created_at: String,
     pub updated_at: String,
 }

@@ -1,5 +1,6 @@
 import type { ThemeConfig } from "antd";
 import { theme } from "antd";
+import type { SkinId } from "@/store/app";
 
 /**
  * 暗色/亮色主题的共享 token
@@ -108,7 +109,92 @@ export const lightTheme: ThemeConfig = {
   },
 };
 
-/** 根据 resolved theme 获取对应 Ant Design 主题配置 */
-export function getAntdTheme(resolved: "light" | "dark"): ThemeConfig {
-  return resolved === "dark" ? darkTheme : lightTheme;
+interface SkinAntdOverrides {
+  colorPrimary: string;
+  colorBgContainer?: string;
+  colorBgElevated?: string;
+  colorBgLayout?: string;
+}
+
+const SKIN_ANTD_MAP: Record<SkinId, SkinAntdOverrides> = {
+  obsidian: {
+    colorPrimary: "#34d399",
+    colorBgContainer: "#0f172a",
+    colorBgElevated: "#1e293b",
+    colorBgLayout: "#090d16",
+  },
+  graphite: {
+    colorPrimary: "#818cf8",
+    colorBgContainer: "#18181b",
+    colorBgElevated: "#27272a",
+    colorBgLayout: "#0a0a0b",
+  },
+  amber: {
+    colorPrimary: "#fbbf24",
+    colorBgContainer: "#1c1917",
+    colorBgElevated: "#292524",
+    colorBgLayout: "#12100e",
+  },
+  sky: {
+    colorPrimary: "#3b82f6",
+    colorBgContainer: "#ffffff",
+    colorBgElevated: "#ffffff",
+    colorBgLayout: "#f8fafc",
+  },
+  warm: {
+    colorPrimary: "#f97316",
+    colorBgContainer: "#ffffff",
+    colorBgElevated: "#ffffff",
+    colorBgLayout: "#fffbeb",
+  },
+  aurora: {
+    colorPrimary: "#14b8a6",
+    colorBgContainer: "#ffffff",
+    colorBgElevated: "#ffffff",
+    colorBgLayout: "#f0fdfa",
+  },
+};
+
+/** 根据 resolved theme 和 skin 获取对应 Ant Design 主题配置 */
+export function getAntdTheme(resolved: "light" | "dark", skin?: SkinId): ThemeConfig {
+  const base = resolved === "dark" ? darkTheme : lightTheme;
+  if (!skin || !SKIN_ANTD_MAP[skin]) return base;
+
+  const overrides = SKIN_ANTD_MAP[skin];
+  return {
+    ...base,
+    token: {
+      ...base.token,
+      colorPrimary: overrides.colorPrimary,
+      ...(overrides.colorBgContainer ? { colorBgContainer: overrides.colorBgContainer } : {}),
+      ...(overrides.colorBgElevated ? { colorBgElevated: overrides.colorBgElevated } : {}),
+      ...(overrides.colorBgLayout ? { colorBgLayout: overrides.colorBgLayout } : {}),
+    },
+    components: {
+      ...base.components,
+      ...(resolved === "dark"
+        ? {
+            Layout: {
+              bodyBg: overrides.colorBgLayout || "#0f172a",
+              siderBg: overrides.colorBgContainer || "#1e293b",
+              headerBg: overrides.colorBgContainer || "rgba(15, 23, 42, 0.95)",
+            },
+            Table: {
+              headerBg: overrides.colorBgElevated || "#1e293b",
+              rowHoverBg: overrides.colorBgElevated || "#334155",
+            },
+          }
+        : {
+            Layout: {
+              bodyBg: overrides.colorBgLayout || "#f8fafc",
+              siderBg: overrides.colorBgContainer || "#ffffff",
+              headerBg: overrides.colorBgContainer || "#ffffff",
+            },
+            Table: {
+              headerBg: overrides.colorBgLayout || "#f8fafc",
+              rowHoverBg: overrides.colorBgElevated || "#f1f5f9",
+            },
+          }),
+    },
+  };
 }

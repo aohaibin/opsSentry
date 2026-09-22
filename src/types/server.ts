@@ -25,6 +25,14 @@ export interface Server {
   last_connection_message: string;
   /** 最近一次 SSH 认证成功时间 */
   last_connected_at: string | null;
+  /** 是否允许 sudo 提权 */
+  allow_sudo: boolean;
+  /** 是否借用本机代理连接 */
+  use_local_proxy: boolean;
+  /** 跳板机服务器 ID，null 表示直连 */
+  bastion_id: number | null;
+  /** AI 专用 SSH 账号（留空则与主账号一致） */
+  ai_username: string;
   created_at: string;
   updated_at: string;
 }
@@ -39,8 +47,16 @@ export interface AuditLog {
   created_at: string;
 }
 
-/** AI 策略档位 */
-export type AIPolicy = 'trusted' | 'allowlist' | 'approval' | 'denied';
+/** AI 策略档位 (禁用 / 只读 / 审批 / 白名单 / 信任，并兼容历史代号) */
+export type AIPolicy =
+  | 'disabled'
+  | 'readonly'
+  | 'approval'
+  | 'allowlist'
+  | 'trusted'
+  | 'strict'
+  | 'autonomous'
+  | 'denied';
 
 /** 认证方式 */
 export type AuthType = 'password' | 'key';
@@ -99,6 +115,10 @@ export interface ServerPayload {
   ai_policy: AIPolicy;
   os_type: OsType;
   arch?: string;
+  allow_sudo?: boolean;
+  use_local_proxy?: boolean;
+  bastion_id?: number | null;
+  ai_username?: string;
 }
 
 /** 从 ~/.ssh/config 解析出的主机条目（仅用于导入预览） */

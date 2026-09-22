@@ -20,7 +20,8 @@ pub struct Database {
 const SERVER_COLUMNS: &str =
     "id, alias, hostname, port, username, auth_type, tags, `group`, ai_policy, os_type, \
      favorite, arch, last_used_at, host_key_fingerprint, last_connection_status, \
-     last_connection_message, last_connected_at, created_at, updated_at";
+     last_connection_message, last_connected_at, allow_sudo, use_local_proxy, bastion_id, \
+     ai_username, created_at, updated_at";
 
 /// 将一行查询结果映射为 Server
 ///
@@ -44,8 +45,12 @@ fn map_server_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<Server> {
         last_connection_status: row.get(14)?,
         last_connection_message: row.get(15)?,
         last_connected_at: row.get(16)?,
-        created_at: row.get(17)?,
-        updated_at: row.get(18)?,
+        allow_sudo: row.get::<_, i32>(17)? != 0,
+        use_local_proxy: row.get::<_, i32>(18)? != 0,
+        bastion_id: row.get(19)?,
+        ai_username: row.get(20)?,
+        created_at: row.get(21)?,
+        updated_at: row.get(22)?,
     })
 }
 
@@ -191,6 +196,7 @@ impl Database {
     }
 
     /// 添加服务器
+    #[allow(clippy::too_many_arguments)]
     pub fn add_server(
         &self,
         alias: &str,
@@ -203,18 +209,23 @@ impl Database {
         ai_policy: &str,
         os_type: &str,
         arch: &str,
+        allow_sudo: bool,
+        use_local_proxy: bool,
+        bastion_id: Option<i64>,
+        ai_username: &str,
     ) -> Result<i64, AppError> {
         let conn = self.conn.lock().map_err(|e| AppError::Custom(e.to_string()))?;
         let now = chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
         conn.execute(
-            "INSERT INTO servers (alias, hostname, port, username, auth_type, tags, `group`, ai_policy, os_type, arch, created_at, updated_at)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
-            rusqlite::params![alias, hostname, port, username, auth_type, tags, group, ai_policy, os_type, arch, now, now],
+            "INSERT INTO servers (alias, hostname, port, username, auth_type, tags, `group`, ai_policy, os_type, arch, allow_sudo, use_local_proxy, bastion_id, ai_username, created_at, updated_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16)",
+            rusqlite::params![alias, hostname, port, username, auth_type, tags, group, ai_policy, os_type, arch, allow_sudo as i32, use_local_proxy as i32, bastion_id, ai_username, now, now],
         )?;
         Ok(conn.last_insert_rowid())
     }
 
     /// 更新服务器
+    #[allow(clippy::too_many_arguments)]
     pub fn update_server(
         &self,
         id: i64,
@@ -228,12 +239,16 @@ impl Database {
         ai_policy: &str,
         os_type: &str,
         arch: &str,
+        allow_sudo: bool,
+        use_local_proxy: bool,
+        bastion_id: Option<i64>,
+        ai_username: &str,
     ) -> Result<(), AppError> {
         let conn = self.conn.lock().map_err(|e| AppError::Custom(e.to_string()))?;
         conn.execute(
-            "UPDATE servers SET alias=?1, hostname=?2, port=?3, username=?4, auth_type=?5, tags=?6, `group`=?7, ai_policy=?8, os_type=?9, arch=?10, updated_at=datetime('now','localtime')
-             WHERE id=?11",
-            rusqlite::params![alias, hostname, port, username, auth_type, tags, group, ai_policy, os_type, arch, id],
+            "UPDATE servers SET alias=?1, hostname=?2, port=?3, username=?4, auth_type=?5, tags=?6, `group`=?7, ai_policy=?8, os_type=?9, arch=?10, allow_sudo=?11, use_local_proxy=?12, bastion_id=?13, ai_username=?14, updated_at=datetime('now','localtime')
+             WHERE id=?15",
+            rusqlite::params![alias, hostname, port, username, auth_type, tags, group, ai_policy, os_type, arch, allow_sudo as i32, use_local_proxy as i32, bastion_id, ai_username, id],
         )?;
         Ok(())
     }

@@ -11,38 +11,130 @@ export interface AIPolicyMeta {
   hint: string;
 }
 
-export const AI_POLICY_META: Record<AIPolicy, AIPolicyMeta> = {
+export interface PolicyStyle {
+  label: string;
+  dot: string;
+  fg: string;
+  border: string;
+  bg: string;
+  hoverBg: string;
+}
+
+export const POLICY_STYLES: Record<string, PolicyStyle> = {
+  disabled: {
+    label: "禁用",
+    dot: "#94a3b8",
+    fg: "#cbd5e1",
+    border: "rgba(100, 116, 139, 0.6)",
+    bg: "rgba(30, 41, 59, 0.45)",
+    hoverBg: "rgba(51, 65, 85, 0.6)",
+  },
+  readonly: {
+    label: "只读",
+    dot: "#34d399",
+    fg: "#34d399",
+    border: "rgba(16, 185, 129, 0.5)",
+    bg: "rgba(6, 78, 59, 0.35)",
+    hoverBg: "rgba(6, 95, 70, 0.55)",
+  },
+  approval: {
+    label: "审批",
+    dot: "#22d3ee",
+    fg: "#67e8f9",
+    border: "rgba(6, 182, 212, 0.5)",
+    bg: "rgba(22, 78, 99, 0.35)",
+    hoverBg: "rgba(21, 94, 117, 0.55)",
+  },
+  allowlist: {
+    label: "白名单",
+    dot: "#fbbf24",
+    fg: "#fbbf24",
+    border: "rgba(245, 158, 11, 0.5)",
+    bg: "rgba(120, 53, 15, 0.35)",
+    hoverBg: "rgba(146, 64, 14, 0.55)",
+  },
   trusted: {
-    label: "已信任",
-    short: "放行",
+    label: "信任",
+    dot: "#fb7185",
+    fg: "#fda4af",
+    border: "rgba(244, 63, 94, 0.5)",
+    bg: "rgba(136, 19, 55, 0.35)",
+    hoverBg: "rgba(159, 18, 57, 0.55)",
+  },
+};
+
+export const AI_POLICY_META: Record<AIPolicy, AIPolicyMeta> = {
+  disabled: {
+    label: "禁用",
+    short: "禁用",
+    color: "default",
+    hint: "AI 完全禁止在此主机执行任何命令",
+  },
+  readonly: {
+    label: "只读",
+    short: "只读",
     color: "green",
-    hint: "AI 命中策略直接执行，仅记录审计日志",
+    hint: "仅允许只读探测命令，禁止任何写入与变更",
+  },
+  approval: {
+    label: "审批",
+    short: "审批",
+    color: "cyan",
+    hint: "AI 执行前必须由工程师人工审批放行",
   },
   allowlist: {
     label: "白名单",
     short: "白名单",
-    color: "blue",
-    hint: "仅允许白名单内的只读命令，其余一律拒绝",
+    color: "gold",
+    hint: "仅允许安全白名单库内的命令执行",
   },
-  approval: {
-    label: "需审批",
+  trusted: {
+    label: "信任",
+    short: "信任",
+    color: "magenta",
+    hint: "AI 全自主排障执行，危险黑名单拦截",
+  },
+  strict: {
+    label: "审批",
     short: "审批",
-    color: "orange",
-    hint: "AI 执行前必须由工程师人工裁决放行",
+    color: "cyan",
+    hint: "AI 执行前必须由工程师人工审批放行",
+  },
+  autonomous: {
+    label: "信任",
+    short: "信任",
+    color: "magenta",
+    hint: "AI 全自主排障执行，危险黑名单拦截",
   },
   denied: {
-    label: "已锁定",
-    short: "锁定",
-    color: "red",
+    label: "禁用",
+    short: "禁用",
+    color: "default",
     hint: "AI 完全禁止在此主机执行任何命令",
   },
 };
 
+/**
+ * 归一化 AI 策略代号
+ * 兼容历史代号 strict(审批) / autonomous(信任) / denied(禁用)
+ */
+export function normalizeAIPolicy(p?: string | null): AIPolicy {
+  if (!p) return "approval";
+  if (p === "strict") return "approval";
+  if (p === "autonomous") return "trusted";
+  if (p === "denied") return "disabled";
+  return (p as AIPolicy) || "approval";
+}
+
+
+
+
 export const AI_POLICY_ORDER: AIPolicy[] = [
-  "trusted",
-  "allowlist",
+  "disabled",
+  "readonly",
   "approval",
-  "denied",
+  "allowlist",
+  "trusted",
 ];
 
 export const AUTH_TYPE_LABEL: Record<AuthType, string> = {

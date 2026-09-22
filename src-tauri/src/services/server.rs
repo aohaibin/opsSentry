@@ -46,6 +46,10 @@ impl ServerService {
         ai_policy: &str,
         os_type: &str,
         arch: &str,
+        allow_sudo: bool,
+        use_local_proxy: bool,
+        bastion_id: Option<i64>,
+        ai_username: &str,
     ) -> Result<i64, AppError> {
         let alias = alias.trim();
         let hostname = hostname.trim();
@@ -69,6 +73,10 @@ impl ServerService {
             ai_policy,
             os_type,
             arch.trim(),
+            allow_sudo,
+            use_local_proxy,
+            bastion_id,
+            ai_username.trim(),
         )
     }
 
@@ -87,6 +95,10 @@ impl ServerService {
         ai_policy: &str,
         os_type: &str,
         arch: &str,
+        allow_sudo: bool,
+        use_local_proxy: bool,
+        bastion_id: Option<i64>,
+        ai_username: &str,
     ) -> Result<(), AppError> {
         let alias = alias.trim();
         let hostname = hostname.trim();
@@ -111,6 +123,10 @@ impl ServerService {
             ai_policy,
             os_type,
             arch.trim(),
+            allow_sudo,
+            use_local_proxy,
+            bastion_id,
+            ai_username.trim(),
         )
     }
 

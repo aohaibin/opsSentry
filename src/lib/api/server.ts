@@ -34,6 +34,10 @@ function toIpcPayload(payload: ServerPayload) {
     tags: payload.tags,
     group: payload.group ?? "默认",
     arch: payload.arch ?? "",
+    allowSudo: payload.allow_sudo ?? false,
+    useLocalProxy: payload.use_local_proxy ?? false,
+    bastionId: payload.bastion_id ?? null,
+    aiUsername: payload.ai_username ?? "",
   };
 }
 

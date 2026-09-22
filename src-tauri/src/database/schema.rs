@@ -3,7 +3,7 @@ use rusqlite::Connection;
 use crate::error::AppError;
 
 /// 当前 Schema 版本
-pub const SCHEMA_VERSION: i32 = 6;
+pub const SCHEMA_VERSION: i32 = 7;
 
 /// 获取数据库版本
 pub fn get_version(conn: &Connection) -> Result<i32, AppError> {
@@ -36,6 +36,7 @@ pub fn migrate(conn: &Connection) -> Result<(), AppError> {
             3 => migrate_v3_to_v4(conn)?,
             4 => migrate_v4_to_v5(conn)?,
             5 => migrate_v5_to_v6(conn)?,
+            6 => migrate_v6_to_v7(conn)?,
             _ => {
                 return Err(AppError::Custom(format!(
                     "未知的数据库版本: {}",
@@ -196,5 +197,22 @@ fn migrate_v5_to_v6(conn: &Connection) -> Result<(), AppError> {
     )?;
 
     set_version(conn, 6)?;
+    Ok(())
+}
+
+/// v6 -> v7: 添加 sudo 权限、本地代理、跳板机与 AI 专用账号支持
+fn migrate_v6_to_v7(conn: &Connection) -> Result<(), AppError> {
+    log::info!("数据库迁移: v6 -> v7（服务器扩展属性：sudo/代理/跳板机/AI专用账号）");
+
+    conn.execute_batch(
+        "
+        ALTER TABLE servers ADD COLUMN allow_sudo INTEGER NOT NULL DEFAULT 0;
+        ALTER TABLE servers ADD COLUMN use_local_proxy INTEGER NOT NULL DEFAULT 0;
+        ALTER TABLE servers ADD COLUMN bastion_id INTEGER DEFAULT NULL;
+        ALTER TABLE servers ADD COLUMN ai_username TEXT NOT NULL DEFAULT '';
+        ",
+    )?;
+
+    set_version(conn, 7)?;
     Ok(())
 }

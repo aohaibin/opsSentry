@@ -14,11 +14,12 @@ import {
 import {
   Blocks,
   FileCode,
+  Loader2,
+  Lock,
   Monitor,
   MonitorUp,
   Plus,
   ShieldCheck,
-  Server as ServerIcon,
   Star,
 } from "lucide-react";
 import type {
@@ -36,26 +37,33 @@ import { SshConnectModal } from "@/components/server/SshConnectModal";
 import { useAppStore } from "@/store/app";
 import { modulePath, requireModule } from "@/navigation/modules";
 import { ServerGroupPanel } from "./components/ServerGroupPanel";
-import { ServerToolbar, type OsFilter } from "./components/ServerToolbar";
+import {
+  ServerToolbar,
+  type OsFilter,
+  type StatusFilter,
+  type PolicyFilter,
+} from "./components/ServerToolbar";
 import { ServerFormModal } from "./components/ServerFormModal";
 import { BatchActionBar } from "./components/BatchActionBar";
 import { WindowsGuideModal } from "./components/WindowsGuideModal";
 import { ImportSSHConfigModal } from "./components/ImportSSHConfigModal";
 import { AiPolicyBadge } from "./components/AiPolicyBadge";
+import { AiApprovalBypassPopover } from "./components/AiApprovalBypassPopover";
 import { ServerRowActions } from "./components/ServerRowActions";
+
 import {
   AI_POLICY_META,
   AI_POLICY_ORDER,
   AUTH_TYPE_LABEL,
-  OS_TYPE_LABEL,
   VIRTUAL_GROUP_ALL,
   VIRTUAL_GROUP_RECENT,
   VIRTUAL_GROUP_STARRED,
   collectTagStats,
-  formatRelativeTime,
   matchServer,
+  normalizeAIPolicy,
   parseTags,
 } from "./lib/serverMeta";
+
 
 /** 模块元信息（标题 / 副标题 / 定位说明）取自注册表，避免与导航、占位页三处各写一份 */
 const MODULE = requireModule("servers");
@@ -77,9 +85,7 @@ const TAG_PILL: CSSProperties = {
 /**
  * SSH 身份认证状态。
  *
- * 原型没有独立的 SSH 状态列，但「主机指纹是否已核验」是这套产品的核心安全态。
- * 直接抹掉会让这张表失去最关键的一条信息，所以压成「认证方式」胶囊右侧的一颗 5px 状态点，
- * 完整结论仍走悬停提示——视觉上基本不增加体量。
+ * SSH 身份状态用于凭证盾牌的悬停说明，避免把认证结果误当作网络连通状态。
  */
 const SSH_STATUS_META: Record<string, { label: string; tone: string }> = {
   unknown: { label: "未验证", tone: "var(--text-muted)" },
@@ -95,6 +101,8 @@ export default function ServersPage() {
 
   const [keyword, setKeyword] = useState("");
   const [osFilter, setOsFilter] = useState<OsFilter>("all");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [policyFilter, setPolicyFilter] = useState<PolicyFilter>("all");
   const [activeGroup, setActiveGroup] = useState<string>(VIRTUAL_GROUP_ALL);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
 
@@ -194,7 +202,7 @@ export default function ServersPage() {
 
   const tagStats = useMemo(() => collectTagStats(servers), [servers]);
 
-  /** 应用分组 / 搜索 / 标签三重过滤，但不含系统筛选——系统计数要基于这一层统计 */
+  /** 应用分组 / 状态 / 策略 / 搜索 / 标签多重过滤，但不含系统筛选——系统计数要基于这一层统计 */
   const baseList = useMemo(() => {
     return servers.filter((server) => {
       if (activeGroup === VIRTUAL_GROUP_STARRED && !server.favorite) return false;
@@ -208,6 +216,23 @@ export default function ServersPage() {
         return false;
       }
 
+      // 快速状态过滤
+      if (statusFilter !== "all") {
+        const probe = probeStates[server.id];
+        const isOnline = probe && probe !== "testing" ? probe.ok : true;
+        if (statusFilter === "online" && !isOnline) return false;
+        if (statusFilter === "offline" && isOnline) return false;
+      }
+
+      // 快速策略过滤 (使用 normalizeAIPolicy 双向兼容新旧策略代号)
+      if (
+        policyFilter !== "all" &&
+        normalizeAIPolicy(server.ai_policy) !== normalizeAIPolicy(policyFilter)
+      ) {
+        return false;
+      }
+
+
       if (selectedTags.length > 0) {
         const tags = parseTags(server.tags);
         if (!selectedTags.every((tag) => tags.includes(tag))) return false;
@@ -215,7 +240,7 @@ export default function ServersPage() {
 
       return matchServer(server, keyword);
     });
-  }, [servers, activeGroup, selectedTags, keyword]);
+  }, [servers, activeGroup, selectedTags, keyword, statusFilter, policyFilter, probeStates]);
 
   const osCounts = useMemo<Record<OsFilter, number>>(
     () => ({
@@ -250,6 +275,8 @@ export default function ServersPage() {
   const resetAllFilters = () => {
     setKeyword("");
     setOsFilter("all");
+    setStatusFilter("all");
+    setPolicyFilter("all");
     setSelectedTags([]);
     setActiveGroup(VIRTUAL_GROUP_ALL);
   };
@@ -484,212 +511,272 @@ export default function ServersPage() {
     setFormOpen(true);
   };
 
-  /**
-   * 六列，与原型 renderServerTable() 的 thead 严格一一对应：
-   * 服务器名称/标签 · 连接地址 · 系统/架构 · 认证方式 · AI 策略档位 · 操作。
-   *
-   * 原先多出来的「连通状态」「SSH 状态」两列已按原型收掉：
-   * 延迟并入「连接地址」第二行，SSH 核验结果压成「认证方式」胶囊上的状态点。
-   */
+  const handleCreateSubGroup = (parentGroupName: string, subGroupName: string) => {
+    const fullName = `${parentGroupName}/${subGroupName}`;
+    setEditingServer(null);
+    setPresetGroup(fullName);
+    setFormOpen(true);
+  };
+
+  const toServerGroupPayload = (s: Server, newGroup: string): ServerPayload => ({
+    alias: s.alias,
+    hostname: s.hostname,
+    port: s.port,
+    username: s.username,
+    auth_type: (s.auth_type === "key" ? "key" : "password") as AuthType,
+    group: newGroup,
+    tags: s.tags,
+    os_type: (s.os_type === "windows" ? "windows" : "linux") as OsType,
+    ai_policy: (s.ai_policy as AIPolicy) || "approval",
+    arch: s.arch,
+    allow_sudo: s.allow_sudo,
+    use_local_proxy: s.use_local_proxy,
+    bastion_id: s.bastion_id,
+    ai_username: s.ai_username,
+  });
+
+  const handleRenameGroup = async (oldName: string, newName: string) => {
+    const targets = servers.filter((s) => s.group === oldName);
+    if (targets.length === 0) return;
+    try {
+      for (const s of targets) {
+        await serverApi.update(s.id, toServerGroupPayload(s, newName));
+      }
+      message.success(`已将分组【${oldName}】重命名为【${newName}】`);
+      if (activeGroup === oldName) {
+        setActiveGroup(newName);
+      }
+      await loadServers();
+    } catch (e) {
+      message.error(getErrorMessage(e));
+    }
+  };
+
+  const handleDissolveGroup = async (groupName: string) => {
+    const targets = servers.filter((s) => s.group === groupName);
+    try {
+      for (const s of targets) {
+        await serverApi.update(s.id, toServerGroupPayload(s, ""));
+      }
+      message.success(`分组【${groupName}】已解散，${targets.length} 台主机已归入全部主机`);
+      if (activeGroup === groupName) {
+        setActiveGroup(VIRTUAL_GROUP_ALL);
+      }
+      await loadServers();
+    } catch (e) {
+      message.error(getErrorMessage(e));
+    }
+  };
+
+  const handleMoveGroup = async (groupName: string, targetParent: string) => {
+    const simpleName = groupName.includes("/") ? groupName.split("/").pop()! : groupName;
+    const newGroupName = targetParent === "root" ? simpleName : `${targetParent}/${simpleName}`;
+    if (newGroupName === groupName) return;
+    // 递归匹配该分组自身及旗下所有子分组
+    const targets = servers.filter(
+      (s) => s.group === groupName || (s.group && s.group.startsWith(`${groupName}/`))
+    );
+    try {
+      for (const s of targets) {
+        const updatedGroup = s.group === groupName
+          ? newGroupName
+          : s.group!.replace(`${groupName}/`, `${newGroupName}/`);
+        await serverApi.update(s.id, toServerGroupPayload(s, updatedGroup));
+      }
+      message.success(
+        targetParent === "root"
+          ? `已将分组【${simpleName}】移至根目录 (顶级)`
+          : `已将分组【${simpleName}】移入【${targetParent}】作为子分组`
+      );
+      if (activeGroup === groupName) {
+        setActiveGroup(newGroupName);
+      } else if (activeGroup.startsWith(`${groupName}/`)) {
+        setActiveGroup(activeGroup.replace(`${groupName}/`, `${newGroupName}/`));
+      }
+      await loadServers();
+    } catch (e) {
+      message.error(getErrorMessage(e));
+    }
+  };
+
+  const groupOptions = useMemo(
+    () => Array.from(new Set(servers.map((server) => server.group).filter(Boolean))).sort((a, b) => a.localeCompare(b, "zh-CN")),
+    [servers]
+  );
+
+  const handleInlineGroupChange = async (server: Server, group: string) => {
+    if (group === server.group) return;
+    try {
+      await serverApi.update(server.id, toServerGroupPayload(server, group));
+      await loadServers();
+      message.success(`已将「${server.alias}」移动到${group || "全部主机"}`);
+    } catch (e) {
+      message.error(getErrorMessage(e));
+    }
+  };
+
+  /** 原型字段：别名/主机、分组、AI 策略、凭证、状态、操作。 */
   const columns: TableProps<Server>["columns"] = [
     {
-      title: "服务器名称 / 标签",
+      title: "别名 / 主机",
       key: "alias",
-      width: 228,
+      width: 235,
+      sorter: (a, b) => a.alias.localeCompare(b.alias, "zh-CN"),
       render: (_: unknown, server: Server) => {
-        const state = probeStates[server.id];
-        const probing = state === "testing";
-        const result = state !== undefined && state !== "testing" ? state : null;
-        const dotTone = probing
-          ? "var(--warning)"
-          : result === null
-            ? "var(--text-muted)"
-            : result.ok
-              ? "var(--success)"
-              : "var(--danger)";
-        const dotTitle = probing
-          ? "正在探测连通性"
-          : result === null
-            ? "尚未探测连通性"
-            : result.ok
-              ? `在线延迟 ${result.latency_ms} ms`
-              : "不可达";
         const tags = parseTags(server.tags);
+        const state = probeStates[server.id];
+        const tone = state === "testing"
+          ? "var(--warning)"
+          : state
+            ? state.ok ? "var(--success)" : "var(--danger)"
+            : "var(--success)";
 
         return (
-          <div className="flex items-center gap-2">
-            <span
-              className="rounded-full shrink-0"
-              style={{ width: 8, height: 8, background: dotTone }}
-              title={dotTitle}
-            />
+          <div className="flex items-center gap-2.5 min-w-0">
+            <span className="w-2 h-2 rounded-full shrink-0" style={{ background: tone }} title={state === "testing" ? "正在探测连通性" : "服务器状态"} />
+
             <div className="min-w-0">
-              <div
-                className="flex items-center gap-1.5 font-bold"
-                style={{ color: "var(--text-primary)" }}
-              >
-                <span className="truncate">{server.alias}</span>
-                {server.os_type === "windows" ? (
-                  <Monitor size={13} style={{ color: "var(--info)", flexShrink: 0 }} />
-                ) : (
-                  <ServerIcon size={13} style={{ color: "var(--text-secondary)", flexShrink: 0 }} />
-                )}
+              <div className="flex items-center gap-1.5 font-bold" style={{ color: "var(--text-primary)" }}>
+                <span
+                  className="truncate cursor-pointer hover:underline text-xs"
+                  onClick={() => goModule("workbench", server)}
+                  title="点击进入工作台"
+                >
+                  {server.alias}
+                </span>
+                <Lock size={12} style={{ color: "var(--text-muted)", flexShrink: 0 }} />
                 <button
                   type="button"
-                  onClick={() => handleToggleFavorite(server)}
-                  title={server.favorite ? "取消收藏" : "加入收藏"}
-                  style={{
-                    display: "flex",
-                    flexShrink: 0,
-                    color: server.favorite ? "#fbbf24" : "var(--text-muted)",
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    void handleToggleFavorite(server);
                   }}
+                  title={server.favorite ? "取消收藏" : "加入收藏"}
+                  className="inline-flex items-center justify-center"
+                  style={{ color: server.favorite ? "var(--warning)" : "var(--text-muted)" }}
                 >
-                  <Star size={12} fill={server.favorite ? "#fbbf24" : "none"} />
+                  <Star size={13} fill={server.favorite ? "currentColor" : "none"} />
                 </button>
               </div>
-              {tags.length > 0 && (
-                <div className="flex flex-wrap gap-1 mt-0.5">
-                  {tags.map((tag) => (
-                    <span key={tag} style={TAG_PILL}>
-                      {tag}
-                    </span>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        );
-      },
-    },
-    {
-      title: "连接地址 (IP & 端口)",
-      key: "address",
-      width: 182,
-      render: (_: unknown, server: Server) => {
-        const state = probeStates[server.id];
-        const probing = state === "testing";
-        const result = state !== undefined && state !== "testing" ? state : null;
-        const tone = probing
-          ? "var(--warning)"
-          : result === null
-            ? "var(--text-muted)"
-            : result.ok
-              ? "var(--success)"
-              : "var(--danger)";
-        const label = probing
-          ? "探测中…"
-          : result === null
-            ? "未探测"
-            : result.ok
-              ? `${result.latency_ms} ms · 稳定在线`
-              : "不可达";
 
-        return (
-          <div style={{ fontFamily: "var(--font-mono)", color: "var(--text-secondary)" }}>
-            <div>
-              {server.username}@{server.hostname}:{server.port}
+              <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
+                <span className="ops-server-host-label">
+                  {server.username}@{server.hostname}:{server.port}
+                </span>
+                {tags.map((tag) => (
+                  <span key={tag} style={TAG_PILL}>
+                    {tag}
+                  </span>
+                ))}
+              </div>
             </div>
-            {/* 原型这一行点击会弹出握手诊断报告；本项目没有那份报告，就直接触发 TCP 探测 */}
-            <button
-              type="button"
-              onClick={() => handleProbe(server)}
-              disabled={probing}
-              title="点击执行 TCP 连通性探测（仅三次握手，不校验凭据）"
-              className="flex items-center gap-1 hover:underline"
-              style={{ marginTop: 2, fontSize: 10, color: tone }}
-            >
-              <span
-                className="rounded-full inline-block"
-                style={{ width: 6, height: 6, background: tone }}
-              />
-              {label}
-            </button>
           </div>
         );
       },
     },
     {
-      title: "系统 / 架构",
-      key: "os",
-      width: 112,
+      title: "分组",
+      key: "group",
+      width: 105,
+      render: (_: unknown, server: Server) => {
+        return (
+          <select
+            value={server.group || ""}
+            onChange={(event) => void handleInlineGroupChange(server, event.target.value)}
+            className="ops-server-group-select"
+            aria-label={`${server.alias}所属分组`}
+            title="点击更改所属分组"
+          >
+            <option value="">全部主机</option>
+            {groupOptions.map((group) => (
+              <option key={group} value={group}>{group}</option>
+            ))}
+          </select>
+        );
+      },
+    },
+    {
+      title: "AI 策略",
+      key: "ai_policy",
+      width: 125,
+      sorter: (a, b) => (a.ai_policy || "").localeCompare(b.ai_policy || ""),
       render: (_: unknown, server: Server) => (
-        <div>
-          <div style={{ color: "var(--text-primary)" }}>
-            {OS_TYPE_LABEL[server.os_type as OsType] ?? server.os_type}
-          </div>
-          <div style={{ fontSize: 10, fontFamily: "var(--font-mono)", color: "var(--text-muted)" }}>
-            {server.arch || "架构待探测"}
-          </div>
+        <div className="flex items-center gap-1.5">
+          <AiPolicyBadge
+            policy={server.ai_policy as AIPolicy}
+            onChange={(policy) => handleInlinePolicyChange(server, policy)}
+          />
+          <AiApprovalBypassPopover server={server} />
         </div>
       ),
     },
     {
-      title: "认证方式",
-      key: "auth_type",
-      width: 104,
+      title: <ShieldCheck size={14} className="mx-auto" />,
+      key: "credentials",
+      width: 44,
+      align: "center",
       render: (_: unknown, server: Server) => {
         const meta = SSH_STATUS_META[server.last_connection_status] ?? SSH_STATUS_META.unknown;
         return (
-          <Tooltip
-            title={
-              <span>
-                SSH 身份认证：{meta.label}
-                {server.last_connected_at
-                  ? ` · ${formatRelativeTime(server.last_connected_at)}`
-                  : ""}
-                <br />
-                点击执行认证与主机指纹核验
-              </span>
-            }
-          >
+          <Tooltip title={`${AUTH_TYPE_LABEL[server.auth_type as AuthType] ?? server.auth_type} · ${meta.label}`}>
             <button
               type="button"
               onClick={() => setSshServer(server)}
-              className="inline-flex items-center gap-1.5"
-              style={{
-                padding: "1px 8px",
-                borderRadius: 4,
-                fontSize: 10,
-                fontFamily: "var(--font-mono)",
-                background: "var(--bg-secondary)",
-                border: "1px solid var(--border)",
-                color: "var(--text-secondary)",
-              }}
+              className="ops-server-credential-icon"
+              aria-label="凭证安全与主密钥托管"
             >
-              {AUTH_TYPE_LABEL[server.auth_type as AuthType] ?? server.auth_type}
-              {/* 原型没有 SSH 状态列，这里压成一颗状态点，保住这条核心安全信息 */}
-              <span
-                className="rounded-full"
-                style={{ width: 5, height: 5, background: meta.tone }}
-              />
+              <ShieldCheck size={15} />
             </button>
           </Tooltip>
         );
       },
     },
     {
-      title: "AI 策略档位",
-      key: "ai_policy",
-      width: 106,
-      render: (_: unknown, server: Server) => (
-        <AiPolicyBadge
-          policy={server.ai_policy as AIPolicy}
-          onChange={(policy) => handleInlinePolicyChange(server, policy)}
-        />
-      ),
+      title: "状态",
+      key: "status",
+      width: 105,
+      sorter: (a, b) => a.hostname.localeCompare(b.hostname),
+      render: (_: unknown, server: Server) => {
+        const state = probeStates[server.id];
+        const probing = state === "testing";
+        const result = state && state !== "testing" ? state : null;
+        const tone = probing
+          ? "var(--warning)"
+          : result
+            ? result.ok ? "var(--success)" : "var(--danger)"
+            : "var(--text-muted)";
+        return (
+          <button
+            type="button"
+            onClick={() => void handleProbe(server)}
+            disabled={probing}
+            className="ops-server-status"
+            style={{ color: tone }}
+            title={result?.message || "点击查看连通性与握手诊断报告"}
+          >
+            {probing
+              ? <Loader2 size={11} className="animate-spin" />
+              : <span className="w-1.5 h-1.5 rounded-full" style={{ background: tone }} />}
+            <span>{probing ? "探测中" : result ? result.ok ? `${result.latency_ms ?? "--"} ms` : "不可达" : "未探测"}</span>
+          </button>
+        );
+      },
     },
     {
       title: "操作",
       key: "action",
-      width: 302,
+      width: 285,
       fixed: "right",
       render: (_: unknown, server: Server) => (
         <ServerRowActions
           server={server}
           probing={probeStates[server.id] === "testing"}
+          onConnect={(item) => goModule("terminal", item)}
+          onOpenSftp={(item) => goModule("sftp", item)}
           onOpenWorkbench={(item) => goModule("workbench", item)}
-          onOpenModule={goModule}
           onProbe={handleProbe}
+          onOpenTunnel={(item) => message.info(`「${item.alias}」的快速操作面板正在建设中`)}
+          onOpenCredentials={(item) => goModule("database", item)}
           onEdit={(item) => {
             setEditingServer(item);
             setPresetGroup(undefined);
@@ -755,12 +842,16 @@ export default function ServersPage() {
           alignItems: "stretch",
         }}
       >
-        <div style={{ width: groupWidth, flexShrink: 0, minWidth: 140, maxWidth: 450 }}>
+        <div className="ops-server-group-slot" style={{ width: groupWidth, flexShrink: 0, minWidth: 140, maxWidth: 450 }}>
           <ServerGroupPanel
             servers={servers}
             activeGroup={activeGroup}
             onSelectGroup={setActiveGroup}
             onCreateGroup={handleCreateGroup}
+            onRenameGroup={handleRenameGroup}
+            onDissolveGroup={handleDissolveGroup}
+            onCreateSubGroup={handleCreateSubGroup}
+            onMoveGroup={handleMoveGroup}
             tagStats={tagStats}
             selectedTags={selectedTags}
             onToggleTag={handleToggleTag}
@@ -784,6 +875,10 @@ export default function ServersPage() {
             onKeywordChange={setKeyword}
             osFilter={osFilter}
             onOsFilterChange={setOsFilter}
+            statusFilter={statusFilter}
+            onStatusFilterChange={setStatusFilter}
+            policyFilter={policyFilter}
+            onPolicyFilterChange={setPolicyFilter}
             osCounts={osCounts}
             tagStats={tagStats}
             selectedTags={selectedTags}
@@ -799,7 +894,7 @@ export default function ServersPage() {
               loading={loading}
               size="middle"
               pagination={false}
-              scroll={{ x: 1080, y: "calc(100vh - 410px)" }}
+              scroll={{ x: "max-content" }}
               rowSelection={{
                 selectedRowKeys: selectedIds,
                 onChange: (keys) => setSelectedIds(keys as number[]),
@@ -833,6 +928,7 @@ export default function ServersPage() {
               setPolicyInput("approval");
               setPolicyModalOpen(true);
             }}
+            onBatchExecute={() => navigate(modulePath("batch"))}
             onBatchDelete={handleBatchDelete}
             onClear={() => setSelectedIds([])}
           />
@@ -896,12 +992,14 @@ export default function ServersPage() {
         open={formOpen}
         server={editingServer}
         presetGroup={presetGroup}
+        existingServers={servers}
         onCancel={() => {
           setFormOpen(false);
           setEditingServer(null);
           setPresetGroup(undefined);
         }}
         onSubmit={handleSave}
+        onOpenWindowsGuide={() => setWindowsGuideOpen(true)}
       />
 
       <WindowsGuideModal

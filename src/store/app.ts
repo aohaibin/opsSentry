@@ -114,18 +114,47 @@ interface AppStore {
 
 const TOGGLE_ORDER: ThemeMode[] = ["dark", "light", "system"];
 
+const getStoredSkin = (): SkinId => {
+  try {
+    const s = localStorage.getItem("ops_skin") as SkinId;
+    if (SKINS.some((item) => item.id === s)) return s;
+  } catch {}
+  return "obsidian";
+};
+
+const getStoredTheme = (): ThemeMode => {
+  try {
+    const t = localStorage.getItem("ops_theme") as ThemeMode;
+    if (t === "dark" || t === "light" || t === "system") return t;
+  } catch {}
+  return "dark";
+};
+
 export const useAppStore = create<AppStore>((set, get) => ({
-  theme: "system",
-  skin: "obsidian",
+  theme: getStoredTheme(),
+  skin: getStoredSkin(),
   toggleTheme: () =>
     set((s) => {
       const idx = TOGGLE_ORDER.indexOf(s.theme);
       const next = TOGGLE_ORDER[(idx + 1) % TOGGLE_ORDER.length];
+      try {
+        localStorage.setItem("ops_theme", next);
+      } catch {}
       return { theme: next };
     }),
-  setTheme: (theme) => set({ theme }),
+  setTheme: (theme) => {
+    try {
+      localStorage.setItem("ops_theme", theme);
+    } catch {}
+    set({ theme });
+  },
   setSkin: (skin) => {
     const def = SKINS.find((s) => s.id === skin);
+    const nextTheme = def ? def.family : "dark";
+    try {
+      localStorage.setItem("ops_skin", skin);
+      localStorage.setItem("ops_theme", nextTheme);
+    } catch {}
     // 皮肤自带明暗族，选中即同步主题，避免出现「选了亮色皮肤但仍是暗色主题」的错配
     set(def ? { skin, theme: def.family } : { skin });
   },

@@ -50,16 +50,16 @@ export function HeaderDropdown({
 
       {open && (
         <div
-          className="absolute right-0 z-50"
+          className="absolute right-0 z-50 shadow-2xl"
           style={{
             top: 44,
             width,
             padding: 16,
             borderRadius: 16,
             border: "1px solid var(--border)",
-            background: "color-mix(in srgb, var(--surface-900) 96%, transparent)",
-            backdropFilter: "blur(16px)",
-            boxShadow: "var(--shadow-lg)",
+            background: "var(--surface-900)",
+            boxShadow: "0 20px 45px -10px rgba(0, 0, 0, 0.6), 0 0 0 1px var(--border)",
+            zIndex: 100,
           }}
         >
           {children}
