@@ -31,6 +31,7 @@ import {
 import ServersPage from "@/pages/servers";
 import WorkbenchPage from "@/pages/workbench";
 import TerminalPage from "@/pages/terminal";
+import SftpPage from "@/pages/sftp";
 import SettingsPage from "@/pages/settings";
 import { ModulePlaceholder } from "@/pages/module";
 
@@ -39,6 +40,7 @@ const IMPLEMENTED_PAGES: Record<string, ComponentType> = {
   servers: ServersPage,
   workbench: WorkbenchPage,
   terminal: TerminalPage,
+  sftp: SftpPage,
   settings: SettingsPage,
 };
 

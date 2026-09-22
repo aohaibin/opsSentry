@@ -12,12 +12,10 @@ import {
   type TableProps,
 } from "antd";
 import {
-  Blocks,
   FileCode,
   Loader2,
   Lock,
   Monitor,
-  MonitorUp,
   Plus,
   ShieldCheck,
   Star,
@@ -932,59 +930,6 @@ export default function ServersPage() {
             onBatchDelete={handleBatchDelete}
             onClear={() => setSelectedIds([])}
           />
-        </div>
-      </div>
-
-      <div className="ops-server-cards grid grid-cols-1 md:grid-cols-3 gap-3">
-        <div
-          className="glass-card rounded-xl p-3.5 space-y-1.5"
-          style={{ borderColor: "color-mix(in srgb, #818cf8 30%, var(--border))" }}
-        >
-          <div
-            className="flex items-center gap-2 text-xs font-medium"
-            style={{ color: "#818cf8" }}
-          >
-            <Blocks size={15} />
-            <span>MCP Server 协议集成</span>
-          </div>
-          <p className="text-xs leading-relaxed" style={{ color: "var(--text-secondary)" }}>
-            支持将受控服务器能力作为 <strong>MCP Tool</strong> 导出，
-            可直接接入 Claude Desktop、Cursor 或 Antigravity。
-          </p>
-        </div>
-
-        <div
-          className="glass-card rounded-xl p-3.5 space-y-1.5"
-          style={{ borderColor: "color-mix(in srgb, var(--warning) 30%, var(--border))" }}
-        >
-          <div
-            className="flex items-center gap-2 text-xs font-medium"
-            style={{ color: "#fbbf24" }}
-          >
-            <ShieldCheck size={15} />
-            <span>AI 执行安全分级说明</span>
-          </div>
-          <p className="text-xs leading-relaxed" style={{ color: "var(--text-secondary)" }}>
-            采用<strong>只读分析 / 建议确认 / 自动修复</strong>三阶防护梯次，
-            敏感写操作必须由工程师审批放行。
-          </p>
-        </div>
-
-        <div
-          className="glass-card rounded-xl p-3.5 space-y-1.5"
-          style={{ borderColor: "color-mix(in srgb, var(--info) 30%, var(--border))" }}
-        >
-          <div
-            className="flex items-center gap-2 text-xs font-medium"
-            style={{ color: "#60a5fa" }}
-          >
-            <MonitorUp size={15} />
-            <span>Windows 原生免代理纳管</span>
-          </div>
-          <p className="text-xs leading-relaxed" style={{ color: "var(--text-secondary)" }}>
-            全面兼容原生 <strong>OpenSSH for Windows</strong> 与 <strong>PowerShell Remoting</strong>，
-            零第三方守护进程侵入。
-          </p>
         </div>
       </div>
 

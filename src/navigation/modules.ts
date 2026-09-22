@@ -130,6 +130,7 @@ export const MODULES: ModuleDef[] = [
     ],
     icon: FolderSync,
     group: "core",
+    implemented: true,
   },
   {
     key: "database",
