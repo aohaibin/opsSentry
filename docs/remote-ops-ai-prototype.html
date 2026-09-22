@@ -218,6 +218,39 @@
     .badge-glow-ai {
       box-shadow: 0 0 15px rgba(99, 102, 241, 0.4);
     }
+    .grp-count-badge {
+      min-width: 20px;
+      height: 18px;
+      padding: 0 5px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 9999px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 10px;
+      font-variant-numeric: tabular-nums;
+      flex-shrink: 0;
+      transition: all 0.15s ease;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      color: #94a3b8;
+      font-weight: 500;
+      line-height: 1;
+    }
+    .grp-item-active .grp-count-badge {
+      background: rgba(99, 102, 241, 0.22) !important;
+      border-color: rgba(99, 102, 241, 0.45) !important;
+      color: #a5b4fc !important;
+      font-weight: 600 !important;
+      box-shadow: 0 0 6px rgba(99, 102, 241, 0.2);
+    }
+    .grp-count-badge[data-zero="true"] {
+      opacity: 0.3;
+    }
+    .group\/item:hover .grp-count-badge:not(.grp-item-active .grp-count-badge) {
+      border-color: rgba(255, 255, 255, 0.16);
+      color: #cbd5e1;
+    }
     pre, code {
       font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
     }
@@ -718,12 +751,12 @@
                 </div>
 
                 <!-- 1. 全部主机 -->
-                <div onclick="selectServerGroup('all')" oncontextmenu="openGroupContextMenu(event, 'all', '全部主机')" id="grp-all" class="p-2 rounded-lg bg-brand-500/15 border border-brand-500/40 text-brand-300 font-medium flex items-center justify-between cursor-pointer transition select-none group/item" title="系统固定分组 (不可删除/重命名)">
+                <div onclick="selectServerGroup('all')" oncontextmenu="openGroupContextMenu(event, 'all', '全部主机')" id="grp-all" class="p-2 rounded-lg bg-brand-500/15 border border-brand-500/40 text-brand-300 font-medium flex items-center justify-between cursor-pointer transition select-none group/item grp-item-active" title="系统固定分组 (不可删除/重命名)">
                   <span class="flex items-center space-x-2">
                     <i data-lucide="layers" class="w-3.5 h-3.5 text-indigo-400"></i>
                     <span>全部主机</span>
                   </span>
-                  <span id="grpCount-all" class="text-[10px] font-bold font-mono px-1.5 py-0.5 rounded-full bg-brand-500/25 text-brand-300 border border-brand-500/35">4</span>
+                  <span id="grpCount-all" class="grp-count-badge">4</span>
                 </div>
 
                 <!-- 2. 我的收藏 -->
@@ -732,7 +765,7 @@
                     <i data-lucide="star" class="w-3.5 h-3.5 text-amber-400 fill-amber-400/20"></i>
                     <span>我的收藏</span>
                   </span>
-                  <span id="grpCount-starred" class="text-[10px] font-mono px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/25">1</span>
+                  <span id="grpCount-starred" class="grp-count-badge">1</span>
                 </div>
 
                 <!-- 3. 最近用过 -->
@@ -741,7 +774,7 @@
                     <i data-lucide="history" class="w-3.5 h-3.5 text-cyan-400"></i>
                     <span>最近用过</span>
                   </span>
-                  <span id="grpCount-recent" class="text-[10px] font-mono px-1.5 py-0.5 rounded-full bg-cyan-500/15 text-cyan-300 border border-cyan-500/25">4</span>
+                  <span id="grpCount-recent" class="grp-count-badge">4</span>
                 </div>
               </div>
 
@@ -750,7 +783,7 @@
                    ondragover="handleRootDropOver(event)"
                    ondragleave="handleRootDropLeave(event)"
                    ondrop="handleRootDrop(event)"
-                   class="pt-2.5 pb-1 px-1 flex items-center justify-between text-[11px] font-medium border-t border-dashed border-slate-800 mt-2 transition-all rounded-lg"
+                   class="pt-2.5 pb-1 px-1.5 flex items-center justify-between text-[11px] font-medium border-t border-dashed border-slate-800 mt-2 transition-all rounded-lg"
                    title="可拖拽子分组到此处移至根目录 (顶级)">
                 <span class="flex items-center space-x-1.5 font-semibold text-slate-300">
                   <i data-lucide="folder" class="w-3.5 h-3.5 text-amber-400"></i>
@@ -758,8 +791,8 @@
                   <span id="customGroupCountBadge" class="text-[10px] font-normal text-slate-500">(3)</span>
                   <span id="rootDropHint" class="hidden text-[10px] font-medium text-brand-300 ml-1">↳ 移至根目录</span>
                 </span>
-                <button onclick="openAddGroupModal()" class="flex items-center space-x-1 px-1.5 py-0.5 rounded bg-brand-500/15 hover:bg-brand-500/25 text-brand-300 border border-brand-500/30 transition cursor-pointer text-[10px] font-medium" title="新建业务分组">
-                  <i data-lucide="plus" class="w-3 h-3"></i>
+                <button onclick="openAddGroupModal()" class="group/btn inline-flex items-center space-x-1 h-[20px] px-2 rounded-md bg-white/[0.04] hover:bg-brand-500/15 text-slate-400 hover:text-brand-300 border border-white/[0.09] hover:border-brand-500/40 hover:shadow-[0_0_8px_rgba(99,102,241,0.2)] transition-all duration-150 cursor-pointer text-[10px] font-medium active:scale-95" title="新建业务分组">
+                  <i data-lucide="plus" class="w-3 h-3 transition-transform duration-200 group-hover/btn:rotate-90 text-slate-400 group-hover/btn:text-brand-400"></i>
                   <span>新建</span>
                 </button>
               </div>
@@ -7539,7 +7572,11 @@ REDIS_AUTH="${****@}" [已拦截脱敏]</div>
 
       const setVal = (id, v) => {
         const el = document.getElementById(id);
-        if (el) el.innerText = v;
+        if (el) {
+          el.innerText = v;
+          if (v === 0) el.setAttribute('data-zero', 'true');
+          else el.removeAttribute('data-zero');
+        }
       };
 
       setVal('grpCount-all', total);
@@ -7569,7 +7606,7 @@ REDIS_AUTH="${****@}" [已拦截脱敏]</div>
     function selectServerGroup(grpId) {
       currentServerGroup = grpId;
       document.querySelectorAll('#serverGroupList [id^="grp-"]').forEach(div => {
-        div.classList.remove('bg-brand-500/15', 'text-brand-300', 'font-medium', 'border-brand-500/40');
+        div.classList.remove('bg-brand-500/15', 'text-brand-300', 'font-medium', 'border-brand-500/40', 'grp-item-active');
         div.classList.add('border-transparent');
         if (!div.classList.contains('hover:bg-surface-800')) div.classList.add('hover:bg-surface-800');
         if (!div.classList.contains('text-slate-300')) div.classList.add('text-slate-300');
@@ -7577,7 +7614,7 @@ REDIS_AUTH="${****@}" [已拦截脱敏]</div>
       const activeDiv = document.getElementById('grp-' + grpId);
       if (activeDiv) {
         activeDiv.classList.remove('hover:bg-surface-800', 'text-slate-300', 'border-transparent');
-        activeDiv.classList.add('bg-brand-500/15', 'text-brand-300', 'font-medium', 'border-brand-500/40');
+        activeDiv.classList.add('bg-brand-500/15', 'text-brand-300', 'font-medium', 'border-brand-500/40', 'grp-item-active');
       }
       renderServerTable();
     }
@@ -8387,7 +8424,7 @@ REDIS_AUTH="${****@}" [已拦截脱敏]</div>
         const count = serverList.filter(s => s.group === g.id || s.group === g.name).length;
         const isActive = currentServerGroup === g.id;
         const activeClass = isActive
-          ? 'bg-brand-500/15 border-brand-500/40 text-brand-300 font-medium'
+          ? 'bg-brand-500/15 border-brand-500/40 text-brand-300 font-medium grp-item-active'
           : 'hover:bg-surface-800 border-transparent text-slate-300';
         const indentClass = depth > 0 ? 'border-l-2 border-slate-800' : '';
         const paddingLeftStyle = depth > 0 ? `style="padding-left: ${8 + depth * 14}px;"` : '';
@@ -8415,12 +8452,12 @@ REDIS_AUTH="${****@}" [已拦截脱敏]</div>
               <span id="dragHint-${g.id}" class="hidden text-[9px] text-brand-300 font-medium shrink-0 ml-0.5"></span>
             </span>
             <span class="flex items-center space-x-1 shrink-0">
-              <span id="grpCount-${g.id}" class="text-[11px] text-slate-400 font-mono">${count}</span>
               <button onclick="event.stopPropagation(); openGroupContextMenu(event, '${g.id}', '${g.name}')"
-                      class="opacity-0 group-hover/item:opacity-100 p-0.5 rounded hover:bg-surface-700 text-slate-400 hover:text-white transition cursor-pointer"
+                      class="opacity-0 group-hover/item:opacity-100 w-4 h-4 flex items-center justify-center rounded hover:bg-surface-700 text-slate-400 hover:text-white transition cursor-pointer"
                       title="分组管理菜单">
                 <i data-lucide="more-vertical" class="w-3 h-3"></i>
               </button>
+              <span id="grpCount-${g.id}" class="grp-count-badge" data-zero="${count === 0}">${count}</span>
             </span>
           </div>
         `;
