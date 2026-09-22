@@ -23,9 +23,9 @@ pub fn setup_tray(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>> {
 
     // tooltip 同步带 [DEV] 后缀，与角标呼应
     let tooltip = if cfg!(debug_assertions) {
-        "Agile Tauri [DEV]"
+        "OpsSentry AI [DEV]"
     } else {
-        "Agile Tauri"
+        "OpsSentry AI"
     };
 
     TrayIconBuilder::new()

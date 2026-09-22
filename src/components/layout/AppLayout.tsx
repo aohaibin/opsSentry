@@ -2,7 +2,7 @@
  * 应用外壳：顶栏 + 左侧导航轨 + 内容区。
  *
  * 严格对齐原型 docs/remote-ops-ai-prototype.html 的 header + aside#appSidebar：
- *   顶栏左  —— 折叠按钮 + 盾牌 Logo + 品牌名 + 本地模式提示
+ *   顶栏左  —— OpsSentry Logo + 品牌名 + 本地安全模式提示
  *   顶栏中  —— 当前会话选择器 + 全局搜索（Ctrl K）
  *   顶栏右  —— 版本徽标 / AI 操作锁 / 皮肤调色盘 / 告警铃 / 窗口三键
  *   主体    —— 68px 图标导轨 + 右侧内容区
@@ -13,7 +13,6 @@
 import { useRef } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import { Layout } from "antd";
-import { Shield } from "lucide-react";
 import { getCurrentWindow, type Window } from "@tauri-apps/api/window";
 import { NavRail } from "./NavRail";
 import { WindowControls } from "./WindowControls";
@@ -77,30 +76,35 @@ export function AppLayout() {
           userSelect: "none",
         }}
       >
-        {/* 左：Logo + 标题 + 模式提示 */}
-        <div className="flex items-center shrink-0" style={{ gap: 8 }}>
-          <div className="flex items-center space-x-2">
+        {/* 左：Logo + 品牌名 + 模式提示 */}
+        <div className="flex items-center shrink-0" style={{ gap: 10 }}>
+          <div className="flex items-center" style={{ gap: 8 }}>
             <div
-              className="flex items-center justify-center"
+              className="flex items-center justify-center overflow-hidden"
               style={{
                 width: 24,
                 height: 24,
                 borderRadius: 6,
-                background: "linear-gradient(to top right, #06b6d4, #3b82f6, #4f46e5)",
                 boxShadow: "0 2px 8px rgba(59, 130, 246, 0.25)",
               }}
             >
-              <Shield size={13} color="#fff" />
+              <img
+                src="/logo.png"
+                alt="OpsSentry Logo"
+                width={24}
+                height={24}
+                style={{ display: "block", objectFit: "contain" }}
+              />
             </div>
             <span
               style={{
                 fontWeight: 700,
-                fontSize: 13,
+                fontSize: 14,
                 letterSpacing: "0.02em",
                 color: "var(--text-primary)",
               }}
             >
-              Reeve
+              OpsSentry
             </span>
             <span style={{ color: "var(--text-muted)" }}>|</span>
             <span
@@ -111,7 +115,7 @@ export function AppLayout() {
                 whiteSpace: "nowrap",
               }}
             >
-              本地模式 · MCP 仅监听 127.0.0.1
+              本地安全模式 · MCP 仅监听 127.0.0.1
             </span>
           </div>
         </div>

@@ -64,6 +64,12 @@ const SPLIT_META: { id: SplitMode; label: string; icon: ReactNode }[] = [
   { id: "quad", label: "田字四分屏", icon: <Grid2X2 size={14} /> },
 ];
 
+function splitPaneCount(mode: SplitMode): 1 | 2 | 4 {
+  if (mode === "quad") return 4;
+  if (mode === "single") return 1;
+  return 2;
+}
+
 export default function TerminalPage() {
   const navigate = useNavigate();
   const [servers, setServers] = useState<Server[]>([]);
@@ -317,6 +323,8 @@ export default function TerminalPage() {
                   type="button"
                   className={splitMode === item.id ? "active" : ""}
                   title={item.label}
+                  aria-label={item.label}
+                  aria-pressed={splitMode === item.id}
                   onClick={() => setSplitMode(item.id)}
                 >
                   {item.icon}
@@ -439,6 +447,7 @@ export default function TerminalPage() {
                 splitMode={splitMode}
                 fontSize={fontSize}
                 onInput={handleTerminalInput}
+                onOpenTerminal={() => setDropdownOpen(true)}
                 onResize={(sessionId, cols, rows) => {
                   void terminalApi.resize(sessionId, cols, rows);
                 }}
@@ -607,6 +616,7 @@ function SessionView({
   splitMode,
   fontSize,
   onInput,
+  onOpenTerminal,
   onResize,
   onFocus,
 }: {
@@ -617,17 +627,24 @@ function SessionView({
   splitMode: SplitMode;
   fontSize: number;
   onInput: (sessionId: string, data: string) => void;
+  onOpenTerminal: () => void;
   onResize: (sessionId: string, cols: number, rows: number) => void;
   onFocus: (sessionId: string) => void;
 }) {
   if (visibleSessions.length === 0) return <Empty description="请选择终端会话" />;
+  const paneCount = splitPaneCount(splitMode);
+  const panes = Array.from({ length: paneCount }, (_, index) => visibleSessions[index] ?? null);
+
   return (
     <div
       className="ops-terminal-session-grid"
-      data-split-count={visibleSessions.length}
+      data-split-count={paneCount}
       data-split-mode={splitMode}
     >
-      {visibleSessions.map((session) => {
+      {panes.map((session, index) => {
+        if (!session) {
+          return <EmptyTerminalPane key={`empty-${index}`} paneIndex={index + 1} onOpenTerminal={onOpenTerminal} />;
+        }
         const server = servers.find((item) => item.id === session.serverId);
         if (!server) return null;
         return (
@@ -644,6 +661,26 @@ function SessionView({
           />
         );
       })}
+    </div>
+  );
+}
+
+function EmptyTerminalPane({
+  paneIndex,
+  onOpenTerminal,
+}: {
+  paneIndex: number;
+  onOpenTerminal: () => void;
+}) {
+  return (
+    <div className="ops-terminal-empty-pane">
+      <TerminalIcon size={22} />
+      <strong>窗格 {paneIndex} 尚未连接</strong>
+      <span>打开另一台服务器后，这里会显示对应终端</span>
+      <button type="button" onClick={onOpenTerminal}>
+        <Plus size={13} />
+        打开终端
+      </button>
     </div>
   );
 }

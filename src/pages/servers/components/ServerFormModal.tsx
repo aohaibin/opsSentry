@@ -305,10 +305,17 @@ export function ServerFormModal({
       centered
       title={modalTitle}
       onCancel={onCancel}
-      width={680}
+      width={576}
       destroyOnHidden
       maskClosable={false}
       styles={{
+        wrapper: {
+          padding: "24px 16px",
+          overflowY: "auto",
+        },
+        container: {
+          maxHeight: "85dvh",
+        },
         header: {
           flexShrink: 0,
         },
@@ -316,7 +323,7 @@ export function ServerFormModal({
           flex: 1,
           minHeight: 0,
           overflowY: "auto",
-          maxHeight: "calc(100vh - 160px)",
+          maxHeight: "calc(85dvh - 128px)",
           padding: "16px 20px",
         },
         footer: {
